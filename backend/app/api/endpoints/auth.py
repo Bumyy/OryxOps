@@ -1,0 +1,49 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.core.dependencies import get_current_pilot
+from app.core.security import create_access_token, verify_password
+from app.models.live_models import Pilot
+from app.schemas.auth import LoginRequest, PilotBasic, PilotMeResponse, TokenResponse
+from app.services.pilot_service import get_pilot_detail
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/login", response_model=TokenResponse)
+async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select
+
+    result = await db.execute(select(Pilot).where(Pilot.email == request.email))
+    pilot = result.scalar_one_or_none()
+
+    if not pilot or not verify_password(request.password, pilot.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+
+    token = create_access_token(data={"sub": pilot.id})
+    return TokenResponse(access_token=token)
+
+
+@router.get("/me", response_model=PilotMeResponse)
+async def get_me(
+    pilot: Pilot = Depends(get_current_pilot),
+    db: AsyncSession = Depends(get_db),
+):
+    detail = await get_pilot_detail(db, pilot.id)
+    result = {
+        "id": pilot.id,
+        "callsign": pilot.callsign,
+        "name": pilot.name,
+        "email": pilot.email,
+        "grade": pilot.grade,
+        "transhours": pilot.transhours,
+        "transflights": pilot.transflights,
+        "discordid": pilot.discordid,
+        "status": pilot.status,
+        "joined": str(pilot.joined) if pilot.joined else None,
+    }
+    return result
