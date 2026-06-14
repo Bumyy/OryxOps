@@ -1,16 +1,42 @@
+from datetime import date, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_staff
-from app.models.live_models import Pilot
+from app.models.live_models import (
+    LiveCareerPath,
+    LiveCareerRank,
+    LiveFlyingGroup,
+    LiveGroupAircraft,
+    LiveGroupPilot,
+    LivePilotCareer,
+    LiveTokens,
+    Pilot,
+)
 from app.schemas.career import PilotCareerOut
 from app.services.career_service import promote_pilot
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+PILOT_CAREER_REFETCH = PilotCareerOut
 
-@router.post("/promote/{pilot_id}", response_model=PilotCareerOut)
+
+class EnrollPilotRequest(BaseModel):
+    pilot_id: int
+    career_path_id: int
+
+
+class ReshuffleRequest(BaseModel):
+    group_id: int
+
+
+# ── PROMOTE ──
+
+@router.post("/promote/{pilot_id}")
 async def promote_pilot_route(
     pilot_id: int,
     career_path_id: int,
@@ -32,6 +58,154 @@ async def promote_pilot_route(
         promoted_at=str(pilot_career.promoted_at) if pilot_career.promoted_at else None,
     )
 
+
+# ── ENROLL PILOT IN LIVE SYSTEM ──
+
+@router.post("/enroll-pilot")
+async def enroll_pilot(
+    data: EnrollPilotRequest,
+    db: AsyncSession = Depends(get_db),
+    staff: Pilot = Depends(get_current_staff),
+):
+    existing = await db.execute(
+        select(LivePilotCareer).where(
+            LivePilotCareer.pilot_id == data.pilot_id,
+            LivePilotCareer.career_path_id == data.career_path_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Pilot already enrolled in this career path")
+
+    first_rank = await db.execute(
+        select(LiveCareerRank)
+        .where(LiveCareerRank.career_path_id == data.career_path_id)
+        .order_by(LiveCareerRank.sort_order)
+        .limit(1)
+    )
+    rank = first_rank.scalar_one_or_none()
+    if not rank:
+        raise HTTPException(status_code=400, detail="Career path has no ranks configured")
+
+    career = LivePilotCareer(
+        pilot_id=data.pilot_id,
+        career_path_id=data.career_path_id,
+        current_rank_id=rank.id,
+    )
+    db.add(career)
+
+    token_wallet = await db.execute(
+        select(LiveTokens).where(LiveTokens.pilot_id == data.pilot_id)
+    )
+    if not token_wallet.scalar_one_or_none():
+        db.add(LiveTokens(pilot_id=data.pilot_id, balance=0, total_earned=0, total_spent=0))
+
+    await db.commit()
+    await db.refresh(career)
+
+    return {
+        "detail": "Pilot enrolled",
+        "career_path_id": career.career_path_id,
+        "current_rank_id": career.current_rank_id,
+    }
+
+
+# ── GET ENROLLED PILOTS ──
+
+@router.get("/enrolled-pilots")
+async def get_enrolled_pilots(db: AsyncSession = Depends(get_db), staff=Depends(get_current_staff)):
+    result = await db.execute(select(LivePilotCareer.pilot_id).distinct())
+    enrolled_ids = {row[0] for row in result.fetchall()}
+
+    all_pilots = await db.execute(select(Pilot).where(Pilot.status == 1))
+    pilots = list(all_pilots.scalars().all())
+
+    enrolled = []
+    unenrolled = []
+    for p in pilots:
+        entry = {
+            "id": p.id,
+            "callsign": p.callsign,
+            "name": p.name,
+        }
+        if p.id in enrolled_ids:
+            entry["enrolled"] = True
+            enrolled.append(entry)
+        else:
+            entry["enrolled"] = False
+            unenrolled.append(entry)
+
+    return {"enrolled": enrolled, "unenrolled": unenrolled}
+
+
+# ── MONTHLY RESHUFFLE ──
+
+@router.post("/reshuffle/{group_id}")
+async def reshuffle_group(
+    group_id: int,
+    db: AsyncSession = Depends(get_db),
+    staff: Pilot = Depends(get_current_staff),
+):
+    old_group = await db.execute(select(LiveFlyingGroup).where(LiveFlyingGroup.id == group_id))
+    old = old_group.scalar_one_or_none()
+    if not old:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    today = date.today()
+    month_start = today.replace(day=1)
+    if today.month == 12:
+        month_end = today.replace(year=today.year + 1, month=1, day=1)
+    else:
+        month_end = today.replace(month=today.month + 1, day=1)
+
+    new_group = LiveFlyingGroup(
+        name=f"{old.name} (New)",
+        discord_channel_id=old.discord_channel_id,
+        period_start=month_start,
+        period_end=month_end,
+    )
+    db.add(new_group)
+    await db.flush()
+
+    members = await db.execute(
+        select(LiveGroupPilot).where(
+            LiveGroupPilot.group_id == group_id,
+            LiveGroupPilot.removed_at.is_(None),
+        )
+    )
+    for m in members.scalars().all():
+        db.add(LiveGroupPilot(
+            group_id=new_group.id,
+            pilot_id=m.pilot_id,
+            is_group_admin=m.is_group_admin,
+        ))
+
+    ac_result = await db.execute(
+        select(LiveGroupAircraft).where(
+            LiveGroupAircraft.group_id == group_id,
+            LiveGroupAircraft.removed_at.is_(None),
+        )
+    )
+    for a in ac_result.scalars().all():
+        db.add(LiveGroupAircraft(
+            group_id=new_group.id,
+            aircraft_id=a.aircraft_id,
+        ))
+
+    old.is_active = 0
+    await db.commit()
+    await db.refresh(new_group)
+
+    return {
+        "detail": "Group reshuffled",
+        "old_group_id": old.id,
+        "new_group_id": new_group.id,
+        "new_group_name": new_group.name,
+        "period_start": str(new_group.period_start),
+        "period_end": str(new_group.period_end),
+    }
+
+
+# ── GET PILOT CAREERS (ADMIN VIEW) ──
 
 @router.get("/pilot/{pilot_id}/careers", response_model=list[PilotCareerOut])
 async def get_pilot_careers_admin(

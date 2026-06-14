@@ -5,6 +5,7 @@ interface CareerPath {
   id: number;
   name: string;
   description: string | null;
+  is_active: boolean;
   ranks: any[];
 }
 
@@ -71,6 +72,51 @@ export const fetchCareerProgress = createAsyncThunk(
   "career/fetchProgress",
   ({ pilotId, pathId }: { pilotId: number; pathId: number }) =>
     api.get<CareerProgress>(`/careers/pilot/${pilotId}/path/${pathId}`),
+);
+
+export const createCareerPath = createAsyncThunk(
+  "career/createPath",
+  (data: { name: string; description?: string | null }) =>
+    api.post<CareerPath>("/careers", data),
+);
+
+export const deleteCareerPath = createAsyncThunk(
+  "career/deletePath",
+  (pathId: number) => api.delete(`/careers/${pathId}`),
+);
+
+export const createRank = createAsyncThunk(
+  "career/createRank",
+  ({ pathId, data }: { pathId: number; data: any }) =>
+    api.post<any>(`/careers/${pathId}/ranks`, data),
+);
+
+export const updateRank = createAsyncThunk(
+  "career/updateRank",
+  ({ rankId, data }: { rankId: number; data: any }) =>
+    api.patch<any>(`/careers/ranks/${rankId}`, data),
+);
+
+export const deleteRank = createAsyncThunk(
+  "career/deleteRank",
+  (rankId: number) => api.delete(`/careers/ranks/${rankId}`),
+);
+
+export const fetchRankAircraft = createAsyncThunk(
+  "career/fetchRankAircraft",
+  (rankId: number) => api.get<any[]>(`/careers/ranks/${rankId}/aircraft`),
+);
+
+export const assignAircraftToRank = createAsyncThunk(
+  "career/assignAircraftToRank",
+  ({ rankId, aircraftTypeId, count }: { rankId: number; aircraftTypeId: number; count?: number }) =>
+    api.post<any>(`/careers/ranks/${rankId}/aircraft`, { aircraft_type_id: aircraftTypeId, count: count ?? 1 }),
+);
+
+export const removeAircraftFromRank = createAsyncThunk(
+  "career/removeAircraftFromRank",
+  ({ rankId, aircraftTypeId }: { rankId: number; aircraftTypeId: number }) =>
+    api.delete(`/careers/ranks/${rankId}/aircraft/${aircraftTypeId}`),
 );
 
 const careerSlice = createSlice({

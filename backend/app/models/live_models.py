@@ -133,6 +133,14 @@ class StaffRole(Base):
     role_name = Column(String(255))
 
 
+class Permission(Base):
+    __tablename__ = "permissions"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(120))
+    userid = Column(Integer, ForeignKey("pilots.id"))
+
+
 # ============================================================
 # LIVE MODE TABLES
 # ============================================================

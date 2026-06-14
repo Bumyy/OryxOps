@@ -74,6 +74,12 @@ export const removeAircraft = createAsyncThunk(
     api.delete(`/groups/${groupId}/aircraft/${aircraftId}`),
 );
 
+export const toggleAdmin = createAsyncThunk(
+  "group/toggleAdmin",
+  ({ groupId, pilotId, isGroupAdmin }: { groupId: number; pilotId: number; isGroupAdmin: boolean }) =>
+    api.patch<any>(`/groups/${groupId}/members/${pilotId}/admin`, { is_group_admin: isGroupAdmin }),
+);
+
 const groupSlice = createSlice({
   name: "group",
   initialState,

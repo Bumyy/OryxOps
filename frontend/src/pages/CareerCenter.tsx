@@ -31,7 +31,7 @@ export default function CareerCenter() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
-      <h1 className="text-5xl font-bold text-[--color-brand] mb-8">Career Center</h1>
+      <h1 className="text-5xl font-bold text-brand mb-8">Career Center</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {paths.map((path) => (
@@ -40,11 +40,11 @@ export default function CareerCenter() {
             onClick={() => setActivePathId(path.id)}
             className={`text-left bg-white rounded-2xl border shadow-sm hover:shadow-lg transition-shadow duration-300 p-6 ${
               activePathId === path.id
-                ? "border-[--color-brand] ring-2 ring-[--color-brand]/20"
-                : "border-[--color-brand-border]"
+                ? "border-brand ring-2 ring-brand/20"
+                : "border-brand-border"
             }`}
           >
-            <h2 className="text-2xl font-bold text-[--color-brand]">{path.name}</h2>
+            <h2 className="text-2xl font-bold text-brand">{path.name}</h2>
             <p className="text-gray-500 mt-1">{path.description || `${path.name} career track`}</p>
 
             {/* Current rank */}
@@ -52,7 +52,7 @@ export default function CareerCenter() {
               .filter((pc) => pc.career_path_id === path.id)
               .map((pc) => (
                 <div key={pc.id} className="mt-4 flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider bg-[--color-brand-pale] text-[--color-brand] px-3 py-1 rounded-full">
+                  <span className="text-xs font-bold uppercase tracking-wider bg-brand-pale text-brand px-3 py-1 rounded-full">
                     {pc.current_rank_name}
                   </span>
                   <span className="text-xs text-gray-400">Rank {pc.sort_order}/4</span>
@@ -64,8 +64,8 @@ export default function CareerCenter() {
 
       {/* Progress Detail */}
       {currentProgress && (
-        <div className="bg-white rounded-2xl border border-[--color-brand-border] shadow-sm p-6">
-          <h3 className="text-2xl font-bold text-[--color-brand] mb-6">
+        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
+          <h3 className="text-2xl font-bold text-brand mb-6">
             {currentProgress.current_rank?.name || "Rank"} Progress
           </h3>
 
@@ -74,7 +74,7 @@ export default function CareerCenter() {
               <p className="text-sm font-semibold text-gray-500">Route Discovery</p>
               <div className="w-full bg-gray-100 rounded-full h-3">
                 <div
-                  className="bg-gradient-to-r from-[--color-brand] to-[--color-brand-light] h-3 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-brand to-brand-light h-3 rounded-full transition-all duration-500"
                   style={{ width: `${Math.min(currentProgress.discovery_pct, 100)}%` }}
                 />
               </div>
@@ -89,7 +89,7 @@ export default function CareerCenter() {
 
             <div className="space-y-2">
               <p className="text-sm font-semibold text-gray-500">Takeoffs</p>
-              <p className="text-2xl font-bold text-[--color-brand]">
+              <p className="text-2xl font-bold text-brand">
                 {currentProgress.takeoffs_count} <span className="text-sm font-normal text-gray-400">/ {currentProgress.takeoffs_required}</span>
               </p>
               {currentProgress.takeoffs_complete && (
@@ -99,7 +99,7 @@ export default function CareerCenter() {
 
             <div className="space-y-2">
               <p className="text-sm font-semibold text-gray-500">Landings</p>
-              <p className="text-2xl font-bold text-[--color-brand]">
+              <p className="text-2xl font-bold text-brand">
                 {currentProgress.landings_count} <span className="text-sm font-normal text-gray-400">/ {currentProgress.landings_required}</span>
               </p>
               {currentProgress.landings_complete && (
@@ -115,7 +115,7 @@ export default function CareerCenter() {
           )}
 
           {currentProgress.next_rank && (
-            <div className="mt-6 pt-6 border-t border-[--color-brand-border]">
+            <div className="mt-6 pt-6 border-t border-brand-border">
               <p className="text-sm font-semibold text-gray-500 mb-2">Next Rank: {currentProgress.next_rank.name}</p>
               <p className="text-sm text-gray-600">Requires {currentProgress.next_rank.required_route_pct}% route discovery, {currentProgress.next_rank.required_takeoffs} takeoffs, {currentProgress.next_rank.required_landings} landings</p>
             </div>

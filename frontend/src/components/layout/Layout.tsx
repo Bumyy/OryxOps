@@ -38,11 +38,11 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-[--color-brand-border]">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-brand-border">
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-3">
-            <span className="text-2xl font-black text-[--color-brand] tracking-wider">
-              QRV<span className="text-[--color-brand-light]">LIVE</span>
+            <span className="text-2xl font-black text-brand tracking-wider">
+              QRV<span className="text-brand-light">LIVE</span>
             </span>
           </Link>
 
@@ -53,8 +53,8 @@ export default function Layout() {
                 to={item.path}
                 className={`px-3 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
                   location.pathname === item.path
-                    ? "bg-[--color-brand] text-white"
-                    : "text-gray-600 hover:bg-[--color-brand-hover-bg] hover:text-[--color-brand]"
+                    ? "bg-brand text-white"
+                    : "text-gray-600 hover:bg-brand-hover-bg hover:text-brand"
                 }`}
               >
                 {item.label}
@@ -70,7 +70,7 @@ export default function Layout() {
             )}
             <button
               onClick={handleLogout}
-              className="text-sm text-gray-500 hover:text-[--color-brand] transition-colors"
+              className="text-sm text-gray-500 hover:text-brand transition-colors"
             >
               Logout
             </button>
@@ -78,7 +78,7 @@ export default function Layout() {
         </div>
 
         {/* mobile nav */}
-        <div className="lg:hidden border-t border-[--color-brand-border] overflow-x-auto">
+        <div className="lg:hidden border-t border-brand-border overflow-x-auto">
           <div className="flex gap-0 px-4">
             {navItems.map((item) => (
               <Link
@@ -86,7 +86,7 @@ export default function Layout() {
                 to={item.path}
                 className={`px-3 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition-colors ${
                   location.pathname === item.path
-                    ? "border-[--color-brand] text-[--color-brand]"
+                    ? "border-brand text-brand"
                     : "border-transparent text-gray-500"
                 }`}
               >
@@ -101,7 +101,7 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-[--color-brand-border] bg-white mt-12">
+      <footer className="border-t border-brand-border bg-white mt-12">
         <div className="max-w-7xl mx-auto px-6 py-6 text-center text-sm text-gray-500">
           Qatari Virtual &copy; {new Date().getFullYear()} &mdash; Live Mode
         </div>

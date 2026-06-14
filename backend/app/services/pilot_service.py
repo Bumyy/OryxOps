@@ -20,7 +20,7 @@ async def get_pilot_list(
     career_path_id: int | None = None,
     rank_id: int | None = None,
 ) -> list[Pilot]:
-    query = select(Pilot).where(Pilot.status == 0)
+    query = select(Pilot).where(Pilot.status == 1)
 
     if group_id:
         group_pilot_sub = (

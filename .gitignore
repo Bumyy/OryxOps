@@ -1,2 +1,52 @@
-assets
+# --- Python / Backend ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.sage.py
+
+# --- Environment ---
 .env
+.env.local
+.env.*.local
+
+# --- Node / Frontend ---
+node_modules/
+frontend/dist/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- IDE / Editor ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# --- SQL dumps / assets that shouldn't be committed ---
+*.sql
+assets/
+
+# --- OS ---
+Desktop.ini
+$RECYCLE.BIN/

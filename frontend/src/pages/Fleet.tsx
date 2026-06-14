@@ -14,18 +14,18 @@ export default function Fleet() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
-      <h1 className="text-5xl font-bold text-[--color-brand] mb-8">Fleet</h1>
+      <h1 className="text-5xl font-bold text-brand mb-8">Fleet</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {airframes.map((a) => (
           <Link
             key={a.id}
             to={`/fleet/${a.id}`}
-            className="bg-white rounded-2xl border border-[--color-brand-border] shadow-sm hover:shadow-lg transition-shadow duration-300 p-5 block group"
+            className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-shadow duration-300 p-5 block group"
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-lg font-bold text-[--color-brand] group-hover:text-[--color-brand-light] transition-colors">
+                <p className="text-lg font-bold text-brand group-hover:text-brand-light transition-colors">
                   {a.registration}
                 </p>
                 <p className="text-sm text-gray-500">{a.aircraft_type_name}</p>

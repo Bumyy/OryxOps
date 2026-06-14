@@ -13,28 +13,28 @@ export default function Tokens() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
-      <h1 className="text-5xl font-bold text-[--color-brand] mb-8">Tokens & Rewards</h1>
+      <h1 className="text-5xl font-bold text-brand mb-8">Tokens & Rewards</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <div className="bg-white rounded-2xl border border-[--color-brand-border] shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
           <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Current Balance</p>
-          <p className="text-4xl font-black text-[--color-brand] mt-2">{balance?.balance ?? 0}</p>
+          <p className="text-4xl font-black text-brand mt-2">{balance?.balance ?? 0}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-[--color-brand-border] shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
           <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Total Earned</p>
           <p className="text-4xl font-black text-green-600 mt-2">{balance?.total_earned ?? 0}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-[--color-brand-border] shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
           <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Total Spent</p>
           <p className="text-4xl font-black text-red-500 mt-2">{balance?.total_spent ?? 0}</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-[--color-brand-border] shadow-sm overflow-hidden">
-        <h2 className="text-xl font-bold text-[--color-brand] p-6 pb-0">Transaction History</h2>
+      <div className="bg-white rounded-2xl border border-brand-border shadow-sm overflow-hidden">
+        <h2 className="text-xl font-bold text-brand p-6 pb-0">Transaction History</h2>
         <div className="overflow-x-auto p-6">
           <table className="w-full text-sm">
-            <thead className="text-left border-b border-[--color-brand-border]">
+            <thead className="text-left border-b border-brand-border">
               <tr>
                 <th className="px-4 py-3 font-semibold text-gray-600">Type</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">Amount</th>
@@ -44,9 +44,9 @@ export default function Tokens() {
             </thead>
             <tbody>
               {transactions.map((tx) => (
-                <tr key={tx.id} className="border-b border-[--color-brand-border] last:border-0">
+                <tr key={tx.id} className="border-b border-brand-border last:border-0">
                   <td className="px-4 py-3">
-                    <span className="text-xs font-bold uppercase bg-[--color-brand-pale] text-[--color-brand] px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-bold uppercase bg-brand-pale text-brand px-2 py-0.5 rounded-full">
                       {tx.transaction_type.replace(/_/g, " ")}
                     </span>
                   </td>

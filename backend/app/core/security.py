@@ -1,21 +1,32 @@
+import hashlib
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
+import jwt as pyjwt
 
 from app.core.config import settings
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 ALGORITHM = "HS256"
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, stored_password: str) -> bool:
+    if stored_password.startswith(("$2b$", "$2a$", "$2y$")):
+        try:
+            return bcrypt.checkpw(
+                plain_password.encode("utf-8"),
+                stored_password.encode("utf-8"),
+            )
+        except ValueError:
+            return False
+
+    if len(stored_password) == 32 and all(c in "0123456789abcdef" for c in stored_password.lower()):
+        return hashlib.md5(plain_password.encode()).hexdigest() == stored_password.lower()
+
+    return plain_password == stored_password
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -24,11 +35,11 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
     )
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
+    return pyjwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
 
 
 def decode_access_token(token: str) -> dict | None:
     try:
-        return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
-    except JWTError:
+        return pyjwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+    except pyjwt.PyJWTError:
         return None

@@ -14,12 +14,12 @@ export default function Bookings() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
-      <h1 className="text-5xl font-bold text-[--color-brand] mb-8">My Bookings</h1>
+      <h1 className="text-5xl font-bold text-brand mb-8">My Bookings</h1>
 
-      <div className="bg-white rounded-2xl border border-[--color-brand-border] shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-brand-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left bg-[--color-brand-pale]">
+            <thead className="text-left bg-brand-pale">
               <tr>
                 <th className="px-5 py-3 font-semibold text-gray-600">Aircraft</th>
                 <th className="px-5 py-3 font-semibold text-gray-600">Route</th>
@@ -31,7 +31,7 @@ export default function Bookings() {
             </thead>
             <tbody>
               {bookings.map((b) => (
-                <tr key={b.id} className="border-t border-[--color-brand-border]">
+                <tr key={b.id} className="border-t border-brand-border">
                   <td className="px-5 py-3">{b.aircraft_registration}</td>
                   <td className="px-5 py-3 font-semibold">{b.flight_departure} &rarr; {b.flight_arrival}</td>
                   <td className="px-5 py-3 text-xs">{b.flight_scheduled_dep ? new Date(b.flight_scheduled_dep).toLocaleString() : "—"}</td>
@@ -57,7 +57,7 @@ export default function Bookings() {
                               placeholder="PIREP ID"
                               value={pirepId[b.id] || ""}
                               onChange={(e) => setPirepId({ ...pirepId, [b.id]: e.target.value })}
-                              className="border border-[--color-brand-border] rounded-lg px-2 py-1 text-xs w-20"
+                              className="border border-brand-border rounded-lg px-2 py-1 text-xs w-20"
                             />
                             <button
                               onClick={() => {
