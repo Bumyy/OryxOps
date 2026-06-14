@@ -67,6 +67,7 @@ async def get_pilot_detail(db: AsyncSession, pilot_id: int) -> dict | None:
             LiveGroupPilot.pilot_id == pilot_id,
             LiveGroupPilot.removed_at.is_(None),
         )
+        .limit(1)
     )
     group = group_result.scalar_one_or_none()
 

@@ -72,6 +72,7 @@ async def get_pilot_active_group(db: AsyncSession, pilot_id: int) -> LiveFlyingG
             LiveGroupPilot.removed_at.is_(None),
             LiveFlyingGroup.is_active == 1,
         )
+        .limit(1)
     )
     return result.scalar_one_or_none()
 
