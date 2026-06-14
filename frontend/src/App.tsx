@@ -13,6 +13,15 @@ import Transfers from "./pages/Transfers";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 
+import AdminPilots from "./pages/admin/PilotsPage";
+import AdminGroups from "./pages/admin/GroupsPage";
+import AdminAircraft from "./pages/admin/AircraftPage";
+import AdminTokens from "./pages/admin/TokensPage";
+import AdminCareers from "./pages/admin/CareersPage";
+import AdminTransfers from "./pages/admin/TransfersPage";
+import AdminWaves from "./pages/admin/WavesPage";
+import AdminSettings from "./pages/admin/SettingsPage";
+
 export default function App() {
   return (
     <Routes>
@@ -29,6 +38,14 @@ export default function App() {
         <Route path="/bookings" element={<Bookings />} />
         <Route path="/transfers" element={<Transfers />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/pilots" element={<AdminPilots />} />
+        <Route path="/admin/groups" element={<AdminGroups />} />
+        <Route path="/admin/aircraft" element={<AdminAircraft />} />
+        <Route path="/admin/tokens" element={<AdminTokens />} />
+        <Route path="/admin/careers" element={<AdminCareers />} />
+        <Route path="/admin/transfers" element={<AdminTransfers />} />
+        <Route path="/admin/waves" element={<AdminWaves />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
       </Route>
     </Routes>
   );

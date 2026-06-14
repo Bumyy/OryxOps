@@ -15,7 +15,14 @@ const navItems = [
 ];
 
 const adminItems = [
-  { path: "/admin", label: "Admin Panel", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" },
+  { path: "/admin/pilots", label: "Pilots", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
+  { path: "/admin/groups", label: "Groups", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" },
+  { path: "/admin/aircraft", label: "Aircraft", icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8" },
+  { path: "/admin/tokens", label: "Tokens", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+  { path: "/admin/careers", label: "Careers", icon: "M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" },
+  { path: "/admin/transfers", label: "Transfers", icon: "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" },
+  { path: "/admin/waves", label: "Waves", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
+  { path: "/admin/settings", label: "Settings", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" },
 ];
 
 export default function Layout() {
@@ -24,7 +31,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const { user, token } = useAppSelector((s) => s.auth);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(location.pathname.startsWith("/admin"));
 
   useEffect(() => {
     if (token && !user) dispatch(fetchMe());
@@ -33,6 +40,7 @@ export default function Layout() {
 
   useEffect(() => {
     setSidebarOpen(false);
+    if (location.pathname.startsWith("/admin")) setAdminOpen(true);
   }, [location]);
 
   const handleLogout = () => {
@@ -97,7 +105,7 @@ export default function Layout() {
                     key={item.path}
                     to={item.path}
                     className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 ${
-                      location.pathname.startsWith(item.path)
+                      location.pathname === item.path
                         ? "bg-brand text-white"
                         : "text-gray-500 hover:bg-brand-hover-bg hover:text-brand"
                     }`}
@@ -115,12 +123,17 @@ export default function Layout() {
 
         {/* Bottom user info */}
         <div className="border-t border-brand-border p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-brand text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
-            {user?.callsign?.charAt(0) || "?"}
-          </div>
+          <img
+            src={user?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.callsign || "default"}`}
+            alt=""
+            className="w-9 h-9 rounded-full flex-shrink-0 bg-brand"
+          />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-800 truncate">{user?.callsign || "Pilot"}</p>
-            <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-brand transition-colors">Sign out</button>
+            <p className="text-sm font-semibold text-gray-800 truncate">{user?.name || user?.callsign || "Pilot"}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-gray-400 truncate">{user?.callsign}</p>
+              <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-brand transition-colors">· Sign out</button>
+            </div>
           </div>
         </div>
       </aside>

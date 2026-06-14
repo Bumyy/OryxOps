@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_pilot
 from app.core.security import create_access_token, verify_password
 from app.models.live_models import Pilot
-from app.schemas.auth import LoginRequest, PilotBasic, PilotMeResponse, TokenResponse
-from app.services.pilot_service import get_pilot_detail
+from app.schemas.auth import LoginRequest, TokenResponse
+from app.services.pilot_utils import get_pilot_avatar
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -28,13 +29,12 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(access_token=token)
 
 
-@router.get("/me", response_model=PilotMeResponse)
+@router.get("/me")
 async def get_me(
     pilot: Pilot = Depends(get_current_pilot),
     db: AsyncSession = Depends(get_db),
 ):
-    detail = await get_pilot_detail(db, pilot.id)
-    result = {
+    return {
         "id": pilot.id,
         "callsign": pilot.callsign,
         "name": pilot.name,
@@ -45,5 +45,5 @@ async def get_me(
         "discordid": pilot.discordid,
         "status": pilot.status,
         "joined": str(pilot.joined) if pilot.joined else None,
+        "avatar": get_pilot_avatar(pilot),
     }
-    return result

@@ -26,16 +26,6 @@ export default function Admin() {
   const { transfers } = useAppSelector((s) => s.transfer);
   const [tab, setTab] = useState<Tab>("pilots");
 
-  useEffect(() => {
-    dispatch(fetchSettings());
-    dispatch(fetchGroups());
-    dispatch(fetchPilots({}));
-    dispatch(fetchAirframes());
-    dispatch(fetchAircraftTypes());
-    dispatch(fetchTransfers());
-    dispatch(fetchCareerPaths());
-  }, []);
-
   const tabs: { key: Tab; label: string }[] = [
     { key: "pilots", label: "Pilots" },
     { key: "groups", label: "Groups" },
@@ -47,6 +37,27 @@ export default function Admin() {
     { key: "settings", label: "Settings" },
   ];
 
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash && tabs.some(t => t.key === hash)) setTab(hash as Tab);
+    const onHash = () => {
+      const h = window.location.hash.replace("#", "");
+      if (h && tabs.some(t => t.key === h)) setTab(h as Tab);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    dispatch(fetchSettings());
+    dispatch(fetchGroups());
+    dispatch(fetchPilots({}));
+    dispatch(fetchAirframes());
+    dispatch(fetchAircraftTypes());
+    dispatch(fetchTransfers());
+    dispatch(fetchCareerPaths());
+  }, []);
+
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
       <h1 className="text-5xl font-bold text-brand mb-8">Admin Panel</h1>
@@ -55,7 +66,7 @@ export default function Admin() {
         {tabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => { setTab(t.key); window.location.hash = t.key; }}
             className={`rounded-full text-xs font-bold border px-4 py-1.5 transition-colors duration-200 ${
               tab === t.key
                 ? "bg-brand text-white border-brand"
@@ -79,9 +90,7 @@ export default function Admin() {
   );
 }
 
-/* ─── PILOTS TAB ─── */
-
-function PilotsTab() {
+export function PilotsTab() {
   const dispatch = useAppDispatch();
   const { enrolled, unenrolled } = useAppSelector((s) => s.admin);
   const { paths } = useAppSelector((s) => s.career);
@@ -164,7 +173,7 @@ function PilotsTab() {
 
 /* ─── GROUPS TAB ─── */
 
-function GroupsTab() {
+export function GroupsTab() {
   const dispatch = useAppDispatch();
   const { groups } = useAppSelector((s) => s.group);
   const [showCreate, setShowCreate] = useState(false);
@@ -256,7 +265,7 @@ function GroupsTab() {
 
 /* ─── AIRCRAFT TAB ─── */
 
-function AircraftTab() {
+export function AircraftTab() {
   const dispatch = useAppDispatch();
   const { airframes, types } = useAppSelector((s) => s.aircraft);
   const [showCreate, setShowCreate] = useState(false);
@@ -355,7 +364,7 @@ function AircraftTab() {
 
 /* ─── TOKENS TAB ─── */
 
-function TokensTab() {
+export function TokensTab() {
   const dispatch = useAppDispatch();
   const { pilots } = useAppSelector((s) => s.pilot);
   const [pilotId, setPilotId] = useState(0);
@@ -385,7 +394,7 @@ function TokensTab() {
 
 /* ─── CAREERS TAB ─── */
 
-function CareersTab() {
+export function CareersTab() {
   const dispatch = useAppDispatch();
   const { paths } = useAppSelector((s) => s.career);
   const { pilots } = useAppSelector((s) => s.pilot);
@@ -662,7 +671,7 @@ function CareersTab() {
 
 /* ─── TRANSFERS TAB ─── */
 
-function TransfersTab() {
+export function TransfersTab() {
   const dispatch = useAppDispatch();
   const { transfers } = useAppSelector((s) => s.transfer);
 
@@ -715,7 +724,7 @@ function TransfersTab() {
 
 /* ─── WAVES TAB ─── */
 
-function WavesTab() {
+export function WavesTab() {
   const dispatch = useAppDispatch();
   const { waves } = useAppSelector((s) => s.schedule);
   const [name, setName] = useState("");
@@ -797,7 +806,7 @@ function WavesTab() {
   );
 }
 
-function SettingsTab() {
+export function SettingsTab() {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((s) => s.admin);
 
