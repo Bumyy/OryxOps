@@ -1,9 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_pilot
-from app.models.live_models import Pilot
+from app.models.live_models import (
+    LiveFlightBooking,
+    LiveFlightSchedule,
+    LiveFlyingGroup,
+    LiveGroupPilot,
+    Pilot,
+)
 from app.schemas.booking import BookingComplete, BookingCreate, BookingOut
 from app.services.booking_service import (
     cancel_booking,
@@ -24,9 +31,15 @@ async def list_bookings(
     schedule_id: int | None = Query(None),
     status: str | None = Query(None),
     group_id: int | None = Query(None),
+    schedule_ids: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     bookings = await get_bookings(db, pilot_id, schedule_id, status, group_id)
+
+    if schedule_ids:
+        ids = [int(x) for x in schedule_ids.split(",") if x.strip()]
+        bookings = [b for b in bookings if b.schedule_id in ids]
+
     return [
         BookingOut(
             id=b.id,
@@ -55,6 +68,24 @@ async def create_booking_route(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
+    # Check group membership
+    schedule_result = await db.execute(
+        select(LiveFlightSchedule).where(LiveFlightSchedule.id == data.schedule_id)
+    )
+    schedule = schedule_result.scalar_one_or_none()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    member_result = await db.execute(
+        select(LiveGroupPilot).where(
+            LiveGroupPilot.group_id == schedule.group_id,
+            LiveGroupPilot.pilot_id == pilot.id,
+            LiveGroupPilot.removed_at.is_(None),
+        )
+    )
+    if not member_result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="You must be a member of this group to book flights")
+
     booking = await create_booking(db, data.schedule_id, pilot.id)
     if not booking:
         raise HTTPException(status_code=400, detail="Schedule not available or already booked")

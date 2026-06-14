@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   fetchSchedules, createSchedule, updateSchedule, deleteSchedule,
@@ -32,6 +32,9 @@ export default function Calendar() {
   const [availableRoutes, setAvailableRoutes] = useState<AvailableRoute[]>([]);
   const [loadingRoutes, setLoadingRoutes] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<any | null>(null);
+  const [bookings, setBookings] = useState<Record<number, any[]>>({});
+  const [myBookingsFilter, setMyBookingsFilter] = useState(false);
+  const user = useAppSelector((s: any) => s.auth.user);
 
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const HOUR_HEIGHT = 40;
@@ -51,11 +54,33 @@ export default function Calendar() {
     }
   }, [activeGroup, weekStart, statusFilter]);
 
+  // Fetch bookings for displayed schedules
+  useEffect(() => {
+    if (schedules.length === 0) { setBookings({}); return; }
+    const ids = schedules.map(s => s.id).join(",");
+    api.get<any[]>(`/bookings?schedule_ids=${ids}`).then(bs => {
+      const map: Record<number, any[]> = {};
+      for (const b of bs) { if (!map[b.schedule_id]) map[b.schedule_id] = []; map[b.schedule_id].push(b); }
+      setBookings(map);
+    }).catch(() => setBookings({}));
+  }, [schedules]);
+
   function getWeekStart() { const d = new Date(); d.setUTCDate(d.getUTCDate() - d.getUTCDay() + 1); return d.toISOString().split("T")[0]; }
   function getSlotDate(day: number, hour: number): Date { const d = new Date(weekStart + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + day); d.setUTCHours(hour, 0, 0, 0); return d; }
 
-  let baseSchedules = statusFilter === "active" ? schedules.filter(s => s.status !== "cancelled") : schedules;
-  const filteredSchedules = filterAircraftId ? baseSchedules.filter(s => s.aircraft_id === filterAircraftId) : baseSchedules;
+  const baseSchedules = useMemo(() => {
+    let bs = statusFilter === "active" ? schedules.filter(s => s.status !== "cancelled") : schedules;
+    if (myBookingsFilter && user) {
+      const myBkdIds = new Set(Object.entries(bookings).filter(([_, bs]) => bs.some((b: any) => b.pilot_id === user.id)).map(([sid]) => Number(sid)));
+      bs = bs.filter(s => myBkdIds.has(s.id));
+    }
+    return bs;
+  }, [schedules, statusFilter, myBookingsFilter, bookings, user]);
+
+  const filteredSchedules = useMemo(() => {
+    if (!filterAircraftId) return baseSchedules;
+    return baseSchedules.filter(s => Number(s.aircraft_id) === Number(filterAircraftId));
+  }, [baseSchedules, filterAircraftId]);
 
   function getAircraftPosition(aircraftId: number, day: number, hour: number): string {
     const ac = airframes.find(a => a.id === aircraftId);
@@ -168,6 +193,7 @@ export default function Calendar() {
           ))}
         </div>
         {activeGroup && <button onClick={()=>dispatch(bulkApproveSchedules({group_id:activeGroup,week_start:weekStart})).then(refreshSchedules)} className="rounded-full bg-green-600 text-white font-semibold text-xs px-3 py-1.5 hover:bg-green-700">Approve All</button>}
+        {user && <button onClick={()=>setMyBookingsFilter(!myBookingsFilter)} className={`rounded-full text-xs font-bold border px-3 py-1.5 transition-colors ${myBookingsFilter?"bg-blue-500 text-white border-blue-500":"border-brand-border text-gray-500 hover:bg-brand-hover-bg"}`}>👤 My Bookings</button>}
       </div>
       {positionErrors.filter(e=>e.status==="mismatch").map(e=>(<div key={`e-${e.scheduleId}`} className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-1 text-xs font-semibold mb-1">⚠ {e.registration}: Expected {e.expectedDep} but flight departs {e.actualDep}</div>))}
       {positionErrors.filter(e=>e.status==="ground_short").map(e=>(<div key={`g-${e.scheduleId}`} className="bg-orange-50 border border-orange-200 text-orange-700 rounded-xl px-3 py-1 text-xs font-semibold mb-1">⏱ {e.registration}: Ground {e.expectedDep.replace("gap:","")} vs req {e.actualDep.replace("need:","")}</div>))}
@@ -191,14 +217,17 @@ export default function Calendar() {
                 const colPct=100/8, subW=colPct/fb.maxSubCols, wPct=subW-0.3, lOff=(fb.col+1)*colPct+fb.subCol*subW, top=fb.rowStart*HOUR_HEIGHT, ht=(fb.rowEnd-fb.rowStart)*HOUR_HEIGHT;
                 const gt=fb.schedule.ground_time_minutes||60, gtH=Math.max((gt/60)*HOUR_HEIGHT,8);
                 const s=fb.schedule, dur=Math.round((new Date(s.scheduled_arrival+"Z").getTime()-new Date(s.scheduled_departure+"Z").getTime())/360000)/10;
-                return (<div key={fb.schedule.id}>
+                  const bkd = bookings[s.id] || [];
+                  const bookedBy = bkd.filter((b: any) => b.status === "booked").map((b: any) => b.pilot_callsign).join(", ");
+                  const hasBooking = bkd.length > 0;
+                  return (<div key={s.id}>
                   <div className={`absolute rounded-t-lg px-1 py-0.5 text-[8px] leading-tight cursor-pointer overflow-hidden border border-b-0 ${fb.isError?"bg-red-100 border-red-400 text-red-800":s.status==="cancelled"?"bg-gray-100 border-gray-300 text-gray-400 line-through opacity-60":s.status==="approved"?"bg-green-100 border-green-400 text-green-800":s.status==="proposed"?"bg-yellow-100 border-yellow-400 text-yellow-800":"bg-gray-100 border-gray-300 text-gray-700"} hover:z-20 hover:ring-2 hover:ring-brand/30`}
                     style={{left:`${lOff}%`,width:`${Math.max(wPct,2)}%`,top:`${top}px`,height:`${Math.max(ht,10)}px`,minWidth:"36px"}}
                     onClick={e=>{e.stopPropagation();setEditingSchedule(s);}} draggable onDragStart={e=>handleDragStart(e,s.id)} onDragEnd={handleDragEnd}
-                    title={`${s.departure}→${s.arrival} | ${s.aircraft_registration} | ${s.status} | ${dur}h\nBy: ${s.created_by_name||"?"}${s.approved_by?` | Appr: #${s.approved_by}`:""}${fb.isError?'\n⚠ Mismatch':''}${fb.isGroundIssue?'\n⚠ GT short':''}\nDrag to move`}>
-                    <div className="font-bold truncate flex items-center gap-0.5">{s.aircraft_registration}{s.approved_by&&<span title="Approved" className="text-[7px]">✅</span>}</div>
+                    title={`${s.departure}→${s.arrival} | ${s.aircraft_registration} | ${s.status} | ${dur}h\nBy: ${s.created_by_name||"?"}${s.approved_by?` | Appr: #${s.approved_by}`:""}${hasBooking?`\nBooked: ${bookedBy}`:""}${fb.isError?'\n⚠ Mismatch':''}${fb.isGroundIssue?'\n⚠ GT short':''}\nDrag to move`}>
+                    <div className="font-bold truncate flex items-center gap-0.5">{s.aircraft_registration}{s.approved_by&&<span title="Approved" className="text-[7px]">✅</span>}{hasBooking&&<span title={bookedBy} className="text-[7px]">👤</span>}</div>
                     <div className="truncate">{s.departure}→{s.arrival} <span className="opacity-60">{dur}h</span></div>
-                    <div className="truncate opacity-70">{s.flight_number||`#${s.id}`} · {s.status} · {s.created_by_name||"?"}{s.booking_count>0?` 👤${s.booking_count}`:""}</div>
+                    <div className="truncate opacity-70">{s.flight_number||`#${s.id}`} · {s.status} · {s.created_by_name||"?"}{hasBooking?` · ${bookedBy}`:""}</div>
                   </div>
                   {fb.showGroundTime&&<div className={`absolute rounded-b-lg border ${fb.isGroundIssue?"border-orange-400 border-dashed":"border-cyan-200 border-dashed"} bg-cyan-50/80 flex items-center justify-center text-[7px] text-cyan-700 font-semibold overflow-hidden pointer-events-none`} style={{left:`${lOff}%`,width:`${Math.max(wPct,2)}%`,top:`${top+Math.max(ht,10)}px`,height:`${gtH}px`}}>{gtH>=10?`GT ${gt}m`:""}</div>}
                 </div>);
@@ -219,7 +248,7 @@ export default function Calendar() {
               <p>Status: <span className="font-semibold">{editingSchedule.status}</span> · By: {editingSchedule.created_by_name||"?"}{editingSchedule.approved_by?` · Appr: #${editingSchedule.approved_by}`:""}</p>
               <p className="text-xs text-gray-400">Dep: {new Date(editingSchedule.scheduled_departure+"Z").toISOString().replace("T"," ").slice(0,16)}</p>
               <p className="text-xs text-gray-400">Arr: {new Date(editingSchedule.scheduled_arrival+"Z").toISOString().replace("T"," ").slice(0,16)}</p>
-              {editingSchedule.booking_count>0&&<p className="text-xs text-blue-600">👤 {editingSchedule.booking_count} booking{editingSchedule.booking_count>1?"s":""}</p>}
+              {(() => { const bkd = bookings[editingSchedule.id] || []; const names = bkd.filter((b: any) => b.status === "booked").map((b: any) => b.pilot_callsign).join(", "); if (names) return <p className="text-xs text-blue-600 font-semibold">Booked by: {names}</p>; return null; })()}
             </div>
             <div className="flex gap-2 flex-wrap">
               {editingSchedule.status==="draft"&&<button onClick={async()=>{await dispatch(proposeSchedule(editingSchedule.id));refreshSchedules();setEditingSchedule(null);}} className="flex-1 rounded-full bg-blue-500 text-white font-semibold text-sm py-2 hover:bg-blue-600">Propose</button>}
