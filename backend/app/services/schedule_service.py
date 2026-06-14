@@ -87,7 +87,7 @@ async def delete_schedule(db: AsyncSession, schedule_id: int) -> bool:
     schedule = result.scalar_one_or_none()
     if not schedule:
         return False
-    await db.delete(schedule)
+    schedule.status = "cancelled"
     await db.commit()
     return True
 

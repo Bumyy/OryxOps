@@ -17,18 +17,20 @@ export default function Fleet() {
       <h1 className="text-5xl font-bold text-brand mb-8">Fleet</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {airframes.map((a) => (
+        {airframes.map((a) => {
+          const t = types.find(ty => ty.id === a.aircraft_type_id);
+          return (
           <Link
             key={a.id}
             to={`/fleet/${a.id}`}
-            className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-shadow duration-300 p-5 block group"
+            className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-shadow duration-300 p-5 block"
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-lg font-bold text-brand group-hover:text-brand-light transition-colors">
+                <p className="text-lg font-bold text-brand">
                   {a.registration}
                 </p>
-                <p className="text-sm text-gray-500">{a.aircraft_type_name}</p>
+                <p className="text-sm text-gray-500">{a.aircraft_type_name}{t?.liveryname ? ` · ${t.liveryname}` : ""}</p>
               </div>
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                 a.status === "parked" ? "bg-green-100 text-green-700" :
@@ -47,7 +49,8 @@ export default function Fleet() {
               <p className="mt-1 text-xs text-gray-400">Flying: {a.current_pilot_name}</p>
             )}
           </Link>
-        ))}
+          );
+        })}
       </div>
 
       {airframes.length === 0 && (

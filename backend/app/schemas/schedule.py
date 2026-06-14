@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class WaveOut(BaseModel):
     id: int
     name: str
+    wave_type: str = "departure"
     departure_window_start: str
     departure_window_end: str
     week_start: str
@@ -12,8 +13,9 @@ class WaveOut(BaseModel):
 
 
 class WaveCreate(BaseModel):
-    group_id: int
+    group_id: int | None = None
     name: str
+    wave_type: str = "departure"
     departure_window_start: str
     departure_window_end: str
     week_start: str

@@ -238,6 +238,7 @@ async def list_waves(
         WaveOut(
             id=w.id,
             name=w.name,
+            wave_type=w.wave_type if hasattr(w, "wave_type") else "departure",
             departure_window_start=str(w.departure_window_start),
             departure_window_end=str(w.departure_window_end),
             week_start=str(w.week_start),
@@ -250,12 +251,16 @@ async def list_waves(
 async def create_wave_route(
     data: WaveCreate,
     db: AsyncSession = Depends(get_db),
-    pilot: Pilot = Depends(get_current_pilot),
+    pilot: Pilot = Depends(get_current_staff),
 ):
-    wave = await create_wave(db, data.model_dump())
+    wave_data = data.model_dump()
+    if wave_data.get("group_id") == 0:
+        wave_data["group_id"] = None
+    wave = await create_wave(db, wave_data)
     return WaveOut(
         id=wave.id,
         name=wave.name,
+        wave_type=wave.wave_type if hasattr(wave, "wave_type") else "departure",
         departure_window_start=str(wave.departure_window_start),
         departure_window_end=str(wave.departure_window_end),
         week_start=str(wave.week_start),

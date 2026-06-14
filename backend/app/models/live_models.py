@@ -344,8 +344,13 @@ class LiveScheduleWave(Base):
     __tablename__ = "live_schedule_waves"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    group_id = Column(Integer, ForeignKey("live_flying_groups.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("live_flying_groups.id"), nullable=True)
     name = Column(String(50), nullable=False)
+    wave_type = Column(
+        Enum("departure", "arrival", name="wave_type"),
+        nullable=False,
+        default="departure",
+    )
     departure_window_start = Column(Time, nullable=False)
     departure_window_end = Column(Time, nullable=False)
     week_start = Column(Date, nullable=False)

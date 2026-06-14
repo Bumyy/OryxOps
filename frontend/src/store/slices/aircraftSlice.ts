@@ -5,6 +5,7 @@ interface AircraftType {
   id: number;
   name: string;
   icao: string;
+  liveryname: string | null;
 }
 
 interface LiveAircraft {

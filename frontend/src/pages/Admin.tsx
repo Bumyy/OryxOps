@@ -13,8 +13,9 @@ import {
   fetchCareerPaths, fetchCareerPathDetail, createCareerPath, deleteCareerPath,
   createRank, updateRank, deleteRank, fetchRankAircraft, assignAircraftToRank, removeAircraftFromRank,
 } from "../store/slices/careerSlice";
+import { fetchWaves, createWave, deleteWave } from "../store/slices/scheduleSlice";
 
-type Tab = "pilots" | "groups" | "aircraft" | "tokens" | "careers" | "transfers" | "settings";
+type Tab = "pilots" | "groups" | "aircraft" | "tokens" | "careers" | "transfers" | "waves" | "settings";
 
 export default function Admin() {
   const dispatch = useAppDispatch();
@@ -42,6 +43,7 @@ export default function Admin() {
     { key: "tokens", label: "Tokens" },
     { key: "careers", label: "Careers" },
     { key: "transfers", label: "Transfers" },
+    { key: "waves", label: "Waves" },
     { key: "settings", label: "Settings" },
   ];
 
@@ -71,6 +73,7 @@ export default function Admin() {
       {tab === "tokens" && <TokensTab />}
       {tab === "careers" && <CareersTab />}
       {tab === "transfers" && <TransfersTab />}
+      {tab === "waves" && <WavesTab />}
       {tab === "settings" && <SettingsTab />}
     </div>
   );
@@ -709,6 +712,90 @@ function TransfersTab() {
 }
 
 /* ─── SETTINGS TAB ─── */
+
+/* ─── WAVES TAB ─── */
+
+function WavesTab() {
+  const dispatch = useAppDispatch();
+  const { waves } = useAppSelector((s) => s.schedule);
+  const [name, setName] = useState("");
+  const [waveType, setWaveType] = useState("departure");
+  const [start, setStart] = useState("06:00");
+  const [end, setEnd] = useState("09:00");
+  const [weekStart, setWeekStart] = useState("");
+
+  useEffect(() => {
+    dispatch(fetchWaves({}));
+  }, []);
+
+  const handleCreate = async () => {
+    if (!name || !weekStart) return;
+    await dispatch(createWave({
+      name,
+      wave_type: waveType,
+      departure_window_start: start,
+      departure_window_end: end,
+      week_start: weekStart,
+    }));
+    setName(""); setWeekStart("");
+    dispatch(fetchWaves({}));
+  };
+
+  const depWaves = waves.filter(w => w.wave_type === "departure");
+  const arrWaves = waves.filter(w => w.wave_type === "arrival");
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-brand">Wave Management</h2>
+
+      <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
+        <h3 className="text-lg font-bold text-brand mb-4">Create Wave</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 mb-4">
+          <input placeholder="Name (e.g. Morning Departure)" value={name} onChange={e => setName(e.target.value)} className="border border-brand-border rounded-xl px-3 py-2 text-sm" />
+          <select value={waveType} onChange={e => setWaveType(e.target.value)} className="border border-brand-border rounded-xl px-3 py-2 text-sm">
+            <option value="departure">Departure Wave</option>
+            <option value="arrival">Arrival Wave</option>
+          </select>
+          <input type="time" value={start} onChange={e => setStart(e.target.value)} className="border border-brand-border rounded-xl px-3 py-2 text-sm" />
+          <input type="time" value={end} onChange={e => setEnd(e.target.value)} className="border border-brand-border rounded-xl px-3 py-2 text-sm" />
+          <input type="date" value={weekStart} onChange={e => setWeekStart(e.target.value)} className="border border-brand-border rounded-xl px-3 py-2 text-sm" />
+        </div>
+        <button onClick={handleCreate} className="rounded-full bg-brand text-white font-semibold text-sm px-5 py-2">Create</button>
+        <p className="text-xs text-gray-400 mt-2">Typical DOH waves: Morning arrivals 04-07, departures 07-09; Evening arrivals 16-19, departures 19-21</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
+          <h3 className="text-lg font-bold text-green-700 mb-3">Departure Waves</h3>
+          {depWaves.map(w => (
+            <div key={w.id} className="flex items-center justify-between py-2 border-b border-brand-border last:border-0">
+              <div>
+                <p className="font-semibold text-sm">{w.name}</p>
+                <p className="text-xs text-gray-400">{w.departure_window_start} → {w.departure_window_end} · {w.week_start}</p>
+              </div>
+              <button onClick={() => dispatch(deleteWave(w.id)).then(() => dispatch(fetchWaves({})))} className="text-xs text-red-400 hover:text-red-600">Delete</button>
+            </div>
+          ))}
+          {depWaves.length === 0 && <p className="text-sm text-gray-400">No departure waves.</p>}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
+          <h3 className="text-lg font-bold text-blue-700 mb-3">Arrival Waves</h3>
+          {arrWaves.map(w => (
+            <div key={w.id} className="flex items-center justify-between py-2 border-b border-brand-border last:border-0">
+              <div>
+                <p className="font-semibold text-sm">{w.name}</p>
+                <p className="text-xs text-gray-400">{w.departure_window_start} → {w.departure_window_end} · {w.week_start}</p>
+              </div>
+              <button onClick={() => dispatch(deleteWave(w.id)).then(() => dispatch(fetchWaves({})))} className="text-xs text-red-400 hover:text-red-600">Delete</button>
+            </div>
+          ))}
+          {arrWaves.length === 0 && <p className="text-sm text-gray-400">No arrival waves.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SettingsTab() {
   const dispatch = useAppDispatch();

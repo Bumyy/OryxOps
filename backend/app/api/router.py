@@ -9,6 +9,7 @@ from app.api.endpoints import (
     discovery,
     groups,
     pilots,
+    routes,
     schedules,
     settings,
     tokens,
@@ -24,6 +25,7 @@ api_router.include_router(discovery.router)
 api_router.include_router(aircraft.router)
 api_router.include_router(groups.router)
 api_router.include_router(tokens.router)
+api_router.include_router(routes.router)
 api_router.include_router(schedules.router)
 api_router.include_router(bookings.router)
 api_router.include_router(transfers.router)

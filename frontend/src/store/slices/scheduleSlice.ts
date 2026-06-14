@@ -23,6 +23,7 @@ interface ScheduleItem {
 interface Wave {
   id: number;
   name: string;
+  wave_type: string;
   departure_window_start: string;
   departure_window_end: string;
   week_start: string;

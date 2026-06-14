@@ -1,17 +1,18 @@
 import { useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { fetchAirframeDetail, fetchAirframeHistory } from "../store/slices/aircraftSlice";
+import { fetchAirframeDetail, fetchAirframeHistory, fetchAircraftTypes } from "../store/slices/aircraftSlice";
 
 export default function AircraftDetail() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
-  const { currentAirframe } = useAppSelector((s) => s.aircraft);
+  const { currentAirframe, types } = useAppSelector((s) => s.aircraft);
 
   useEffect(() => {
     if (id) {
       dispatch(fetchAirframeDetail(Number(id)));
       dispatch(fetchAirframeHistory(Number(id)));
+      dispatch(fetchAircraftTypes());
     }
   }, [id]);
 
@@ -20,6 +21,7 @@ export default function AircraftDetail() {
   }
 
   const a = currentAirframe;
+  const t = types.find(ty => ty.id === a.aircraft_type_id);
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
@@ -28,7 +30,7 @@ export default function AircraftDetail() {
       <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
         <div>
           <h1 className="text-5xl font-bold text-brand">{a.registration}</h1>
-          <p className="text-lg text-gray-500">{a.aircraft_type_name}</p>
+          <p className="text-lg text-gray-500">{a.aircraft_type_name}{t?.liveryname ? ` · ${t.liveryname}` : ""}</p>
         </div>
         <span className={`text-sm font-bold px-3 py-1 rounded-full ${
           a.status === "parked" ? "bg-green-100 text-green-700" :
