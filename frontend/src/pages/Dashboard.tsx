@@ -57,7 +57,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-5">
           <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Routes Discovered</p>
           <p className="text-2xl font-bold text-brand mt-1">
-            {summary.reduce((a, b) => a + b.discovered_routes, 0)}
+            {Array.isArray(summary) ? summary.reduce((a, b) => a + b.discovered_routes, 0) : 0}
           </p>
           <Link to="/careers" className="text-xs text-brand hover:underline">View progress</Link>
         </div>

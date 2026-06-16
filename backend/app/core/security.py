@@ -40,6 +40,6 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 def decode_access_token(token: str) -> dict | None:
     try:
-        return pyjwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+        return pyjwt.decode(token, settings.secret_key, algorithms=[ALGORITHM], leeway=60)
     except pyjwt.PyJWTError:
         return None

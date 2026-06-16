@@ -59,10 +59,10 @@ const discoverySlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchDiscoverySummary.fulfilled, (state, action) => {
-        state.summary = action.payload;
+        state.summary = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchMyDiscoverySummary.fulfilled, (state, action) => {
-        state.summary = action.payload;
+        state.summary = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchDiscoveryDetail.fulfilled, (state, action) => {
         state.detail = action.payload;

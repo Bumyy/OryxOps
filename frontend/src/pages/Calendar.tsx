@@ -220,7 +220,7 @@ export default function Calendar() {
                   const bkd = bookings[s.id] || [];
                   const bookedBy = bkd.filter((b: any) => b.status === "booked").map((b: any) => b.pilot_callsign).join(", ");
                   const hasBooking = bkd.length > 0;
-                  return (<div key={s.id}>
+                  return (<div key={`${s.id}-${fb.col}`}>
                   <div className={`absolute rounded-t-lg px-1 py-0.5 text-[8px] leading-tight cursor-pointer overflow-hidden border border-b-0 ${fb.isError?"bg-red-100 border-red-400 text-red-800":s.status==="cancelled"?"bg-gray-100 border-gray-300 text-gray-400 line-through opacity-60":s.status==="approved"?"bg-green-100 border-green-400 text-green-800":s.status==="proposed"?"bg-yellow-100 border-yellow-400 text-yellow-800":"bg-gray-100 border-gray-300 text-gray-700"} hover:z-20 hover:ring-2 hover:ring-brand/30`}
                     style={{left:`${lOff}%`,width:`${Math.max(wPct,2)}%`,top:`${top}px`,height:`${Math.max(ht,10)}px`,minWidth:"36px"}}
                     onClick={e=>{e.stopPropagation();setEditingSchedule(s);}} draggable onDragStart={e=>handleDragStart(e,s.id)} onDragEnd={handleDragEnd}

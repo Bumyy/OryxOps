@@ -1,7 +1,11 @@
 const BASE_URL = "/api";
 
 function getToken(): string | null {
-  return localStorage.getItem("token");
+  const token = localStorage.getItem("token");
+  if (!token || token === "undefined" || token === "null") {
+    return null;
+  }
+  return token;
 }
 
 async function request<T>(
@@ -24,6 +28,10 @@ async function request<T>(
   });
 
   if (!res.ok) {
+    if (res.status === 401 && !endpoint.includes("/auth/login")) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
     const error = await res.json().catch(() => ({ detail: "Request failed" }));
     throw new Error(error.detail || `HTTP ${res.status}`);
   }
