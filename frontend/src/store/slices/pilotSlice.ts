@@ -7,6 +7,7 @@ interface Pilot {
   name: string;
   grade: number | null;
   group_name: string | null;
+  group_id: number | null;
   career_path_names: string[];
   current_ranks: string[];
   token_balance?: number;

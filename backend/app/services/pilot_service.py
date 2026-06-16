@@ -85,6 +85,7 @@ async def get_pilot_detail(db: AsyncSession, pilot_id: int) -> dict | None:
         "pilot": pilot,
         "token_balance": token.balance if token else 0,
         "group_name": group.name if group else None,
+        "group_id": group.id if group else None,
         "careers": [
             {
                 "path": c.career_path.name,

@@ -28,6 +28,7 @@ class PilotListOut(BaseModel):
 
 class PilotDetailOut(PilotOut):
     group_name: str | None = None
+    group_id: int | None = None
     token_balance: int = 0
     careers: list[dict] = []
 

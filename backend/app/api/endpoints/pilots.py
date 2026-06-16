@@ -56,6 +56,7 @@ async def get_my_profile(
         status=detail["pilot"].status,
         joined=str(detail["pilot"].joined) if detail["pilot"].joined else None,
         group_name=detail["group_name"],
+        group_id=detail.get("group_id"),
         token_balance=detail["token_balance"],
         careers=detail["careers"],
     )
@@ -80,6 +81,7 @@ async def get_pilot(
         status=detail["pilot"].status,
         joined=str(detail["pilot"].joined) if detail["pilot"].joined else None,
         group_name=detail["group_name"],
+        group_id=detail.get("group_id"),
         token_balance=detail["token_balance"],
         careers=detail["careers"],
     )

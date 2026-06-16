@@ -21,6 +21,7 @@ from app.services.booking_service import (
     take_over_booking,
 )
 from app.services.token_service import spend_tokens
+from app.services.pilot_utils import get_pilot_avatar
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -46,6 +47,7 @@ async def list_bookings(
             schedule_id=b.schedule_id,
             pilot_id=b.pilot_id,
             pilot_callsign=b.pilot.callsign if b.pilot else None,
+            pilot_avatar=get_pilot_avatar(b.pilot) if b.pilot else None,
             token_cost=b.token_cost,
             booked_at=str(b.booked_at),
             status=b.status,
@@ -104,6 +106,7 @@ async def create_booking_route(
         schedule_id=booking.schedule_id,
         pilot_id=booking.pilot_id,
         pilot_callsign=pilot.callsign,
+        pilot_avatar=get_pilot_avatar(pilot),
         token_cost=booking.token_cost,
         booked_at=str(booking.booked_at),
         status=booking.status,
@@ -140,6 +143,7 @@ async def complete_booking_route(
         schedule_id=booking.schedule_id,
         pilot_id=booking.pilot_id,
         pilot_callsign=booking.pilot.callsign if booking.pilot else None,
+        pilot_avatar=get_pilot_avatar(booking.pilot) if booking.pilot else None,
         token_cost=booking.token_cost,
         booked_at=str(booking.booked_at),
         status=booking.status,
@@ -161,6 +165,7 @@ async def no_show_booking(
         schedule_id=booking.schedule_id,
         pilot_id=booking.pilot_id,
         pilot_callsign=booking.pilot.callsign if booking.pilot else None,
+        pilot_avatar=get_pilot_avatar(booking.pilot) if booking.pilot else None,
         token_cost=booking.token_cost,
         booked_at=str(booking.booked_at),
         status=booking.status,
@@ -181,6 +186,7 @@ async def take_over_booking_route(
         schedule_id=booking.schedule_id,
         pilot_id=booking.pilot_id,
         pilot_callsign=booking.pilot.callsign if booking.pilot else None,
+        pilot_avatar=get_pilot_avatar(booking.pilot) if booking.pilot else None,
         token_cost=booking.token_cost,
         booked_at=str(booking.booked_at),
         status=booking.status,

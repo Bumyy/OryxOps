@@ -6,6 +6,7 @@ class BookingOut(BaseModel):
     schedule_id: int
     pilot_id: int
     pilot_callsign: str | None = None
+    pilot_avatar: str | None = None
     token_cost: int
     booked_at: str
     status: str
