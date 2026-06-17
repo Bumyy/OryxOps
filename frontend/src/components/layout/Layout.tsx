@@ -29,14 +29,9 @@ export default function Layout() {
   const dispatch = useAppDispatch();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, token } = useAppSelector((s) => s.auth);
+  const { user } = useAppSelector((s) => s.auth);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(location.pathname.startsWith("/admin"));
-
-  useEffect(() => {
-    if (token && !user) dispatch(fetchMe());
-    if (!token) navigate("/login");
-  }, [token, user]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -47,8 +42,6 @@ export default function Layout() {
     dispatch(logout());
     navigate("/login");
   };
-
-  if (!token) return null;
 
   return (
     <div className="flex h-screen overflow-hidden">

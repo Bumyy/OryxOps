@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { login, clearError } from "../store/slices/authSlice";
@@ -10,8 +10,13 @@ export default function Login() {
   const navigate = useNavigate();
   const { loading, error, token } = useAppSelector((s) => s.auth);
 
+  useEffect(() => {
+    if (token) {
+      navigate("/");
+    }
+  }, [token, navigate]);
+
   if (token) {
-    navigate("/");
     return null;
   }
 

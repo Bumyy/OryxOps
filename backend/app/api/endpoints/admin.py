@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_staff
@@ -113,8 +114,24 @@ async def enroll_pilot(
 
 @router.get("/enrolled-pilots")
 async def get_enrolled_pilots(db: AsyncSession = Depends(get_db), staff=Depends(get_current_staff)):
-    result = await db.execute(select(LivePilotCareer.pilot_id).distinct())
-    enrolled_ids = {row[0] for row in result.fetchall()}
+    result = await db.execute(
+        select(LivePilotCareer)
+        .options(
+            selectinload(LivePilotCareer.career_path),
+            selectinload(LivePilotCareer.current_rank),
+        )
+    )
+    careers = result.scalars().all()
+
+    from collections import defaultdict
+    pilot_careers = defaultdict(list)
+    for c in careers:
+        pilot_careers[c.pilot_id].append({
+            "career_path_id": c.career_path_id,
+            "career_path_name": c.career_path.name if c.career_path else None,
+            "current_rank_id": c.current_rank_id,
+            "current_rank_name": c.current_rank.name if c.current_rank else None,
+        })
 
     all_pilots = await db.execute(select(Pilot).where(Pilot.status == 1))
     pilots = list(all_pilots.scalars().all())
@@ -126,9 +143,11 @@ async def get_enrolled_pilots(db: AsyncSession = Depends(get_db), staff=Depends(
             "id": p.id,
             "callsign": p.callsign,
             "name": p.name,
+            "careers": [],
         }
-        if p.id in enrolled_ids:
+        if p.id in pilot_careers:
             entry["enrolled"] = True
+            entry["careers"] = pilot_careers[p.id]
             enrolled.append(entry)
         else:
             entry["enrolled"] = False

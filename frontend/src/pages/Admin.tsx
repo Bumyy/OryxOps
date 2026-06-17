@@ -95,6 +95,7 @@ export function PilotsTab() {
   const { enrolled, unenrolled } = useAppSelector((s) => s.admin);
   const { paths } = useAppSelector((s) => s.career);
   const [careerPathId, setCareerPathId] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     dispatch(fetchEnrolledPilots());
@@ -111,27 +112,54 @@ export function PilotsTab() {
     dispatch(fetchEnrolledPilots());
   };
 
+  const handlePromote = async (pilotId: number, pathId: number) => {
+    await dispatch(promotePilot({ pilotId, careerPathId: pathId }));
+    dispatch(fetchEnrolledPilots());
+  };
+
+  const filterPilots = (list: any[]) => {
+    if (!searchQuery.trim()) return list;
+    const query = searchQuery.toLowerCase();
+    return list.filter(
+      (p) =>
+        p.callsign?.toLowerCase().includes(query) ||
+        p.name?.toLowerCase().includes(query)
+    );
+  };
+
+  const filteredUnenrolled = filterPilots(unenrolled);
+  const filteredEnrolled = filterPilots(enrolled);
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <h2 className="text-xl font-bold text-brand">Enroll Pilot</h2>
-          <select
-            value={careerPathId}
-            onChange={(e) => setCareerPathId(Number(e.target.value))}
-            className="border border-brand-border rounded-xl px-3 py-1.5 text-xs"
-          >
-            {paths.map(p => (
-              <option key={p.id} value={p.id}>{p.name} Path</option>
-            ))}
-          </select>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-bold text-brand">Enroll Pilot</h2>
+            <select
+              value={careerPathId}
+              onChange={(e) => setCareerPathId(Number(e.target.value))}
+              className="border border-brand-border rounded-xl px-3 py-1.5 text-xs"
+            >
+              {paths.map(p => (
+                <option key={p.id} value={p.id}>{p.name} Path</option>
+              ))}
+            </select>
+          </div>
+          <input
+            type="text"
+            placeholder="Search pilots by callsign or name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="border border-brand-border rounded-xl px-4 py-2 text-xs w-full sm:w-64"
+          />
         </div>
 
-        {unenrolled.length > 0 && (
+        {filteredUnenrolled.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-500 mb-3">Not Enrolled ({unenrolled.length})</h3>
+            <h3 className="text-sm font-semibold text-gray-500 mb-3">Not Enrolled ({filteredUnenrolled.length})</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {unenrolled.map((p) => (
+              {filteredUnenrolled.map((p) => (
                 <div key={p.id} className="flex items-center justify-between p-3 bg-brand-pale rounded-xl border border-brand-border">
                   <div>
                     <p className="font-semibold text-sm">{p.callsign}</p>
@@ -150,20 +178,40 @@ export function PilotsTab() {
         )}
 
         <div>
-          <h3 className="text-sm font-semibold text-gray-500 mb-3">Enrolled ({enrolled.length})</h3>
+          <h3 className="text-sm font-semibold text-gray-500 mb-3">Enrolled ({filteredEnrolled.length})</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {enrolled.map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-200">
-                <div>
-                  <p className="font-semibold text-sm">{p.callsign}</p>
-                  <p className="text-xs text-gray-400">{p.name}</p>
+            {filteredEnrolled.map((p) => (
+              <div key={p.id} className="flex flex-col p-4 bg-green-50 rounded-xl border border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="font-semibold text-sm">{p.callsign}</p>
+                    <p className="text-xs text-gray-400">{p.name}</p>
+                  </div>
+                  <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Active</span>
                 </div>
-                <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Active</span>
+                
+                {p.careers && p.careers.length > 0 && (
+                  <div className="space-y-2 mt-2 pt-2 border-t border-green-200/50">
+                    {p.careers.map((c: any) => (
+                      <div key={c.career_path_id} className="flex items-center justify-between text-xs text-brand-light">
+                        <div className="truncate flex-1">
+                          <span className="font-semibold">{c.career_path_name}:</span> {c.current_rank_name}
+                        </div>
+                        <button
+                          onClick={() => handlePromote(p.id, c.career_path_id)}
+                          className="text-[10px] bg-brand text-white font-semibold px-2 py-1 rounded-full hover:bg-brand-light transition-colors ml-2 flex-shrink-0"
+                        >
+                          Promote
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
-          {enrolled.length === 0 && (
-            <p className="text-sm text-gray-400 py-4">No pilots enrolled yet. Click &ldquo;Enroll&rdquo; above to give pilots access to the Live system.</p>
+          {filteredEnrolled.length === 0 && (
+            <p className="text-sm text-gray-400 py-4">No matching enrolled pilots found.</p>
           )}
         </div>
       </div>
