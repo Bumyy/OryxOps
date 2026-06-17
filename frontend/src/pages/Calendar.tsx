@@ -4,7 +4,7 @@ import {
   fetchSchedules, createSchedule, updateSchedule, deleteSchedule,
   approveSchedule, rejectSchedule, proposeSchedule, bulkApproveSchedules, fetchWaves,
 } from "../store/slices/scheduleSlice";
-import { createBooking } from "../store/slices/bookingSlice";
+import { createBooking, cancelBooking } from "../store/slices/bookingSlice";
 import { fetchGroups } from "../store/slices/groupSlice";
 import { fetchAirframes, fetchAircraftTypes } from "../store/slices/aircraftSlice";
 import { fetchMyProfile } from "../store/slices/pilotSlice";
@@ -620,31 +620,42 @@ export default function Calendar() {
                       {s.aircraft_registration}
                       {s.approved_by && <span title="Approved" className="text-[8px] font-black text-emerald-800 bg-emerald-200/60 px-1 rounded">✓</span>}
                       {(() => {
-                        const activeB = bkd.find((b: any) => b.status === "booked");
-                        if (!activeB) return null;
-                        const callsign = activeB.pilot_callsign || "?";
-                        const letter = callsign[0].toUpperCase();
+                        const activeBookings = bkd.filter((b: any) => b.status === "booked");
+                        if (activeBookings.length === 0) return null;
                         return (
-                          <span className="relative flex-shrink-0 ml-0.5 w-4.5 h-4.5 inline-flex select-none" title={`Booked by ${callsign}`}>
-                            {activeB.pilot_avatar ? (
-                              <img 
-                                src={activeB.pilot_avatar} 
-                                alt={callsign} 
-                                className="w-full h-full rounded-full object-cover border border-blue-400 bg-blue-100"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = "none";
-                                  const fallbackEl = e.currentTarget.parentElement?.querySelector(".avatar-fallback") as HTMLElement;
-                                  if (fallbackEl) fallbackEl.style.display = "inline-flex";
-                                }}
-                              />
-                            ) : null}
-                            <span 
-                              className="avatar-fallback w-full h-full rounded-full bg-blue-150 border border-blue-400 text-blue-900 text-[8px] font-black inline-flex items-center justify-center"
-                              style={{ display: activeB.pilot_avatar ? "none" : "inline-flex" }}
-                            >
-                              {letter}
-                            </span>
-                          </span>
+                          <div className="flex -space-x-1.5 items-center">
+                            {activeBookings.map((activeB: any) => {
+                              const callsign = activeB.pilot_callsign || "?";
+                              const letter = callsign[0].toUpperCase();
+                              const typeLabel = activeB.booking_type === "departure" ? "DEP Only" : activeB.booking_type === "arrival" ? "ARR Only" : "Full Flight";
+                              return (
+                                <span 
+                                  key={activeB.id}
+                                  className="relative flex-shrink-0 ml-0.5 w-4.5 h-4.5 inline-flex select-none" 
+                                  title={`Booked by ${callsign} (${typeLabel})`}
+                                >
+                                  {activeB.pilot_avatar ? (
+                                    <img 
+                                      src={activeB.pilot_avatar} 
+                                      alt={callsign} 
+                                      className="w-full h-full rounded-full object-cover border border-blue-400 bg-blue-100"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = "none";
+                                        const fallbackEl = e.currentTarget.parentElement?.querySelector(".avatar-fallback") as HTMLElement;
+                                        if (fallbackEl) fallbackEl.style.display = "inline-flex";
+                                      }}
+                                    />
+                                  ) : null}
+                                  <span 
+                                    className="avatar-fallback w-full h-full rounded-full bg-blue-150 border border-blue-400 text-blue-900 text-[8px] font-black inline-flex items-center justify-center"
+                                    style={{ display: activeB.pilot_avatar ? "none" : "inline-flex" }}
+                                  >
+                                    {letter}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
                         );
                       })()}
                     </div>
@@ -769,19 +780,138 @@ export default function Calendar() {
               <p>Status: <span className="font-semibold">{editingSchedule.status}</span> · By: {editingSchedule.created_by_name || "?"}{editingSchedule.approved_by ? ` · Appr: #${editingSchedule.approved_by}` : ""}</p>
               <p className="text-xs text-gray-400">Dep: {new Date(editingSchedule.scheduled_departure + "Z").toISOString().replace("T", " ").slice(0, 16)}</p>
               <p className="text-xs text-gray-400">Arr: {new Date(editingSchedule.scheduled_arrival + "Z").toISOString().replace("T", " ").slice(0, 16)}</p>
-              {(() => { const bkd = bookings[editingSchedule.id] || []; const names = bkd.filter((b: any) => b.status === "booked").map((b: any) => b.pilot_callsign).join(", "); if (names) return <p className="text-xs text-blue-600 font-semibold">Booked by: {names}</p>; return null; })()}
+              {(() => { 
+                const bkd = bookings[editingSchedule.id] || []; 
+                const activeBookings = bkd.filter((b: any) => b.status === "booked");
+                if (activeBookings.length === 0) return null;
+                return (
+                  <div className="text-xs text-blue-600 font-semibold space-y-1 border-t border-brand-border/40 pt-2 mt-2">
+                    {activeBookings.map((b: any) => {
+                      const typeLabel = b.booking_type === "departure" ? "Departure Only" : b.booking_type === "arrival" ? "Arrival Only" : "Full Flight";
+                      return (
+                        <p key={b.id}>Booked ({typeLabel}): {b.pilot_callsign}</p>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
-            <div className="flex gap-2 flex-wrap text-xs font-bold">
-              {editingSchedule.status === "draft" && <button onClick={async () => { await dispatch(proposeSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer">Propose</button>}
-              {editingSchedule.status === "proposed" && (
-                <>
-                  <button onClick={async () => { await dispatch(approveSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-green-600 text-white py-2 hover:bg-green-700 cursor-pointer">Approve</button>
-                  <button onClick={async () => { await dispatch(rejectSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-yellow-500 text-white py-2 hover:bg-yellow-600 cursor-pointer">Reject</button>
-                </>
-              )}
-              {editingSchedule.status === "approved" && <button onClick={async () => { await dispatch(createBooking(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer">Book Flight</button>}
-              <button onClick={() => { if (confirm("Cancel this flight?")) { dispatch(deleteSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); } }} className="flex-1 rounded-full bg-red-500 text-white py-2 hover:bg-red-600 cursor-pointer">Delete</button>
-              <button onClick={() => setEditingSchedule(null)} className="flex-1 rounded-full bg-gray-200 text-gray-600 py-2 hover:bg-gray-300 cursor-pointer">Close</button>
+            <div className="flex flex-col gap-3 text-xs font-bold">
+              {editingSchedule.status === "approved" && (() => {
+                const bkd = bookings[editingSchedule.id] || [];
+                const activeBookings = bkd.filter((b: any) => b.status === "booked");
+                const depBooked = activeBookings.some((b: any) => b.booking_type === "departure");
+                const arrBooked = activeBookings.some((b: any) => b.booking_type === "arrival");
+                
+                return (
+                  <div className="flex flex-col gap-2 w-full">
+                    {!depBooked && (
+                      <button 
+                        onClick={async () => { 
+                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "departure" })); 
+                          refreshSchedules(); 
+                          setEditingSchedule(null); 
+                        }} 
+                        className="w-full rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer text-center"
+                      >
+                        Book Departure Part
+                      </button>
+                    )}
+                    {!arrBooked && (
+                      <button 
+                        onClick={async () => { 
+                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "arrival" })); 
+                          refreshSchedules(); 
+                          setEditingSchedule(null); 
+                        }} 
+                        className="w-full rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer text-center"
+                      >
+                        Book Arrival Part
+                      </button>
+                    )}
+                    {!depBooked && !arrBooked && (
+                      <button 
+                        onClick={async () => { 
+                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "departure" })); 
+                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "arrival" })); 
+                          refreshSchedules(); 
+                          setEditingSchedule(null); 
+                        }} 
+                        className="w-full rounded-full bg-gradient-to-br from-brand-dark to-brand text-white py-2 hover:shadow-md cursor-pointer text-center"
+                      >
+                        Book Full Flight (Both Parts)
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div className="flex gap-2 flex-wrap w-full">
+                {editingSchedule.status === "draft" && <button onClick={async () => { await dispatch(proposeSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer">Propose</button>}
+                {editingSchedule.status === "proposed" && (
+                  <>
+                    <button onClick={async () => { await dispatch(approveSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-green-600 text-white py-2 hover:bg-green-700 cursor-pointer">Approve</button>
+                    <button onClick={async () => { await dispatch(rejectSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-yellow-500 text-white py-2 hover:bg-yellow-600 cursor-pointer">Reject</button>
+                  </>
+                )}
+                
+                {(() => {
+                  const bkd = bookings[editingSchedule.id] || [];
+                  const myDepBooking = bkd.find((b: any) => b.status === "booked" && b.pilot_id === user?.id && b.booking_type === "departure");
+                  const myArrBooking = bkd.find((b: any) => b.status === "booked" && b.pilot_id === user?.id && b.booking_type === "arrival");
+                  const myBothBooking = bkd.find((b: any) => b.status === "booked" && b.pilot_id === user?.id && b.booking_type === "both");
+                  
+                  return (
+                    <>
+                      {myDepBooking && (
+                        <button 
+                          onClick={async () => { 
+                            if (confirm("Cancel your departure booking?")) {
+                              await dispatch(cancelBooking(myDepBooking.id)); 
+                              refreshSchedules(); 
+                              setEditingSchedule(null); 
+                            }
+                          }} 
+                          className="flex-1 rounded-full bg-red-600 text-white py-2 hover:bg-red-700 cursor-pointer"
+                        >
+                          Cancel Departure
+                        </button>
+                      )}
+                      {myArrBooking && (
+                        <button 
+                          onClick={async () => { 
+                            if (confirm("Cancel your arrival booking?")) {
+                              await dispatch(cancelBooking(myArrBooking.id)); 
+                              refreshSchedules(); 
+                              setEditingSchedule(null); 
+                            }
+                          }} 
+                          className="flex-1 rounded-full bg-red-600 text-white py-2 hover:bg-red-700 cursor-pointer"
+                        >
+                          Cancel Arrival
+                        </button>
+                      )}
+                      {myBothBooking && (
+                        <button 
+                          onClick={async () => { 
+                            if (confirm("Cancel your booking?")) {
+                              await dispatch(cancelBooking(myBothBooking.id)); 
+                              refreshSchedules(); 
+                              setEditingSchedule(null); 
+                            }
+                          }} 
+                          className="flex-1 rounded-full bg-red-600 text-white py-2 hover:bg-red-700 cursor-pointer"
+                        >
+                          Cancel Booking
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
+
+                <button onClick={() => { if (confirm("Cancel this flight?")) { dispatch(deleteSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); } }} className="flex-1 rounded-full bg-red-500 text-white py-2 hover:bg-red-600 cursor-pointer">Delete</button>
+                <button onClick={() => setEditingSchedule(null)} className="flex-1 rounded-full bg-gray-200 text-gray-600 py-2 hover:bg-gray-300 cursor-pointer">Close</button>
+              </div>
             </div>
           </div>
         </div>

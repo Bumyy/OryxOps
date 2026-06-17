@@ -6,6 +6,8 @@ interface Booking {
   schedule_id: number;
   pilot_id: number;
   pilot_callsign: string;
+  pilot_avatar?: string;
+  booking_type: string;
   token_cost: number;
   booked_at: string;
   status: string;
@@ -41,7 +43,8 @@ export const fetchBookings = createAsyncThunk(
 
 export const createBooking = createAsyncThunk(
   "booking/create",
-  (scheduleId: number) => api.post<Booking>("/bookings", { schedule_id: scheduleId }),
+  ({ scheduleId, bookingType = "both" }: { scheduleId: number; bookingType?: string }) =>
+    api.post<Booking>("/bookings", { schedule_id: scheduleId, booking_type: bookingType }),
 );
 
 export const cancelBooking = createAsyncThunk(

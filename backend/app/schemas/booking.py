@@ -7,6 +7,7 @@ class BookingOut(BaseModel):
     pilot_id: int
     pilot_callsign: str | None = None
     pilot_avatar: str | None = None
+    booking_type: str = "both"
     token_cost: int
     booked_at: str
     status: str
@@ -24,6 +25,7 @@ class BookingOut(BaseModel):
 
 class BookingCreate(BaseModel):
     schedule_id: int
+    booking_type: str = "both"
 
 
 class BookingComplete(BaseModel):

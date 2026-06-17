@@ -51,7 +51,7 @@ async def get_booking(db: AsyncSession, booking_id: int) -> LiveFlightBooking | 
 
 
 async def create_booking(
-    db: AsyncSession, schedule_id: int, pilot_id: int
+    db: AsyncSession, schedule_id: int, pilot_id: int, booking_type: str = "both"
 ) -> LiveFlightBooking | None:
     schedule_result = await db.execute(
         select(LiveFlightSchedule).where(LiveFlightSchedule.id == schedule_id)
@@ -64,6 +64,7 @@ async def create_booking(
         select(LiveFlightBooking).where(
             LiveFlightBooking.schedule_id == schedule_id,
             LiveFlightBooking.status.in_(["booked", "completed"]),
+            LiveFlightBooking.booking_type == booking_type,
         )
     )
     if existing_result.scalar_one_or_none():
@@ -74,6 +75,7 @@ async def create_booking(
         pilot_id=pilot_id,
         token_cost=1,
         status="booked",
+        booking_type=booking_type,
     )
     db.add(booking)
     await db.commit()

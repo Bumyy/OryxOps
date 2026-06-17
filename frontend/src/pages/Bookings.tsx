@@ -33,7 +33,12 @@ export default function Bookings() {
               {bookings.map((b) => (
                 <tr key={b.id} className="border-t border-brand-border">
                   <td className="px-5 py-3">{b.aircraft_registration}</td>
-                  <td className="px-5 py-3 font-semibold">{b.flight_departure} &rarr; {b.flight_arrival}</td>
+                  <td className="px-5 py-3 font-semibold">
+                    <div>{b.flight_departure} &rarr; {b.flight_arrival}</div>
+                    <div className="text-[9px] font-bold text-gray-500 uppercase mt-0.5 bg-gray-100 px-1.5 py-0.5 rounded-full inline-block">
+                      {b.booking_type === "departure" ? "Departure Only" : b.booking_type === "arrival" ? "Arrival Only" : "Full Flight"}
+                    </div>
+                  </td>
                   <td className="px-5 py-3 text-xs">{b.flight_scheduled_dep ? new Date(b.flight_scheduled_dep).toLocaleString() : "—"}</td>
                   <td className="px-5 py-3">
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${

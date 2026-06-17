@@ -406,6 +406,11 @@ class LiveFlightBooking(Base):
         nullable=False,
         default="booked",
     )
+    booking_type = Column(
+        String(20),
+        nullable=False,
+        default="both",
+    )
     completed_pirep_id = Column(Integer, ForeignKey("pireps.id"))
     taken_over_by = Column(Integer, ForeignKey("pilots.id"))
     taken_over_at = Column(DateTime)

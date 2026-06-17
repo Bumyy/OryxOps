@@ -48,6 +48,7 @@ async def list_bookings(
             pilot_id=b.pilot_id,
             pilot_callsign=b.pilot.callsign if b.pilot else None,
             pilot_avatar=get_pilot_avatar(b.pilot) if b.pilot else None,
+            booking_type=b.booking_type,
             token_cost=b.token_cost,
             booked_at=str(b.booked_at),
             status=b.status,
@@ -88,7 +89,7 @@ async def create_booking_route(
     if not member_result.scalar_one_or_none():
         raise HTTPException(status_code=403, detail="You must be a member of this group to book flights")
 
-    booking = await create_booking(db, data.schedule_id, pilot.id)
+    booking = await create_booking(db, data.schedule_id, pilot.id, data.booking_type)
     if not booking:
         raise HTTPException(status_code=400, detail="Schedule not available or already booked")
 
@@ -96,7 +97,7 @@ async def create_booking_route(
         db, pilot.id, booking.token_cost,
         transaction_type="booking_spend",
         reference_id=booking.id,
-        description=f"Booking for schedule #{data.schedule_id}",
+        description=f"Booking for schedule #{data.schedule_id} ({data.booking_type})",
     )
     if not wallet:
         raise HTTPException(status_code=400, detail="Insufficient tokens")
@@ -107,6 +108,7 @@ async def create_booking_route(
         pilot_id=booking.pilot_id,
         pilot_callsign=pilot.callsign,
         pilot_avatar=get_pilot_avatar(pilot),
+        booking_type=booking.booking_type,
         token_cost=booking.token_cost,
         booked_at=str(booking.booked_at),
         status=booking.status,
@@ -144,6 +146,7 @@ async def complete_booking_route(
         pilot_id=booking.pilot_id,
         pilot_callsign=booking.pilot.callsign if booking.pilot else None,
         pilot_avatar=get_pilot_avatar(booking.pilot) if booking.pilot else None,
+        booking_type=booking.booking_type,
         token_cost=booking.token_cost,
         booked_at=str(booking.booked_at),
         status=booking.status,
@@ -166,6 +169,7 @@ async def no_show_booking(
         pilot_id=booking.pilot_id,
         pilot_callsign=booking.pilot.callsign if booking.pilot else None,
         pilot_avatar=get_pilot_avatar(booking.pilot) if booking.pilot else None,
+        booking_type=booking.booking_type,
         token_cost=booking.token_cost,
         booked_at=str(booking.booked_at),
         status=booking.status,
@@ -187,6 +191,7 @@ async def take_over_booking_route(
         pilot_id=booking.pilot_id,
         pilot_callsign=booking.pilot.callsign if booking.pilot else None,
         pilot_avatar=get_pilot_avatar(booking.pilot) if booking.pilot else None,
+        booking_type=booking.booking_type,
         token_cost=booking.token_cost,
         booked_at=str(booking.booked_at),
         status=booking.status,
