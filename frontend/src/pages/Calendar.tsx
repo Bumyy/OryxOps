@@ -832,8 +832,7 @@ export default function Calendar() {
                     {!depBooked && !arrBooked && (
                       <button 
                         onClick={async () => { 
-                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "departure" })); 
-                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "arrival" })); 
+                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "both" })); 
                           refreshSchedules(); 
                           setEditingSchedule(null); 
                         }} 

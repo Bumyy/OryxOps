@@ -1,6 +1,8 @@
+from typing import Union
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_pilot
@@ -65,7 +67,7 @@ async def list_bookings(
     ]
 
 
-@router.post("", response_model=BookingOut)
+@router.post("", response_model=Union[BookingOut, list[BookingOut]])
 async def create_booking_route(
     data: BookingCreate,
     db: AsyncSession = Depends(get_db),
@@ -73,7 +75,9 @@ async def create_booking_route(
 ):
     # Check group membership
     schedule_result = await db.execute(
-        select(LiveFlightSchedule).where(LiveFlightSchedule.id == data.schedule_id)
+        select(LiveFlightSchedule)
+        .where(LiveFlightSchedule.id == data.schedule_id)
+        .options(selectinload(LiveFlightSchedule.aircraft))
     )
     schedule = schedule_result.scalar_one_or_none()
     if not schedule:
@@ -89,33 +93,54 @@ async def create_booking_route(
     if not member_result.scalar_one_or_none():
         raise HTTPException(status_code=403, detail="You must be a member of this group to book flights")
 
-    booking = await create_booking(db, data.schedule_id, pilot.id, data.booking_type)
-    if not booking:
-        raise HTTPException(status_code=400, detail="Schedule not available or already booked")
+    # Determine token cost: 2 tokens if booking both parts, otherwise 1 token
+    token_cost = 2 if data.booking_type == "both" else 1
 
-    wallet = await spend_tokens(
-        db, pilot.id, booking.token_cost,
-        transaction_type="booking_spend",
-        reference_id=booking.id,
-        description=f"Booking for schedule #{data.schedule_id} ({data.booking_type})",
-    )
-    if not wallet:
-        raise HTTPException(status_code=400, detail="Insufficient tokens")
+    try:
+        # Create bookings atomically (with commit=False)
+        bookings = await create_booking(db, data.schedule_id, pilot.id, data.booking_type, commit=False)
+        if not bookings:
+            raise HTTPException(status_code=400, detail="Schedule not available or already booked")
 
-    return BookingOut(
-        id=booking.id,
-        schedule_id=booking.schedule_id,
-        pilot_id=booking.pilot_id,
-        pilot_callsign=pilot.callsign,
-        pilot_avatar=get_pilot_avatar(pilot),
-        booking_type=booking.booking_type,
-        token_cost=booking.token_cost,
-        booked_at=str(booking.booked_at),
-        status=booking.status,
-        completed_pirep_id=booking.completed_pirep_id,
-        taken_over_by=booking.taken_over_by,
-        taken_over_at=str(booking.taken_over_at) if booking.taken_over_at else None,
-    )
+        # Deduct tokens (with commit=False)
+        wallet = await spend_tokens(
+            db, pilot.id, token_cost,
+            transaction_type="booking_spend",
+            reference_id=bookings[0].id,
+            description=f"Booking for schedule #{data.schedule_id} ({data.booking_type})",
+            commit=False,
+        )
+        if not wallet:
+            raise HTTPException(status_code=400, detail="Insufficient tokens")
+
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    out_list = [
+        BookingOut(
+            id=b.id,
+            schedule_id=b.schedule_id,
+            pilot_id=b.pilot_id,
+            pilot_callsign=pilot.callsign,
+            pilot_avatar=get_pilot_avatar(pilot),
+            booking_type=b.booking_type,
+            token_cost=b.token_cost,
+            booked_at=str(b.booked_at),
+            status=b.status,
+            completed_pirep_id=b.completed_pirep_id,
+            taken_over_by=b.taken_over_by,
+            taken_over_at=str(b.taken_over_at) if b.taken_over_at else None,
+            flight_departure=schedule.departure,
+            flight_arrival=schedule.arrival,
+            flight_scheduled_dep=str(schedule.scheduled_departure) if schedule.scheduled_departure else None,
+            aircraft_registration=schedule.aircraft.registration if schedule.aircraft else None,
+        )
+        for b in bookings
+    ]
+
+    return out_list if data.booking_type == "both" else out_list[0]
 
 
 @router.delete("/{booking_id}")

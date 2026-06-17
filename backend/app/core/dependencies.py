@@ -19,8 +19,13 @@ async def get_current_pilot(
     if payload is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    pilot_id: int | None = payload.get("sub")
-    if pilot_id is None:
+    sub_val = payload.get("sub")
+    if sub_val is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    try:
+        pilot_id = int(sub_val)
+    except (ValueError, TypeError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     result = await db.execute(select(Pilot).where(Pilot.id == pilot_id))

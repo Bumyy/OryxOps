@@ -51,8 +51,8 @@ async def get_booking(db: AsyncSession, booking_id: int) -> LiveFlightBooking | 
 
 
 async def create_booking(
-    db: AsyncSession, schedule_id: int, pilot_id: int, booking_type: str = "both"
-) -> LiveFlightBooking | None:
+    db: AsyncSession, schedule_id: int, pilot_id: int, booking_type: str = "both", commit: bool = True
+) -> list[LiveFlightBooking] | None:
     schedule_result = await db.execute(
         select(LiveFlightSchedule).where(LiveFlightSchedule.id == schedule_id)
     )
@@ -60,27 +60,82 @@ async def create_booking(
     if not schedule or schedule.status != "approved":
         return None
 
+    # Retrieve all active bookings for this schedule to check for part availability
     existing_result = await db.execute(
         select(LiveFlightBooking).where(
             LiveFlightBooking.schedule_id == schedule_id,
             LiveFlightBooking.status.in_(["booked", "completed"]),
-            LiveFlightBooking.booking_type == booking_type,
         )
     )
-    if existing_result.scalar_one_or_none():
+    existing_bookings = existing_result.scalars().all()
+
+    dep_booked = any(b.booking_type in ["departure", "both"] for b in existing_bookings)
+    arr_booked = any(b.booking_type in ["arrival", "both"] for b in existing_bookings)
+
+    bookings_to_create = []
+
+    if booking_type == "departure":
+        if dep_booked:
+            return None
+        bookings_to_create.append(
+            LiveFlightBooking(
+                schedule_id=schedule_id,
+                pilot_id=pilot_id,
+                token_cost=1,
+                status="booked",
+                booking_type="departure",
+            )
+        )
+    elif booking_type == "arrival":
+        if arr_booked:
+            return None
+        bookings_to_create.append(
+            LiveFlightBooking(
+                schedule_id=schedule_id,
+                pilot_id=pilot_id,
+                token_cost=1,
+                status="booked",
+                booking_type="arrival",
+            )
+        )
+    elif booking_type == "both":
+        # Booking both means booking departure and arrival. Neither must be already booked.
+        if dep_booked or arr_booked:
+            return None
+        bookings_to_create.append(
+            LiveFlightBooking(
+                schedule_id=schedule_id,
+                pilot_id=pilot_id,
+                token_cost=1,
+                status="booked",
+                booking_type="departure",
+            )
+        )
+        bookings_to_create.append(
+            LiveFlightBooking(
+                schedule_id=schedule_id,
+                pilot_id=pilot_id,
+                token_cost=1,
+                status="booked",
+                booking_type="arrival",
+            )
+        )
+    else:
         return None
 
-    booking = LiveFlightBooking(
-        schedule_id=schedule_id,
-        pilot_id=pilot_id,
-        token_cost=1,
-        status="booked",
-        booking_type=booking_type,
-    )
-    db.add(booking)
-    await db.commit()
-    await db.refresh(booking)
-    return booking
+    for b in bookings_to_create:
+        db.add(b)
+
+    if commit:
+        await db.commit()
+        for b in bookings_to_create:
+            await db.refresh(b)
+    else:
+        await db.flush()
+        for b in bookings_to_create:
+            await db.refresh(b)
+
+    return bookings_to_create
 
 
 async def cancel_booking(db: AsyncSession, booking_id: int, pilot_id: int) -> LiveFlightBooking | None:

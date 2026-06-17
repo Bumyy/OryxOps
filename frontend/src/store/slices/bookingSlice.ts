@@ -44,7 +44,7 @@ export const fetchBookings = createAsyncThunk(
 export const createBooking = createAsyncThunk(
   "booking/create",
   ({ scheduleId, bookingType = "both" }: { scheduleId: number; bookingType?: string }) =>
-    api.post<Booking>("/bookings", { schedule_id: scheduleId, booking_type: bookingType }),
+    api.post<Booking | Booking[]>("/bookings", { schedule_id: scheduleId, booking_type: bookingType }),
 );
 
 export const cancelBooking = createAsyncThunk(

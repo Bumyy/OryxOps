@@ -41,5 +41,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 def decode_access_token(token: str) -> dict | None:
     try:
         return pyjwt.decode(token, settings.secret_key, algorithms=[ALGORITHM], leeway=60)
-    except pyjwt.PyJWTError:
+    except pyjwt.PyJWTError as e:
+        import sys
+        print(f"JWT DECODE ERROR: {e}", file=sys.stderr, flush=True)
         return None

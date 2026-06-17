@@ -94,6 +94,7 @@ async def spend_tokens(
     transaction_type: str = "booking_spend",
     reference_id: int | None = None,
     description: str | None = None,
+    commit: bool = True,
 ) -> LiveTokens | None:
     wallet = await get_token_balance(db, pilot_id)
     if not wallet or wallet.balance < amount:
@@ -110,6 +111,12 @@ async def spend_tokens(
         description=description,
     )
     db.add(transaction)
-    await db.commit()
-    await db.refresh(wallet)
+    
+    if commit:
+        await db.commit()
+        await db.refresh(wallet)
+    else:
+        await db.flush()
+        await db.refresh(wallet)
+        
     return wallet
