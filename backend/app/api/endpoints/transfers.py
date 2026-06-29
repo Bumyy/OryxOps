@@ -85,11 +85,108 @@ async def review_transfer(
     staff: Pilot = Depends(get_current_staff),
 ):
     from datetime import datetime
+    from sqlalchemy import delete, func
+    from app.models.live_models import (
+        LiveFlyingGroup,
+        LiveGroupPilot,
+        LiveCareerPath,
+        LiveCareerRank,
+        LivePilotCareer,
+        Pilot,
+        LiveTransfer,
+    )
 
     result = await db.execute(select(LiveTransfer).where(LiveTransfer.id == transfer_id))
     transfer = result.scalar_one_or_none()
     if not transfer:
         raise HTTPException(status_code=404, detail="Transfer not found")
+
+    if data.status == "approved" and transfer.status != "approved":
+        # 1. Process Group Switch
+        if transfer.transfer_type == "group_switch":
+            group_res = await db.execute(
+                select(LiveFlyingGroup).where(
+                    func.lower(LiveFlyingGroup.name) == func.lower(transfer.to_value),
+                    LiveFlyingGroup.is_active == 1,
+                )
+            )
+            target_group = group_res.scalar_one_or_none()
+            if not target_group:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Target active group '{transfer.to_value}' not found",
+                )
+
+            # Deactivate current active group assignments for this pilot
+            ca_res = await db.execute(
+                select(LiveGroupPilot)
+                .join(LiveFlyingGroup, LiveFlyingGroup.id == LiveGroupPilot.group_id)
+                .where(
+                    LiveGroupPilot.pilot_id == transfer.pilot_id,
+                    LiveGroupPilot.removed_at.is_(None),
+                    LiveFlyingGroup.is_active == 1,
+                )
+            )
+            for ca in ca_res.scalars().all():
+                ca.removed_at = datetime.utcnow()
+
+            # Add to the new group
+            db.add(
+                LiveGroupPilot(
+                    group_id=target_group.id,
+                    pilot_id=transfer.pilot_id,
+                    is_group_admin=0,
+                )
+            )
+
+            # Update the pilot's flying_groupid
+            pilot_res = await db.execute(select(Pilot).where(Pilot.id == transfer.pilot_id))
+            p = pilot_res.scalar_one_or_none()
+            if p:
+                p.flying_groupid = target_group.id
+
+        # 2. Process Career Path Switch
+        elif transfer.transfer_type == "career_path_switch":
+            path_res = await db.execute(
+                select(LiveCareerPath).where(
+                    func.lower(LiveCareerPath.name) == func.lower(transfer.to_value),
+                    LiveCareerPath.is_active == 1,
+                )
+            )
+            target_path = path_res.scalar_one_or_none()
+            if not target_path:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Target active career path '{transfer.to_value}' not found",
+                )
+
+            # Delete old career entries
+            await db.execute(
+                delete(LivePilotCareer).where(LivePilotCareer.pilot_id == transfer.pilot_id)
+            )
+
+            # Get first rank
+            rank_res = await db.execute(
+                select(LiveCareerRank)
+                .where(LiveCareerRank.career_path_id == target_path.id)
+                .order_by(LiveCareerRank.sort_order)
+                .limit(1)
+            )
+            first_rank = rank_res.scalar_one_or_none()
+            if not first_rank:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Target career path has no ranks configured",
+                )
+
+            # Create new career
+            db.add(
+                LivePilotCareer(
+                    pilot_id=transfer.pilot_id,
+                    career_path_id=target_path.id,
+                    current_rank_id=first_rank.id,
+                )
+            )
 
     transfer.status = data.status
     transfer.reviewed_by = staff.id

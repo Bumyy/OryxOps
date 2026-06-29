@@ -164,6 +164,7 @@ async def reshuffle_group(
     db: AsyncSession = Depends(get_db),
     staff: Pilot = Depends(get_current_staff),
 ):
+    import re
     old_group = await db.execute(select(LiveFlyingGroup).where(LiveFlyingGroup.id == group_id))
     old = old_group.scalar_one_or_none()
     if not old:
@@ -176,8 +177,13 @@ async def reshuffle_group(
     else:
         month_end = today.replace(month=today.month + 1, day=1)
 
+    # Clean existing suffix (like (New), (June 2026), etc.)
+    base_name = re.sub(r"\s*\([^)]*\)\s*$", "", old.name).strip()
+    month_name = month_start.strftime("%B %Y")
+    new_name = f"{base_name} ({month_name})"
+
     new_group = LiveFlyingGroup(
-        name=f"{old.name} (New)",
+        name=new_name,
         discord_channel_id=old.discord_channel_id,
         period_start=month_start,
         period_end=month_end,
@@ -191,12 +197,21 @@ async def reshuffle_group(
             LiveGroupPilot.removed_at.is_(None),
         )
     )
-    for m in members.scalars().all():
+    members_list = list(members.scalars().all())
+    for m in members_list:
         db.add(LiveGroupPilot(
             group_id=new_group.id,
             pilot_id=m.pilot_id,
             is_group_admin=m.is_group_admin,
         ))
+
+    if members_list:
+        from sqlalchemy import update
+        await db.execute(
+            update(Pilot)
+            .where(Pilot.id.in_([m.pilot_id for m in members_list]))
+            .values(flying_groupid=new_group.id)
+        )
 
     ac_result = await db.execute(
         select(LiveGroupAircraft).where(

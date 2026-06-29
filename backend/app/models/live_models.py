@@ -453,3 +453,12 @@ class LiveTransfer(Base):
 
     pilot = relationship("Pilot", foreign_keys=[pilot_id])
     reviewer = relationship("Pilot", foreign_keys=[reviewed_by])
+
+
+class AwardGranted(Base):
+    __tablename__ = "awards_granted"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    awardid = Column(Integer, nullable=False)
+    pilotid = Column(Integer, nullable=False)
+    dateawarded = Column(Date)

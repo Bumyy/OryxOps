@@ -93,25 +93,14 @@ async def create_booking_route(
     if not member_result.scalar_one_or_none():
         raise HTTPException(status_code=403, detail="You must be a member of this group to book flights")
 
-    # Determine token cost: 2 tokens if booking both parts, otherwise 1 token
-    token_cost = 2 if data.booking_type == "both" else 1
+    # Determine token cost: Disabled token requirement (set cost to 0)
+    token_cost = 0
 
     try:
         # Create bookings atomically (with commit=False)
         bookings = await create_booking(db, data.schedule_id, pilot.id, data.booking_type, commit=False)
         if not bookings:
             raise HTTPException(status_code=400, detail="Schedule not available or already booked")
-
-        # Deduct tokens (with commit=False)
-        wallet = await spend_tokens(
-            db, pilot.id, token_cost,
-            transaction_type="booking_spend",
-            reference_id=bookings[0].id,
-            description=f"Booking for schedule #{data.schedule_id} ({data.booking_type})",
-            commit=False,
-        )
-        if not wallet:
-            raise HTTPException(status_code=400, detail="Insufficient tokens")
 
         await db.commit()
     except Exception:

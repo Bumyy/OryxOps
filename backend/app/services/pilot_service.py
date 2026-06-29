@@ -11,6 +11,7 @@ from app.models.live_models import (
     LiveTokens,
     Pilot,
     Pirep,
+    AwardGranted,
 )
 
 
@@ -21,6 +22,10 @@ async def get_pilot_list(
     rank_id: int | None = None,
 ) -> list[Pilot]:
     query = select(Pilot).where(Pilot.status == 1)
+
+    # Filter by award ID 9 (Oryxops)
+    subquery = select(AwardGranted.pilotid).where(AwardGranted.awardid == 9)
+    query = query.where(Pilot.id.in_(subquery))
 
     if group_id:
         group_pilot_sub = (

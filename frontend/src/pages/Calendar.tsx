@@ -60,7 +60,6 @@ export default function Calendar() {
 
   useEffect(() => {
     dispatch(fetchGroups());
-    dispatch(fetchAirframes());
     dispatch(fetchAircraftTypes());
     dispatch(fetchMyProfile());
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") { setPopup(null); setEditingSchedule(null); } };
@@ -69,10 +68,15 @@ export default function Calendar() {
   }, []);
 
   useEffect(() => {
-    if (currentPilot && currentPilot.group_id && activeGroup === null) {
-      setActiveGroup(currentPilot.group_id);
+    if (groups.length > 0) {
+      const activeGroupIds = groups.map(g => g.id);
+      if (currentPilot && currentPilot.group_id && activeGroupIds.includes(currentPilot.group_id)) {
+        setActiveGroup(currentPilot.group_id);
+      } else if (activeGroup === null || !activeGroupIds.includes(activeGroup)) {
+        setActiveGroup(groups[0].id);
+      }
     }
-  }, [currentPilot]);
+  }, [groups, currentPilot]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -84,6 +88,7 @@ export default function Calendar() {
       const apiStatus = statusFilter === "active" ? undefined : (statusFilter || undefined);
       dispatch(fetchSchedules({ group_id: activeGroup, week_start: weekStart, status: apiStatus }));
       dispatch(fetchWaves({ week_start: weekStart }));
+      dispatch(fetchAirframes({ group_id: activeGroup }));
     }
   }, [activeGroup, weekStart, statusFilter]);
 
@@ -808,9 +813,14 @@ export default function Calendar() {
                     {!depBooked && (
                       <button 
                         onClick={async () => { 
-                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "departure" })); 
-                          refreshSchedules(); 
-                          setEditingSchedule(null); 
+                          const res = await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "departure" })); 
+                          if (createBooking.fulfilled.match(res)) {
+                            alert("Departure part booked successfully!");
+                            refreshSchedules(); 
+                            setEditingSchedule(null); 
+                          } else {
+                            alert("Failed to book flight: " + (res.error?.message || "Unknown error"));
+                          }
                         }} 
                         className="w-full rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer text-center"
                       >
@@ -820,9 +830,14 @@ export default function Calendar() {
                     {!arrBooked && (
                       <button 
                         onClick={async () => { 
-                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "arrival" })); 
-                          refreshSchedules(); 
-                          setEditingSchedule(null); 
+                          const res = await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "arrival" })); 
+                          if (createBooking.fulfilled.match(res)) {
+                            alert("Arrival part booked successfully!");
+                            refreshSchedules(); 
+                            setEditingSchedule(null); 
+                          } else {
+                            alert("Failed to book flight: " + (res.error?.message || "Unknown error"));
+                          }
                         }} 
                         className="w-full rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer text-center"
                       >
@@ -832,9 +847,14 @@ export default function Calendar() {
                     {!depBooked && !arrBooked && (
                       <button 
                         onClick={async () => { 
-                          await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "both" })); 
-                          refreshSchedules(); 
-                          setEditingSchedule(null); 
+                          const res = await dispatch(createBooking({ scheduleId: editingSchedule.id, bookingType: "both" })); 
+                          if (createBooking.fulfilled.match(res)) {
+                            alert("Full flight booked successfully!");
+                            refreshSchedules(); 
+                            setEditingSchedule(null); 
+                          } else {
+                            alert("Failed to book flight: " + (res.error?.message || "Unknown error"));
+                          }
                         }} 
                         className="w-full rounded-full bg-gradient-to-br from-brand-dark to-brand text-white py-2 hover:shadow-md cursor-pointer text-center"
                       >
@@ -846,11 +866,55 @@ export default function Calendar() {
               })()}
 
               <div className="flex gap-2 flex-wrap w-full">
-                {editingSchedule.status === "draft" && <button onClick={async () => { await dispatch(proposeSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer">Propose</button>}
+                {editingSchedule.status === "draft" && (
+                  <button 
+                    onClick={async () => { 
+                      const res = await dispatch(proposeSchedule(editingSchedule.id)); 
+                      if (proposeSchedule.fulfilled.match(res)) {
+                        alert("Schedule proposed successfully!");
+                        refreshSchedules(); 
+                        setEditingSchedule(null); 
+                      } else {
+                        alert("Failed to propose schedule: " + (res.error?.message || "Unknown error"));
+                      }
+                    }} 
+                    className="flex-1 rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer"
+                  >
+                    Propose
+                  </button>
+                )}
                 {editingSchedule.status === "proposed" && (
                   <>
-                    <button onClick={async () => { await dispatch(approveSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-green-600 text-white py-2 hover:bg-green-700 cursor-pointer">Approve</button>
-                    <button onClick={async () => { await dispatch(rejectSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); }} className="flex-1 rounded-full bg-yellow-500 text-white py-2 hover:bg-yellow-600 cursor-pointer">Reject</button>
+                    <button 
+                      onClick={async () => { 
+                        const res = await dispatch(approveSchedule(editingSchedule.id)); 
+                        if (approveSchedule.fulfilled.match(res)) {
+                          alert("Schedule approved successfully!");
+                          refreshSchedules(); 
+                          setEditingSchedule(null); 
+                        } else {
+                          alert("Failed to approve schedule: " + (res.error?.message || "Unknown error"));
+                        }
+                      }} 
+                      className="flex-1 rounded-full bg-green-600 text-white py-2 hover:bg-green-700 cursor-pointer"
+                    >
+                      Approve
+                    </button>
+                    <button 
+                      onClick={async () => { 
+                        const res = await dispatch(rejectSchedule(editingSchedule.id)); 
+                        if (rejectSchedule.fulfilled.match(res)) {
+                          alert("Schedule rejected successfully!");
+                          refreshSchedules(); 
+                          setEditingSchedule(null); 
+                        } else {
+                          alert("Failed to reject schedule: " + (res.error?.message || "Unknown error"));
+                        }
+                      }} 
+                      className="flex-1 rounded-full bg-yellow-500 text-white py-2 hover:bg-yellow-600 cursor-pointer"
+                    >
+                      Reject
+                    </button>
                   </>
                 )}
                 
@@ -866,9 +930,14 @@ export default function Calendar() {
                         <button 
                           onClick={async () => { 
                             if (confirm("Cancel your departure booking?")) {
-                              await dispatch(cancelBooking(myDepBooking.id)); 
-                              refreshSchedules(); 
-                              setEditingSchedule(null); 
+                              const res = await dispatch(cancelBooking(myDepBooking.id)); 
+                              if (cancelBooking.fulfilled.match(res)) {
+                                alert("Departure booking cancelled!");
+                                refreshSchedules(); 
+                                setEditingSchedule(null); 
+                              } else {
+                                alert("Failed to cancel booking: " + (res.error?.message || "Unknown error"));
+                              }
                             }
                           }} 
                           className="flex-1 rounded-full bg-red-600 text-white py-2 hover:bg-red-700 cursor-pointer"
@@ -880,9 +949,14 @@ export default function Calendar() {
                         <button 
                           onClick={async () => { 
                             if (confirm("Cancel your arrival booking?")) {
-                              await dispatch(cancelBooking(myArrBooking.id)); 
-                              refreshSchedules(); 
-                              setEditingSchedule(null); 
+                              const res = await dispatch(cancelBooking(myArrBooking.id)); 
+                              if (cancelBooking.fulfilled.match(res)) {
+                                alert("Arrival booking cancelled!");
+                                refreshSchedules(); 
+                                setEditingSchedule(null); 
+                              } else {
+                                alert("Failed to cancel booking: " + (res.error?.message || "Unknown error"));
+                              }
                             }
                           }} 
                           className="flex-1 rounded-full bg-red-600 text-white py-2 hover:bg-red-700 cursor-pointer"
@@ -894,9 +968,14 @@ export default function Calendar() {
                         <button 
                           onClick={async () => { 
                             if (confirm("Cancel your booking?")) {
-                              await dispatch(cancelBooking(myBothBooking.id)); 
-                              refreshSchedules(); 
-                              setEditingSchedule(null); 
+                              const res = await dispatch(cancelBooking(myBothBooking.id)); 
+                              if (cancelBooking.fulfilled.match(res)) {
+                                alert("Booking cancelled!");
+                                refreshSchedules(); 
+                                setEditingSchedule(null); 
+                              } else {
+                                alert("Failed to cancel booking: " + (res.error?.message || "Unknown error"));
+                              }
                             }
                           }} 
                           className="flex-1 rounded-full bg-red-600 text-white py-2 hover:bg-red-700 cursor-pointer"
@@ -908,7 +987,23 @@ export default function Calendar() {
                   );
                 })()}
 
-                <button onClick={() => { if (confirm("Cancel this flight?")) { dispatch(deleteSchedule(editingSchedule.id)); refreshSchedules(); setEditingSchedule(null); } }} className="flex-1 rounded-full bg-red-500 text-white py-2 hover:bg-red-600 cursor-pointer">Delete</button>
+                <button 
+                  onClick={async () => { 
+                    if (confirm("Cancel this flight?")) { 
+                      const res = await dispatch(deleteSchedule(editingSchedule.id)); 
+                      if (deleteSchedule.fulfilled.match(res)) {
+                        alert("Schedule deleted successfully!");
+                        refreshSchedules(); 
+                        setEditingSchedule(null); 
+                      } else {
+                        alert("Failed to delete schedule: " + (res.error?.message || "Unknown error"));
+                      }
+                    } 
+                  }} 
+                  className="flex-1 rounded-full bg-red-500 text-white py-2 hover:bg-red-600 cursor-pointer"
+                >
+                  Delete
+                </button>
                 <button onClick={() => setEditingSchedule(null)} className="flex-1 rounded-full bg-gray-200 text-gray-600 py-2 hover:bg-gray-300 cursor-pointer">Close</button>
               </div>
             </div>

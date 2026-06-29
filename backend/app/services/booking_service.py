@@ -81,7 +81,7 @@ async def create_booking(
             LiveFlightBooking(
                 schedule_id=schedule_id,
                 pilot_id=pilot_id,
-                token_cost=1,
+                token_cost=0,
                 status="booked",
                 booking_type="departure",
             )
@@ -93,7 +93,7 @@ async def create_booking(
             LiveFlightBooking(
                 schedule_id=schedule_id,
                 pilot_id=pilot_id,
-                token_cost=1,
+                token_cost=0,
                 status="booked",
                 booking_type="arrival",
             )
@@ -106,7 +106,7 @@ async def create_booking(
             LiveFlightBooking(
                 schedule_id=schedule_id,
                 pilot_id=pilot_id,
-                token_cost=1,
+                token_cost=0,
                 status="booked",
                 booking_type="departure",
             )
@@ -115,7 +115,7 @@ async def create_booking(
             LiveFlightBooking(
                 schedule_id=schedule_id,
                 pilot_id=pilot_id,
-                token_cost=1,
+                token_cost=0,
                 status="booked",
                 booking_type="arrival",
             )

@@ -141,6 +141,12 @@ async def assign_pilots_to_group(
         db.add(assignment)
         assignments.append(assignment)
 
+        # Also update Pilot's flying_groupid
+        pilot_result = await db.execute(select(Pilot).where(Pilot.id == pilot_id))
+        p = pilot_result.scalar_one_or_none()
+        if p:
+            p.flying_groupid = group_id
+
     await db.commit()
     return assignments
 
@@ -185,6 +191,13 @@ async def remove_pilot_from_group(
     if not assignment:
         return False
     assignment.removed_at = datetime.utcnow()
+
+    # Also update Pilot's flying_groupid to 0
+    pilot_result = await db.execute(select(Pilot).where(Pilot.id == pilot_id))
+    p = pilot_result.scalar_one_or_none()
+    if p and p.flying_groupid == group_id:
+        p.flying_groupid = 0
+
     await db.commit()
     return True
 

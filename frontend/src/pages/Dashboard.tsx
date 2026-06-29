@@ -3,20 +3,17 @@ import { Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchMyProfile } from "../store/slices/pilotSlice";
 import { fetchMyDiscoverySummary } from "../store/slices/discoverySlice";
-import { fetchBalance } from "../store/slices/tokenSlice";
 import useReveal from "../hooks/useReveal";
 
 export default function Dashboard() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((s) => s.auth);
   const { currentPilot } = useAppSelector((s) => s.pilot);
-  const { balance } = useAppSelector((s) => s.token);
   const { summary } = useAppSelector((s) => s.discovery);
   const revealRef = useReveal();
 
   useEffect(() => {
     dispatch(fetchMyProfile());
-    dispatch(fetchBalance());
     dispatch(fetchMyDiscoverySummary());
   }, []);
 
@@ -47,11 +44,13 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-5">
-          <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Tokens</p>
+          <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Transfer Stats</p>
           <p className="text-2xl font-bold text-brand mt-1">
-            {balance?.balance ?? 0}
+            {pilot?.transhours ?? 0}h
           </p>
-          <Link to="/tokens" className="text-xs text-brand hover:underline">View history</Link>
+          <p className="text-xs text-gray-450 mt-1 font-semibold text-gray-500">
+            {pilot?.transflights ?? 0} flights
+          </p>
         </div>
 
         <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-5">

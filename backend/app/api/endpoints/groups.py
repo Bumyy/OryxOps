@@ -62,6 +62,9 @@ async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
+    active_members = [gp for gp in group.group_pilots if gp.removed_at is None]
+    active_aircraft = [ga for ga in group.group_aircraft if ga.removed_at is None]
+
     return GroupDetailOut(
         id=group.id,
         name=group.name,
@@ -69,8 +72,8 @@ async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
         is_active=bool(group.is_active),
         period_start=str(group.period_start),
         period_end=str(group.period_end),
-        member_count=len(group.group_pilots),
-        aircraft_count=len(group.group_aircraft),
+        member_count=len(active_members),
+        aircraft_count=len(active_aircraft),
         members=[
             GroupPilotOut(
                 id=gp.id,
@@ -80,7 +83,7 @@ async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
                 is_group_admin=bool(gp.is_group_admin),
                 assigned_at=str(gp.assigned_at) if gp.assigned_at else None,
             )
-            for gp in group.group_pilots
+            for gp in active_members
         ],
         aircraft=[
             GroupAircraftOut(
@@ -92,7 +95,7 @@ async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
                 status=ga.aircraft.status,
                 assigned_at=str(ga.assigned_at) if ga.assigned_at else None,
             )
-            for ga in group.group_aircraft
+            for ga in active_aircraft
         ],
     )
 

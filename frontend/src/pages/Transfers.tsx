@@ -15,10 +15,15 @@ export default function Transfers() {
 
   const handleCreate = async () => {
     if (!toValue) return;
-    await dispatch(createTransfer({ transfer_type: type, to_value: toValue, reason }));
-    setToValue("");
-    setReason("");
-    dispatch(fetchTransfers());
+    const res = await dispatch(createTransfer({ transfer_type: type, to_value: toValue, reason }));
+    if (createTransfer.fulfilled.match(res)) {
+      alert("Transfer request submitted successfully!");
+      setToValue("");
+      setReason("");
+      dispatch(fetchTransfers());
+    } else {
+      alert("Failed to submit transfer request: " + (res.error?.message || "Unknown error"));
+    }
   };
 
   return (

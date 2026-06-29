@@ -25,7 +25,6 @@ export default function Bookings() {
                 <th className="px-5 py-3 font-semibold text-gray-600">Route</th>
                 <th className="px-5 py-3 font-semibold text-gray-600">Departure</th>
                 <th className="px-5 py-3 font-semibold text-gray-600">Status</th>
-                <th className="px-5 py-3 font-semibold text-gray-600">Tokens</th>
                 <th className="px-5 py-3 font-semibold text-gray-600">Actions</th>
               </tr>
             </thead>
@@ -50,7 +49,6 @@ export default function Bookings() {
                     }`}>{b.status}</span>
                     {b.taken_over_by_name && <span className="text-xs text-gray-400 ml-2">by {b.taken_over_by_name}</span>}
                   </td>
-                  <td className="px-5 py-3">{b.token_cost}</td>
                   <td className="px-5 py-3">
                     <div className="flex gap-2 flex-wrap">
                       {b.status === "booked" && (

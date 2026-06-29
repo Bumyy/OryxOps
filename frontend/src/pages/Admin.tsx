@@ -7,7 +7,6 @@ import {
 import { fetchGroups, createGroup, updateGroup } from "../store/slices/groupSlice";
 import { fetchPilots } from "../store/slices/pilotSlice";
 import { fetchAirframes, fetchAircraftTypes, createAirframe, updateAirframe } from "../store/slices/aircraftSlice";
-import { grantTokens, removeTokens } from "../store/slices/tokenSlice";
 import { fetchTransfers, reviewTransfer } from "../store/slices/transferSlice";
 import {
   fetchCareerPaths, fetchCareerPathDetail, createCareerPath, deleteCareerPath,
@@ -15,7 +14,7 @@ import {
 } from "../store/slices/careerSlice";
 import { fetchWaves, createWave, deleteWave } from "../store/slices/scheduleSlice";
 
-type Tab = "pilots" | "groups" | "aircraft" | "tokens" | "careers" | "transfers" | "waves" | "settings";
+type Tab = "pilots" | "groups" | "aircraft" | "careers" | "transfers" | "waves" | "settings";
 
 export default function Admin() {
   const dispatch = useAppDispatch();
@@ -30,7 +29,6 @@ export default function Admin() {
     { key: "pilots", label: "Pilots" },
     { key: "groups", label: "Groups" },
     { key: "aircraft", label: "Aircraft" },
-    { key: "tokens", label: "Tokens" },
     { key: "careers", label: "Careers" },
     { key: "transfers", label: "Transfers" },
     { key: "waves", label: "Waves" },
@@ -81,7 +79,6 @@ export default function Admin() {
       {tab === "pilots" && <PilotsTab />}
       {tab === "groups" && <GroupsTab />}
       {tab === "aircraft" && <AircraftTab />}
-      {tab === "tokens" && <TokensTab />}
       {tab === "careers" && <CareersTab />}
       {tab === "transfers" && <TransfersTab />}
       {tab === "waves" && <WavesTab />}
@@ -108,13 +105,23 @@ export function PilotsTab() {
   }, [paths]);
 
   const handleEnroll = async (pilotId: number) => {
-    await dispatch(enrollPilot({ pilot_id: pilotId, career_path_id: careerPathId }));
-    dispatch(fetchEnrolledPilots());
+    const res = await dispatch(enrollPilot({ pilot_id: pilotId, career_path_id: careerPathId }));
+    if (enrollPilot.fulfilled.match(res)) {
+      alert("Pilot enrolled successfully!");
+      dispatch(fetchEnrolledPilots());
+    } else {
+      alert("Failed to enroll pilot: " + (res.error?.message || "Unknown error"));
+    }
   };
 
   const handlePromote = async (pilotId: number, pathId: number) => {
-    await dispatch(promotePilot({ pilotId, careerPathId: pathId }));
-    dispatch(fetchEnrolledPilots());
+    const res = await dispatch(promotePilot({ pilotId, careerPathId: pathId }));
+    if (promotePilot.fulfilled.match(res)) {
+      alert("Pilot promoted successfully!");
+      dispatch(fetchEnrolledPilots());
+    } else {
+      alert("Failed to promote pilot: " + (res.error?.message || "Unknown error"));
+    }
   };
 
   const filterPilots = (list: any[]) => {
@@ -294,8 +301,15 @@ export function GroupsTab() {
               {g.is_active && (
                 <button
                   onClick={async () => {
-                    await dispatch(reshuffleGroup(g.id));
-                    dispatch(fetchGroups());
+                    if (confirm(`Are you sure you want to reshuffle ${g.name}?`)) {
+                      const res = await dispatch(reshuffleGroup(g.id));
+                      if (reshuffleGroup.fulfilled.match(res)) {
+                        alert("Group reshuffled successfully!");
+                        dispatch(fetchGroups());
+                      } else {
+                        alert("Failed to reshuffle group: " + (res.error?.message || "Unknown error"));
+                      }
+                    }
                   }}
                   className="text-xs rounded-full bg-orange-500 text-white px-2 py-0.5 hover:bg-orange-600 transition-colors"
                   title="Create new group period with same members/aircraft"
@@ -410,35 +424,7 @@ export function AircraftTab() {
   );
 }
 
-/* ─── TOKENS TAB ─── */
 
-export function TokensTab() {
-  const dispatch = useAppDispatch();
-  const { pilots } = useAppSelector((s) => s.pilot);
-  const [pilotId, setPilotId] = useState(0);
-  const [amount, setAmount] = useState(0);
-  const [desc, setDesc] = useState("");
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-brand">Token Management</h2>
-      <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
-          <select value={pilotId} onChange={e => setPilotId(Number(e.target.value))} className="border border-brand-border rounded-xl px-4 py-2.5 text-sm">
-            <option value={0}>Select Pilot</option>
-            {pilots.map(p => <option key={p.id} value={p.id}>{p.callsign} — {p.name}</option>)}
-          </select>
-          <input type="number" placeholder="Amount" value={amount || ""} onChange={e => setAmount(Number(e.target.value))} className="border border-brand-border rounded-xl px-4 py-2.5 text-sm" />
-          <input placeholder="Reason" value={desc} onChange={e => setDesc(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5 text-sm" />
-          <div className="flex gap-2">
-            <button onClick={() => dispatch(grantTokens({ pilot_id: pilotId, amount, description: desc })).then(() => { setAmount(0); setDesc(""); })} className="flex-1 rounded-full bg-green-600 text-white font-semibold text-sm py-2 hover:bg-green-700 transition-colors">Grant</button>
-            <button onClick={() => dispatch(removeTokens({ pilot_id: pilotId, amount, description: desc })).then(() => { setAmount(0); setDesc(""); })} className="flex-1 rounded-full bg-red-500 text-white font-semibold text-sm py-2 hover:bg-red-600 transition-colors">Remove</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ─── CAREERS TAB ─── */
 
@@ -708,7 +694,16 @@ export function CareersTab() {
             {paths.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <button
-            onClick={() => { if (promotePilotId && promotePathId) dispatch(promotePilot({ pilotId: promotePilotId, careerPathId: promotePathId })); }}
+            onClick={async () => {
+              if (promotePilotId && promotePathId) {
+                const res = await dispatch(promotePilot({ pilotId: promotePilotId, careerPathId: promotePathId }));
+                if (promotePilot.fulfilled.match(res)) {
+                  alert("Pilot promoted successfully!");
+                } else {
+                  alert("Failed to promote pilot: " + (res.error?.message || "Unknown error"));
+                }
+              }
+            }}
             className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm py-2.5 hover:-translate-y-0.5 hover:shadow-lg transition-all"
           >Promote</button>
         </div>
@@ -869,7 +864,18 @@ export function SettingsTab() {
                 <p className="font-semibold text-sm">{s.setting_key}</p>
                 <p className="text-xs text-gray-400">{s.description}</p>
               </div>
-              <input defaultValue={s.setting_value} onBlur={(e) => dispatch(updateSetting({ key: s.setting_key, value: e.target.value }))} className="border border-brand-border rounded-lg px-3 py-1.5 text-sm w-40" />
+              <input
+                defaultValue={s.setting_value}
+                onBlur={async (e) => {
+                  if (e.target.value !== s.setting_value) {
+                    const res = await dispatch(updateSetting({ key: s.setting_key, value: e.target.value }));
+                    if (!updateSetting.fulfilled.match(res)) {
+                      alert("Failed to update setting: " + (res.error?.message || "Unknown error"));
+                    }
+                  }
+                }}
+                className="border border-brand-border rounded-lg px-3 py-1.5 text-sm w-40"
+              />
             </div>
           ))}
         </div>
