@@ -107,6 +107,8 @@ export default function App() {
           <Route path="/transfers" element={<Transfers />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/efb" element={<EFB />} />
+          <Route path="/efb/checklist" element={<EFB />} />
+          <Route path="/efb/settings" element={<EFB />} />
           <Route path="/admin/pilots" element={<AdminPilots />} />
           <Route path="/admin/groups" element={<AdminGroups />} />
           <Route path="/admin/aircraft" element={<AdminAircraft />} />

@@ -1,19 +1,102 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import useReveal from "../hooks/useReveal";
+import checklistTemplate from "../assets/checklist/checklist_template.json";
+import aircraftsDb from "../assets/checklist/aircrafts.json";
+import EFBBriefing from "../components/efb/EFBBriefing";
+import EFBChecklist from "../components/efb/EFBChecklist";
+import EFBSettings from "../components/efb/EFBSettings";
 
 export default function EFB() {
   const revealRef = useReveal();
   
+  // Base Connection & OFP States
   const [simbriefUsername, setSimbriefUsername] = useState(() => {
     return localStorage.getItem("simbrief_pilot_id") || "";
   });
   const [isSavedPilotId, setIsSavedPilotId] = useState(!!localStorage.getItem("simbrief_pilot_id"));
   const [zuluTime, setZuluTime] = useState("");
-  
   const [ofpData, setOfpData] = useState<any>(null);
   const [loadingOfp, setLoadingOfp] = useState(false);
   const [ofpError, setOfpError] = useState<string | null>(null);
   const [pdfLoadError, setPdfLoadError] = useState(false);
+
+  // Tab state derived from router path
+  const location = useLocation();
+  const activeTab = location.pathname === "/efb/checklist"
+    ? "checklist"
+    : location.pathname === "/efb/settings"
+    ? "settings"
+    : "briefing";
+
+  // Checklist Overrides State
+  const [aircraftOverride, setAircraftOverride] = useState<string | null>(null);
+  const [loadOverride, setLoadOverride] = useState<number | null>(null);
+  const [directionOverride, setDirectionOverride] = useState<"east" | "west" | null>(null);
+
+  // Co-Pilot Settings State
+  const [selectedVoiceName, setSelectedVoiceName] = useState(() => localStorage.getItem("copilot_voice") || "");
+  const [speechRate, setSpeechRate] = useState(() => parseFloat(localStorage.getItem("copilot_rate") || "1.0"));
+  const [speechPitch, setSpeechPitch] = useState(() => parseFloat(localStorage.getItem("copilot_pitch") || "1.0"));
+  const [triggerKeyword, setTriggerKeyword] = useState(() => localStorage.getItem("copilot_trigger") || "check");
+  const [playChime, setPlayChime] = useState(() => localStorage.getItem("copilot_chime") !== "false");
+  const [autoAdvance, setAutoAdvance] = useState(() => localStorage.getItem("copilot_auto_advance") !== "false");
+  const [autoCollapse, setAutoCollapse] = useState(() => localStorage.getItem("copilot_auto_collapse") !== "false");
+
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [coPilotRunning, setCoPilotRunning] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [transcriptLog, setTranscriptLog] = useState("");
+
+  // Checklist Engine States
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem("copilot_checked_items");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [activePhaseIndex, setActivePhaseIndex] = useState<number>(() => {
+    const saved = localStorage.getItem("copilot_active_phase_index");
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
+  const recognitionRef = useRef<any>(null);
+
+  // Save Settings Helper
+  const updateSettings = (key: string, value: any, setter: Function) => {
+    localStorage.setItem(key, String(value));
+    setter(value);
+  };
+
+  // Sync checklist progress state to browser cache
+  useEffect(() => {
+    localStorage.setItem("copilot_checked_items", JSON.stringify(checkedItems));
+  }, [checkedItems]);
+
+  useEffect(() => {
+    localStorage.setItem("copilot_active_phase_index", String(activePhaseIndex));
+  }, [activePhaseIndex]);
+
+  // Load SpeechSynthesis voices
+  useEffect(() => {
+    const updateVoices = () => {
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        const voices = window.speechSynthesis.getVoices();
+        setAvailableVoices(voices);
+        if (voices.length > 0 && !localStorage.getItem("copilot_voice")) {
+          const defaultVoice = voices.find(v => v.lang.startsWith("en")) || voices[0];
+          setSelectedVoiceName(defaultVoice.name);
+          localStorage.setItem("copilot_voice", defaultVoice.name);
+        }
+      }
+    };
+    updateVoices();
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+  }, []);
 
   // Zulu Clock timer
   useEffect(() => {
@@ -37,7 +120,6 @@ export default function EFB() {
       }
       const data = await res.json();
       
-      // Empty state condition: fetch.status !== Success or missing PDF link
       if (data.fetch?.status?.toLowerCase() !== "success" || !data.files?.pdf?.link) {
         setOfpData(null);
         setOfpError("No SimBrief Operational Flight Plan Found");
@@ -121,10 +203,800 @@ export default function EFB() {
     return `${value}${displayUnit}`;
   };
 
+  // Dynamic Variable Calculations for Checklist
+  const getCalculatedLoad = () => {
+    if (!ofpData) return 78;
+    const payload = parseFloat(ofpData.weights?.payload);
+    const maxTow = parseFloat(ofpData.weights?.max_tow);
+    const oew = parseFloat(ofpData.weights?.oew);
+    if (!isNaN(payload) && !isNaN(maxTow) && !isNaN(oew) && maxTow - oew > 0) {
+      return Math.min(100, Math.max(0, Math.round((payload / (maxTow - oew)) * 100)));
+    }
+    return 78;
+  };
+
+  const activeLoad = loadOverride !== null ? loadOverride : getCalculatedLoad();
+
+  const getFlightDirection = () => {
+    if (!ofpData) return "east";
+    const depLon = parseFloat(ofpData.origin?.pos_long);
+    const arrLon = parseFloat(ofpData.destination?.pos_long);
+    if (isNaN(depLon) || isNaN(arrLon)) return "east";
+    let diff = arrLon - depLon;
+    if (Math.abs(diff) > 180) {
+      diff = diff > 0 ? diff - 360 : diff + 360;
+    }
+    return diff < 0 ? "west" : "east";
+  };
+
+  const activeDirection = directionOverride !== null ? directionOverride : getFlightDirection();
+
+  const aircraftCode = ofpData?.aircraft?.icao_code?.toUpperCase() || "";
+  const activeAircraft = aircraftOverride || aircraftCode;
+  const aircraftInfo = aircraftsDb[activeAircraft as keyof typeof aircraftsDb] as any;
+
+  // Retrieve performance data
+  const getPerformanceData = () => {
+    const defaultData = {
+      takeoff_flaps: "1",
+      n1_target: "90%",
+      vr_speed: "140",
+      va_speed: "145",
+      cruise_altitude: "FL350",
+      initial_climb_vs: "2200",
+      vs_5k: "1800",
+      vs_15k: "1400",
+      vs_24k: "1000",
+      initial_speed: "250",
+      accel_speed_10k: "280",
+      mach_transition_alt: "FL280",
+      mach_speed: "0.80",
+      descent_speed_profile: {},
+      flap_speeds: {},
+      engine_start_sequence: [1, 2],
+      engine_stable_percentage: 20
+    };
+    if (!aircraftInfo) return defaultData;
+    const acData = aircraftInfo.performance_data;
+    
+    const takeoffPerf = acData.takeoff_data.find(
+      (p: any) => p.load_range[0] <= activeLoad && activeLoad <= p.load_range[1]
+    ) || acData.takeoff_data[acData.takeoff_data.length - 1];
+
+    const cruiseProfile = acData.cruise_profile[activeDirection] || acData.cruise_profile["east"];
+    const cruisePerf = cruiseProfile.find(
+      (p: any) => p.load_range[0] <= activeLoad && activeLoad <= p.load_range[1]
+    ) || cruiseProfile[cruiseProfile.length - 1];
+
+    return {
+      takeoff_flaps: takeoffPerf?.flaps || "1",
+      n1_target: takeoffPerf?.n1 || "90%",
+      vr_speed: String(takeoffPerf?.vr || "140"),
+      va_speed: String(takeoffPerf?.va || "145"),
+      cruise_altitude: cruisePerf?.altitude || "FL350",
+      initial_climb_vs: acData.climb_vs_profile?.["0_5000"] || "2200",
+      vs_5k: acData.climb_vs_profile?.["5000_15000"] || "1800",
+      vs_15k: acData.climb_vs_profile?.["15000_24000"] || "1400",
+      vs_24k: acData.climb_vs_profile?.["24000_cruise"] || "1000",
+      initial_speed: acData.speed_profile?.initial_speed || "250",
+      accel_speed_10k: acData.speed_profile?.above_10k || "280",
+      mach_transition_alt: acData.speed_profile?.mach_transition_alt || "FL280",
+      mach_speed: acData.speed_profile?.mach || "0.80",
+      descent_speed_profile: acData.descent_speed_profile || {},
+      flap_speeds: acData.flap_speeds || {},
+      engine_start_sequence: aircraftInfo.engine_start_sequence || [1, 2],
+      engine_stable_percentage: aircraftInfo.engine_stable_percentage || 20
+    };
+  };
+
+  // Compile checklist items dynamically
+  const getCompiledChecklist = () => {
+    const perf = getPerformanceData();
+    const placeholders: Record<string, string> = {
+      load_percentage: String(activeLoad),
+      cruise_altitude: perf.cruise_altitude,
+      takeoff_flaps: perf.takeoff_flaps,
+      n1_target: perf.n1_target,
+      vr_speed: perf.vr_speed,
+      va_speed: perf.va_speed,
+      initial_climb_vs: perf.initial_climb_vs,
+      vs_5k: perf.vs_5k,
+      vs_15k: perf.vs_15k,
+      vs_24k: perf.vs_24k,
+      initial_speed: perf.initial_speed,
+      accel_speed_10k: perf.accel_speed_10k,
+      mach_transition_alt: perf.mach_transition_alt,
+      mach_speed: perf.mach_speed
+    };
+
+    return checklistTemplate.checklist.map((section: any, sIdx: number) => {
+      const items: Array<{ id: string; text: string; value: string; isTable?: boolean; tableData?: any }> = [];
+
+      if (section.items) {
+        section.items.forEach((item: any, iIdx: number) => {
+          let resolvedValue = item.value;
+          
+          if (resolvedValue.includes("REDUCE VS TO")) {
+            try {
+              let curr = 0, targ = 0;
+              if (resolvedValue.includes("{vs_5k}")) {
+                curr = parseInt(perf.initial_climb_vs, 10);
+                targ = parseInt(perf.vs_5k, 10);
+              } else if (resolvedValue.includes("{vs_15k}")) {
+                curr = parseInt(perf.vs_5k, 10);
+                targ = parseInt(perf.vs_15k, 10);
+              } else if (resolvedValue.includes("{vs_24k}")) {
+                curr = parseInt(perf.vs_15k, 10);
+                targ = parseInt(perf.vs_24k, 10);
+              }
+              if (targ > curr) resolvedValue = resolvedValue.replace("REDUCE", "INCREASE");
+            } catch {}
+          }
+
+          Object.entries(placeholders).forEach(([k, v]) => {
+            resolvedValue = resolvedValue.replace(`{${k}}`, v);
+          });
+
+          let extraNote = "";
+          if (item.text === "TAKEOFF FLAPS" && aircraftInfo?.flap_notam) {
+            if (perf.takeoff_flaps.includes("/")) {
+              extraNote = aircraftInfo.flap_notam;
+            }
+          }
+
+          items.push({
+            id: `item-${sIdx}-${iIdx}-main`,
+            text: item.text,
+            value: resolvedValue + (extraNote ? ` (NOTE: ${extraNote})` : "")
+          });
+        });
+      }
+
+      if (section.special_section) {
+        if (section.special_section === "engine_start") {
+          perf.engine_start_sequence.forEach((engNum: number, eIdx: number) => {
+            items.push({
+              id: `item-${sIdx}-${eIdx}-eng-start`,
+              text: `ENGINE ${engNum}`,
+              value: "START"
+            });
+            items.push({
+              id: `item-${sIdx}-${eIdx}-eng-stable`,
+              text: `ENGINE ${engNum}`,
+              value: `STABLE (${perf.engine_stable_percentage}%)`
+            });
+          });
+        } else if (section.special_section === "flap_retraction_below_10k") {
+          const speedThreshold = aircraftInfo?.speed_threshold_10k || 250;
+          const takeoffFlap = perf.takeoff_flaps;
+          const hasMultipleFlaps = takeoffFlap.includes("/");
+
+          if (aircraftInfo?.flap_retraction_schedule) {
+            const schedule = aircraftInfo.flap_retraction_schedule;
+            let takeoffIdx = -1;
+            if (!hasMultipleFlaps) {
+              takeoffIdx = schedule.findIndex((step: any) => step.setting === takeoffFlap);
+            }
+            schedule.forEach((step: any, stepIdx: number) => {
+              if (step.speed <= speedThreshold) {
+                if (!hasMultipleFlaps && takeoffIdx !== -1 && stepIdx <= takeoffIdx) return;
+                items.push({
+                  id: `item-${sIdx}-${stepIdx}-flap-ret-blw`,
+                  text: `AS SPEED INCREASES, AT ${step.speed} KTS`,
+                  value: `SET FLAPS ${step.setting}`
+                });
+              }
+            });
+          } else {
+            const flap1Speed = perf.flap_speeds["1"] || 245;
+            const flap5Speed = perf.flap_speeds["5"] || 230;
+            if (hasMultipleFlaps) {
+              const options = takeoffFlap.split("/");
+              const lowerFlap = options[0];
+              const higherFlap = options[1] || lowerFlap;
+              const higherFlapSpeed = perf.flap_speeds[higherFlap] || 230;
+              const lowerFlapSpeed = perf.flap_speeds[lowerFlap] || 245;
+
+              if (higherFlapSpeed <= speedThreshold) {
+                items.push({
+                  id: `item-${sIdx}-flap-ret-blw-h`,
+                  text: `AS SPEED INCREASES, AT ${higherFlapSpeed} KTS`,
+                  value: `SET FLAPS ${lowerFlap} (if flaps ${higherFlap} selected during takeoff)`
+                });
+              }
+              if (lowerFlapSpeed <= speedThreshold) {
+                items.push({
+                  id: `item-${sIdx}-flap-ret-blw-l`,
+                  text: `AS SPEED INCREASES, AT ${lowerFlapSpeed} KTS`,
+                  value: `SET FLAPS 1 (if flaps ${lowerFlap} selected during takeoff)`
+                });
+              }
+            } else {
+              if (takeoffFlap === "5") {
+                items.push({
+                  id: `item-${sIdx}-flap-ret-blw-5`,
+                  text: `AS SPEED INCREASES, AT ${flap1Speed} KTS`,
+                  value: "SET FLAPS 1"
+                });
+              } else if (takeoffFlap === "15") {
+                items.push({
+                  id: `item-${sIdx}-flap-ret-blw-15a`,
+                  text: `AS SPEED INCREASES, AT ${flap5Speed} KTS`,
+                  value: "SET FLAPS 5"
+                });
+                items.push({
+                  id: `item-${sIdx}-flap-ret-blw-15b`,
+                  text: `AS SPEED INCREASES, AT ${flap1Speed} KTS`,
+                  value: "SET FLAPS 1"
+                });
+              }
+            }
+          }
+        } else if (section.special_section === "flap_retraction_above_10k") {
+          const speedThreshold = aircraftInfo?.speed_threshold_10k || 250;
+          if (aircraftInfo?.flap_retraction_schedule) {
+            const schedule = aircraftInfo.flap_retraction_schedule;
+            schedule.forEach((step: any, stepIdx: number) => {
+              if (step.speed > speedThreshold) {
+                items.push({
+                  id: `item-${sIdx}-${stepIdx}-flap-ret-abv`,
+                  text: `AS SPEED INCREASES, AT ${step.speed} KTS`,
+                  value: `SET FLAPS ${step.setting}`
+                });
+              }
+            });
+          } else {
+            const flap1Speed = perf.flap_speeds["1"] || 265;
+            items.push({
+              id: `item-${sIdx}-flap-ret-abv-d`,
+              text: `AS SPEED INCREASES, AT ${flap1Speed} KTS`,
+              value: "SET FLAPS 0"
+            });
+          }
+        } else if (section.special_section === "step_climb") {
+          const cruiseProfile = aircraftInfo?.performance_data?.cruise_profile?.[activeDirection] || [];
+          const stepClimbs = cruiseProfile.filter((p: any) => p.load_range[1] < activeLoad);
+          if (stepClimbs.length > 0) {
+            items.push({
+              id: `item-${sIdx}-step-climb-hdr`,
+              text: "STEP CLIMB (IF POSSIBLE)",
+              value: "ADVISED"
+            });
+            const sortedSteps = [...stepClimbs].sort((a: any, b: any) => b.load_range[1] - a.load_range[1]);
+            sortedSteps.forEach((step: any, stepIdx: number) => {
+              items.push({
+                id: `item-${sIdx}-${stepIdx}-step-climb-item`,
+                text: `AT ${step.load_range[1]}% LOAD`,
+                value: `CLIMB TO ${step.altitude}`
+              });
+            });
+          }
+        } else if (section.special_section === "descent_speed_profile") {
+          Object.entries(perf.descent_speed_profile).forEach(([phase, speed]: [string, any], pIdx: number) => {
+            const phaseText = phase.replace(/_/g, " ").replace("fl", "FL").toUpperCase();
+            items.push({
+              id: `item-${sIdx}-${pIdx}-desc-spd`,
+              text: `${phaseText}`,
+              value: `${speed}`
+            });
+          });
+        } else if (section.special_section === "flap_deploy_above_10k" || section.special_section === "flap_deploy_below_10k") {
+          const speedThreshold = aircraftInfo?.speed_threshold_10k || 250;
+          const sortedFlaps = Object.entries(perf.flap_speeds).sort((a: any, b: any) => (b[1] as number) - (a[1] as number));
+          sortedFlaps.forEach(([flapSetting, speed]: [string, any], fIdx: number) => {
+            const isAbove = speed > speedThreshold;
+            const matchesSection = section.special_section === "flap_deploy_above_10k" ? isAbove : !isAbove;
+            if (matchesSection) {
+              let resolvedFlapVal = `SET FLAPS ${flapSetting}`;
+              if (flapSetting === "40" && aircraftCode === "B38M") {
+                resolvedFlapVal += " (Short Runway Only)";
+              }
+              items.push({
+                id: `item-${sIdx}-${fIdx}-flap-dep-${section.special_section}`,
+                text: `AS SPEED DECREASES, AT ${speed} KTS`,
+                value: resolvedFlapVal
+              });
+            }
+          });
+        }
+      }
+
+      if (section.items_after_special) {
+        section.items_after_special.forEach((item: any, iIdx: number) => {
+          let resolvedValue = item.value;
+          if (resolvedValue.includes("REDUCE VS TO")) {
+            try {
+              let curr = 0, targ = 0;
+              if (resolvedValue.includes("{vs_5k}")) {
+                curr = parseInt(perf.initial_climb_vs, 10);
+                targ = parseInt(perf.vs_5k, 10);
+              } else if (resolvedValue.includes("{vs_15k}")) {
+                curr = parseInt(perf.vs_5k, 10);
+                targ = parseInt(perf.vs_15k, 10);
+              } else if (resolvedValue.includes("{vs_24k}")) {
+                curr = parseInt(perf.vs_15k, 10);
+                targ = parseInt(perf.vs_24k, 10);
+              }
+              if (targ > curr) resolvedValue = resolvedValue.replace("REDUCE", "INCREASE");
+            } catch {}
+          }
+          Object.entries(placeholders).forEach(([k, v]) => {
+            resolvedValue = resolvedValue.replace(`{${k}}`, v);
+          });
+          items.push({
+            id: `item-${sIdx}-${iIdx}-after-sp`,
+            text: item.text,
+            value: resolvedValue
+          });
+        });
+      }
+
+      if (section.special_section_2) {
+        if (section.special_section_2 === "flap_deploy_above_10k") {
+          const speedThreshold = aircraftInfo?.speed_threshold_10k || 250;
+          const sortedFlaps = Object.entries(perf.flap_speeds).sort((a: any, b: any) => (b[1] as number) - (a[1] as number));
+          sortedFlaps.forEach(([flapSetting, speed]: [string, any], fIdx: number) => {
+            if (speed > speedThreshold) {
+              let resolvedFlapVal = `SET FLAPS ${flapSetting}`;
+              if (flapSetting === "40" && aircraftCode === "B38M") {
+                resolvedFlapVal += " (Short Runway Only)";
+              }
+              items.push({
+                id: `item-${sIdx}-${fIdx}-flap-dep-sp2`,
+                text: `AS SPEED DECREASES, AT ${speed} KTS`,
+                value: resolvedFlapVal
+              });
+            }
+          });
+        } else if (section.special_section_2 === "landing_data_table") {
+          const landingData = aircraftInfo?.performance_data?.landing_data || [];
+          const filteredData = landingData.filter((ld: any) => ld.load_range[1] <= activeLoad);
+          const sortedLanding = [...filteredData].sort((a: any, b: any) => b.load_range[1] - a.load_range[1]);
+          
+          if (sortedLanding.length > 0) {
+            items.push({
+              id: `item-${sIdx}-landing-table`,
+              text: "LANDING DATA TABLE",
+              value: "DISPLAYED",
+              isTable: true,
+              tableData: sortedLanding
+            });
+            if (aircraftInfo?.performance_data?.landing_notam) {
+              items.push({
+                id: `item-${sIdx}-landing-notam`,
+                text: "LANDING NOTAM",
+                value: aircraftInfo.performance_data.landing_notam
+              });
+            }
+          }
+        }
+      }
+
+      if (section.items_after_table) {
+        section.items_after_table.forEach((item: any, iIdx: number) => {
+          let resolvedValue = item.value;
+          Object.entries(placeholders).forEach(([k, v]) => {
+            resolvedValue = resolvedValue.replace(`{${k}}`, v);
+          });
+          items.push({
+            id: `item-${sIdx}-${iIdx}-after-tbl`,
+            text: item.text,
+            value: resolvedValue
+          });
+        });
+      }
+
+      return {
+        title: section.title,
+        text_section: section.text_section || null,
+        items
+      };
+    });
+  };
+
+  const compiledChecklist = getCompiledChecklist();
+
+  // Phonetic translation dictionary for natural pronunciation
+  const getPhoneticText = (str: string) => {
+    if (!str) return "";
+    return str
+      .replace(/\bPAX\b/gi, "passengers")
+      .replace(/\bZFW\b/gi, "zero fuel weight")
+      .replace(/\bTOW\b/gi, "takeoff weight")
+      .replace(/\bLAW\b/gi, "landing weight")
+      .replace(/\bAPU\b/gi, "A P U")
+      .replace(/\bGPU\b/gi, "G P U")
+      .replace(/\bSID\b/gi, "S I D")
+      .replace(/\bSTAR\b/gi, "Star")
+      .replace(/\bLNAV\b/gi, "L Nav")
+      .replace(/\bVNAV\b/gi, "V Nav")
+      .replace(/\bATIS\b/gi, "Ay tis")
+      .replace(/\bMETAR\b/gi, "Mee tar")
+      .replace(/\bALTN\b/gi, "alternate")
+      .replace(/\bFT\b/gi, "feet")
+      .replace(/\bFL\b/gi, "flight level")
+      .replace(/\bKTS\b/gi, "knots")
+      .replace(/\bAPPR\b/gi, "approach")
+      .replace(/\bVS\b/gi, "vertical speed")
+      .replace(/\bBAG\/CARGO\b/gi, "baggage and cargo")
+      .replace(/\bSTAB TRIM\b/gi, "stabilizer trim")
+      .replace(/\bN\/A\b/gi, "not applicable")
+      .replace(/\bETA\b/gi, "E T A")
+      .replace(/➔/g, "to")
+      .replace(/→/g, "to")
+      // Spell out 4-letter ICAO codes letter-by-letter (e.g. SBGR -> S B G R)
+      .replace(/\b([A-Z]{4})\b/g, (match) => match.split("").join(" "));
+  };
+
+  // Synthesize Web Audio Radio Mic Click (Subtle VHF radio pop)
+  const playMicClick = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const bufferSize = audioCtx.sampleRate * 0.035; // 35ms burst
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      // Generate bandpass-shaped high-frequency random pop
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+      
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 900; // Radio speaker center frequency
+      filter.Q.value = 1.2;
+      
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.035);
+      
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      noise.start();
+    } catch (e) {
+      console.warn("Mic click failed", e);
+    }
+  };
+
+  // TTS Reader
+  const announceChecklistItem = (text: string, value: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+
+    // Turn microphone off while co-pilot is speaking to avoid hearing itself or ambient loops
+    if (recognitionRef.current && isListeningRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+      setIsListening(false);
+    }
+
+    window.speechSynthesis.cancel(); 
+
+    const cleanText = getPhoneticText(text);
+    const cleanValue = getPhoneticText(value);
+
+    // Play click before challenge
+    playMicClick();
+
+    // Create challenge callout
+    const challengeUtterance = new SpeechSynthesisUtterance(cleanText);
+    if (selectedVoiceName) {
+      const voice = availableVoices.find(v => v.name === selectedVoiceName);
+      if (voice) challengeUtterance.voice = voice;
+    }
+    challengeUtterance.rate = speechRate;
+    challengeUtterance.pitch = speechPitch;
+
+    // Speak the response after a natural 450ms pilot pause
+    challengeUtterance.onend = () => {
+      setTimeout(() => {
+        if (!coPilotRunningRef.current) return;
+        
+        playMicClick();
+
+        const responseUtterance = new SpeechSynthesisUtterance(cleanValue);
+        if (selectedVoiceName) {
+          const voice = availableVoices.find(v => v.name === selectedVoiceName);
+          if (voice) responseUtterance.voice = voice;
+        }
+        responseUtterance.rate = speechRate;
+        responseUtterance.pitch = speechPitch;
+
+        // When response finishes, play hot-mic pop and start listening
+        responseUtterance.onend = () => {
+          setTimeout(() => {
+            if (coPilotRunningRef.current) {
+              playMicClick();
+              if (!isListeningRef.current) {
+                try {
+                  recognitionRef.current?.start();
+                  setIsListening(true);
+                } catch (err) {
+                  console.warn("Speech start after TTS failed:", err);
+                }
+              }
+            }
+          }, 100);
+        };
+
+        window.speechSynthesis.speak(responseUtterance);
+      }, 450);
+    };
+
+    window.speechSynthesis.speak(challengeUtterance);
+  };
+
+
+
+  // Synthesize Web Audio Success Chime
+  const playSuccessChime = () => {
+    if (!playChime) return;
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08); // E5
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.25);
+    } catch (e) {
+      console.warn("Chime failed", e);
+    }
+  };
+
+  // Find next unchecked item
+  const getFirstUncheckedItemInPhase = (phaseIdx: number) => {
+    const section = compiledChecklist[phaseIdx];
+    if (!section) return null;
+    return section.items.find((item: any) => !checkedItems[item.id] && !item.isTable) || null;
+  };
+
+  // Check off active item and advance
+  const handleCheckActiveItem = (itemIdOverride?: string) => {
+    let targetItemId = "";
+
+    if (itemIdOverride) {
+      targetItemId = itemIdOverride;
+    } else {
+      const activeItem = getFirstUncheckedItemInPhase(activePhaseIndex);
+      if (activeItem) {
+        targetItemId = activeItem.id;
+      }
+    }
+
+    if (!targetItemId) return;
+
+    setCheckedItems(prev => {
+      const next = { ...prev, [targetItemId]: true };
+      playSuccessChime();
+
+      if (coPilotRunning && autoAdvance) {
+        setTimeout(() => {
+          const nextActiveItem = compiledChecklist[activePhaseIndex].items.find((item: any) => !next[item.id] && !item.isTable);
+          if (nextActiveItem) {
+            announceChecklistItem(nextActiveItem.text, nextActiveItem.value);
+          } else {
+            if (activePhaseIndex < compiledChecklist.length - 1) {
+              const nextPhase = activePhaseIndex + 1;
+              if (autoCollapse) {
+                setActivePhaseIndex(nextPhase);
+              }
+              const firstItemOfNextPhase = compiledChecklist[nextPhase].items.find((item: any) => !next[item.id] && !item.isTable);
+              if (firstItemOfNextPhase) {
+                announceChecklistItem(firstItemOfNextPhase.text, firstItemOfNextPhase.value);
+              }
+            } else {
+              if (typeof window !== "undefined" && window.speechSynthesis) {
+                window.speechSynthesis.speak(new SpeechSynthesisUtterance("Checklist completed. Have a safe flight."));
+              }
+              setCoPilotRunning(false);
+              setIsListening(false);
+            }
+          }
+        }, 700);
+      } else if (coPilotRunning && !autoAdvance) {
+        // If not auto-advancing, restart microphone listening on a fresh session after the beep
+        setTimeout(() => {
+          if (coPilotRunningRef.current && !isListeningRef.current) {
+            try {
+              recognitionRef.current?.start();
+              setIsListening(true);
+            } catch {}
+          }
+        }, 500);
+      }
+
+      return next;
+    });
+  };
+
+  // Prevent stale closures in Speech Recognition event listeners
+  const triggerKeywordRef = useRef(triggerKeyword);
+  const coPilotRunningRef = useRef(coPilotRunning);
+  const isListeningRef = useRef(isListening);
+  const activePhaseIndexRef = useRef(activePhaseIndex);
+  const handleCheckActiveItemRef = useRef(handleCheckActiveItem);
+
+  useEffect(() => { triggerKeywordRef.current = triggerKeyword; }, [triggerKeyword]);
+  useEffect(() => { coPilotRunningRef.current = coPilotRunning; }, [coPilotRunning]);
+  useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
+  useEffect(() => { activePhaseIndexRef.current = activePhaseIndex; }, [activePhaseIndex]);
+  useEffect(() => { handleCheckActiveItemRef.current = handleCheckActiveItem; }, [handleCheckActiveItem]);
+
+  // Speech Recognition listener loop
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn("Speech recognition not supported.");
+      return;
+    }
+
+    let rec = recognitionRef.current;
+    if (!rec) {
+      rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.lang = "en-US";
+
+      rec.onresult = (event: any) => {
+        const lastResultIndex = event.results.length - 1;
+        const rawTranscript = event.results[lastResultIndex][0].transcript;
+        const transcript = rawTranscript.trim().toLowerCase();
+        console.log("Speech transcript:", transcript);
+        
+        // Show live transcript to the user for testing
+        setTranscriptLog(rawTranscript);
+
+        const keywords = triggerKeywordRef.current.split(",").map(k => k.trim().toLowerCase());
+        const hasMatch = keywords.some(kw => {
+          const regex = new RegExp(`\\b${kw}\\b`, "i");
+          return regex.test(transcript) || transcript.includes(kw);
+        });
+
+        if (hasMatch) {
+          // Immediately stop recognition to clear native audio buffer & prevent echo loops
+          try {
+            rec.stop();
+          } catch {}
+          setIsListening(false);
+          
+          handleCheckActiveItemRef.current();
+        }
+      };
+
+      rec.onerror = (e: any) => {
+        console.error("Speech recognition error:", e);
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          setIsListening(false);
+          setCoPilotRunning(false);
+        }
+      };
+
+      rec.onend = () => {
+        // Only restart if co-pilot is running, isListening is true, and the co-pilot is not actively speaking
+        if (
+          coPilotRunningRef.current &&
+          isListeningRef.current &&
+          typeof window !== "undefined" &&
+          !window.speechSynthesis.speaking
+        ) {
+          try {
+            rec.start();
+          } catch {}
+        }
+      };
+
+      recognitionRef.current = rec;
+    }
+
+    if (coPilotRunning && !isListening) {
+      // Do not start recording if the browser is currently announcing a checklist item
+      if (typeof window !== "undefined" && !window.speechSynthesis.speaking) {
+        try {
+          rec.start();
+          setIsListening(true);
+        } catch (err) {
+          console.warn("Recognition start failed:", err);
+        }
+      }
+    } else if (!coPilotRunning && isListening) {
+      try {
+        rec.stop();
+        setIsListening(false);
+      } catch {}
+    }
+
+    return () => {
+      // Cleanups
+    };
+  }, [coPilotRunning, isListening, triggerKeyword, activePhaseIndex]);
+
+  const toggleCoPilot = () => {
+    if (coPilotRunning) {
+      setCoPilotRunning(false);
+      setIsListening(false);
+      setTranscriptLog("");
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    } else {
+      const activeItem = getFirstUncheckedItemInPhase(activePhaseIndex);
+      setCoPilotRunning(true);
+      setTranscriptLog("");
+      if (activeItem) {
+        announceChecklistItem(activeItem.text, activeItem.value);
+      }
+    }
+  };
+
+  const handleResetChecklist = () => {
+    setCheckedItems({});
+    setActivePhaseIndex(0);
+    setCoPilotRunning(false);
+    setIsListening(false);
+    setTranscriptLog("");
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+  const testSelectedVoice = () => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    playMicClick();
+    const utterance = new SpeechSynthesisUtterance("Co pilot settings updated successfully. Standby.");
+    if (selectedVoiceName) {
+      const voice = availableVoices.find(v => v.name === selectedVoiceName);
+      if (voice) utterance.voice = voice;
+    }
+    utterance.rate = speechRate;
+    utterance.pitch = speechPitch;
+    utterance.onend = () => {
+      playMicClick();
+    };
+    window.speechSynthesis.speak(utterance);
+  };
+
   const units = ofpData?.params?.units || "";
   const flightNum = ofpData?.general?.icao_airline && ofpData?.general?.flight_number
     ? `${ofpData.general.icao_airline}${ofpData.general.flight_number}`
     : ofpData?.general?.flight_number || "—";
+
+  // Calculate checklist progress percentages
+  const getTotalChecklistItems = () => {
+    return compiledChecklist.reduce((acc: number, sec: any) => {
+      return acc + sec.items.filter((it: any) => !it.isTable).length;
+    }, 0);
+  };
+
+  const getCheckedItemsCount = () => {
+    let checkedCount = 0;
+    compiledChecklist.forEach((sec: any) => {
+      sec.items.forEach((it: any) => {
+        if (!it.isTable && checkedItems[it.id]) checkedCount++;
+      });
+    });
+    return checkedCount;
+  };
+
+  const totalItems = getTotalChecklistItems();
+  const checkedItemsCount = getCheckedItemsCount();
+  const checklistProgressPercent = totalItems > 0 ? Math.round((checkedItemsCount / totalItems) * 100) : 0;
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8" ref={revealRef}>
@@ -246,304 +1118,79 @@ export default function EFB() {
           </div>
         ) : ofpData ? (
           <div className="flex flex-col">
-            
-            {/* Captain's Briefing Header */}
-            <h3 className="text-lg font-bold text-brand mb-4">Captain's Briefing</h3>
-            
-            {/* Grid of 5 Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
-              
-              {/* Card 1 - Flight */}
-              <div className="bg-gray-50/50 rounded-2xl border border-brand-border p-5 flex flex-col justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Flight</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Flight Number</span>
-                      <span className="font-semibold font-mono text-brand">{flightNum}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Aircraft</span>
-                      <span className="font-semibold font-mono text-gray-800">{ofpData.aircraft?.icao_code || "—"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Route</span>
-                      <span className="font-semibold font-mono text-gray-800">
-                        {ofpData.origin?.icao_code || "—"} ➔ {ofpData.destination?.icao_code || "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Distance</span>
-                      <span className="font-semibold font-mono text-gray-800">
-                        {ofpData.general?.route_distance ? `${ofpData.general.route_distance} NM` : "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Est. Flight Time</span>
-                      <span className="font-semibold font-mono text-gray-800">{formatSecondsToHM(ofpData.times?.est_time_enroute)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {activeTab === "briefing" && (
+              <EFBBriefing
+                ofpData={ofpData}
+                units={units}
+                flightNum={flightNum}
+                formatTimestampToTime={formatTimestampToTime}
+                formatWeight={formatWeight}
+                getPdfUrl={getPdfUrl}
+                handleRefreshOfp={handleRefreshOfp}
+                pdfLoadError={pdfLoadError}
+                setPdfLoadError={setPdfLoadError}
+                handleToggleFullscreen={handleToggleFullscreen}
+              />
+            )}
 
-              {/* Card 2 - Fuel */}
-              <div className="bg-gray-50/50 rounded-2xl border border-brand-border p-5 flex flex-col justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Fuel</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Block Fuel</span>
-                      <span className="font-semibold font-mono text-gray-800">{formatWeight(ofpData.fuel?.plan_ramp, units)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Taxi Fuel</span>
-                      <span className="font-semibold font-mono text-gray-800">{formatWeight(ofpData.fuel?.taxi, units)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Trip Fuel</span>
-                      <span className="font-semibold font-mono text-gray-800">{formatWeight(ofpData.fuel?.enroute_burn, units)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Landing Fuel</span>
-                      <span className="font-semibold font-mono text-gray-800">
-                        {formatWeight(ofpData.fuel?.est_ldg || ofpData.fuel?.plan_landing, units)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Contingency Fuel</span>
-                      <span className="font-semibold font-mono text-gray-800">{formatWeight(ofpData.fuel?.contingency, units)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {activeTab === "checklist" && (
+              <EFBChecklist
+                compiledChecklist={compiledChecklist}
+                checkedItems={checkedItems}
+                checkedItemsCount={checkedItemsCount}
+                totalItems={totalItems}
+                checklistProgressPercent={checklistProgressPercent}
+                aircraftInfo={aircraftInfo}
+                activeAircraft={activeAircraft}
+                activeLoad={activeLoad}
+                activeDirection={activeDirection}
+                aircraftCode={aircraftCode}
+                setAircraftOverride={setAircraftOverride}
+                coPilotRunning={coPilotRunning}
+                isListening={isListening}
+                transcriptLog={transcriptLog}
+                triggerKeyword={triggerKeyword}
+                toggleCoPilot={toggleCoPilot}
+                handleResetChecklist={handleResetChecklist}
+                handleCheckActiveItem={handleCheckActiveItem}
+                announceChecklistItem={announceChecklistItem}
+                activePhaseIndex={activePhaseIndex}
+                setActivePhaseIndex={setActivePhaseIndex}
+              />
+            )}
 
-              {/* Card 4 - Departure */}
-              <div className="bg-gray-50/50 rounded-2xl border border-brand-border p-5 flex flex-col justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Departure</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Airport</span>
-                      <span className="font-semibold font-mono text-gray-800">{ofpData.origin?.icao_code || "—"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Airport Name</span>
-                      <span className="font-semibold text-gray-800 text-right truncate max-w-[150px] inline-block" title={ofpData.origin?.name}>
-                        {ofpData.origin?.name || "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">SID</span>
-                      <span className="font-semibold font-mono text-gray-800">{ofpData.general?.sid_ident || "—"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Runway</span>
-                      <span className="font-semibold font-mono text-gray-800">{ofpData.origin?.plan_rwy || "—"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Alternate</span>
-                      <span className="font-semibold font-mono text-gray-800">{ofpData.alternate?.icao_code || "—"}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 5 - Arrival */}
-              <div className="bg-gray-50/50 rounded-2xl border border-brand-border p-5 flex flex-col justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Arrival</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Destination</span>
-                      <span className="font-semibold font-mono text-gray-800">{ofpData.destination?.icao_code || "—"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Airport Name</span>
-                      <span className="font-semibold text-gray-800 text-right truncate max-w-[150px] inline-block" title={ofpData.destination?.name}>
-                        {ofpData.destination?.name || "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">STAR</span>
-                      <span className="font-semibold font-mono text-gray-800">{ofpData.general?.star_ident || "—"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Runway</span>
-                      <span className="font-semibold font-mono text-gray-800">{ofpData.destination?.plan_rwy || "—"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">ETA</span>
-                      <span className="font-semibold font-mono text-gray-800">{formatTimestampToTime(ofpData.times?.est_in)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-medium">Alternate</span>
-                      <span className="font-semibold font-mono text-gray-800">{ofpData.alternate?.icao_code || "—"}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 5 - Weights & Fuel */}
-              <div className="bg-gray-50/50 rounded-2xl border border-brand-border p-5 flex flex-col justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Weights &amp; Fuel</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm font-mono">
-                      <span className="text-gray-500 font-medium text-xs">PAX</span>
-                      <span className="font-bold text-gray-800">{ofpData.weights?.pax_count_actual || ofpData.weights?.pax_count || "—"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-mono">
-                      <span className="text-gray-500 font-medium text-xs">BAG/CARGO</span>
-                      <span className="font-bold text-gray-800">
-                        {formatWeight(ofpData.weights?.cargo, units)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-mono">
-                      <span className="text-gray-500 font-medium text-xs">PAYLOAD</span>
-                      <span className="font-bold text-gray-800">
-                        {formatWeight(ofpData.weights?.payload, units)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-mono">
-                      <span className="text-gray-500 font-medium text-xs">ZFW</span>
-                      <span className="font-bold text-gray-800">
-                        {formatWeight(ofpData.weights?.est_zfw, units)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-mono">
-                      <span className="text-gray-500 font-medium text-xs">FUEL</span>
-                      <span className="font-bold text-gray-800">
-                        {formatWeight(ofpData.fuel?.plan_ramp, units)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-mono">
-                      <span className="text-gray-500 font-medium text-xs">TOW</span>
-                      <span className="font-bold text-gray-800">
-                        {formatWeight(ofpData.weights?.est_tow, units)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-mono">
-                      <span className="text-gray-500 font-medium text-xs">STAB TRIM</span>
-                      <span className="font-bold text-gray-800">—</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-mono">
-                      <span className="text-gray-500 font-medium text-xs">LAW</span>
-                      <span className="font-bold text-gray-800">
-                        {formatWeight(ofpData.weights?.est_ldw, units)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Information Chips Section */}
-            <div className="flex flex-wrap gap-2.5 mb-5">
-              <div className="bg-brand-pale border border-brand-border rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-semibold">
-                <span className="text-gray-400 font-medium uppercase tracking-wider">Flight:</span>
-                <span className="text-brand font-mono">{flightNum}</span>
-              </div>
-              <div className="bg-brand-pale border border-brand-border rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-semibold">
-                <span className="text-gray-400 font-medium uppercase tracking-wider">Route:</span>
-                <span className="text-brand font-mono">
-                  {ofpData.origin?.icao_code || "—"} ➔ {ofpData.destination?.icao_code || "—"}
-                </span>
-              </div>
-              <div className="bg-brand-pale border border-brand-border rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-semibold">
-                <span className="text-gray-400 font-medium uppercase tracking-wider">Aircraft:</span>
-                <span className="text-brand font-mono">{ofpData.aircraft?.icao_code || "—"}</span>
-              </div>
-              <div className="bg-brand-pale border border-brand-border rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-semibold">
-                <span className="text-gray-400 font-medium uppercase tracking-wider">Distance:</span>
-                <span className="text-brand font-mono">
-                  {ofpData.general?.route_distance ? `${ofpData.general.route_distance} NM` : "—"}
-                </span>
-              </div>
-              <div className="bg-brand-pale border border-brand-border rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-semibold">
-                <span className="text-gray-400 font-medium uppercase tracking-wider">Generated:</span>
-                <span className="text-brand font-mono">{ofpData.fetch?.time || "—"}</span>
-              </div>
-            </div>
-
-            {/* PDF Viewer Container */}
-            <div
-              id="pdf-viewer-container"
-              className="bg-gray-50 border border-brand-border rounded-xl p-1 overflow-hidden relative flex flex-col h-[750px] shadow-inner"
-            >
-              {/* Overlay PDF tools */}
-              <div className="absolute right-4 top-4 z-10 flex items-center gap-1 bg-white/95 px-2.5 py-1.5 rounded-xl border border-brand-border shadow-md">
-                <button
-                  onClick={handleRefreshOfp}
-                  className="p-1.5 hover:bg-brand-hover-bg rounded-lg text-gray-500 hover:text-brand transition-colors"
-                  title="Refresh OFP"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89" />
-                  </svg>
-                </button>
-                <a
-                  href={getPdfUrl()}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p-1.5 hover:bg-brand-hover-bg rounded-lg text-gray-500 hover:text-brand transition-colors inline-block"
-                  title="Open PDF in New Tab"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-                <a
-                  href={getPdfUrl()}
-                  download
-                  className="p-1.5 hover:bg-brand-hover-bg rounded-lg text-gray-500 hover:text-brand transition-colors inline-block"
-                  title="Download PDF"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                </a>
-                <button
-                  onClick={handleToggleFullscreen}
-                  className="p-1.5 hover:bg-brand-hover-bg rounded-lg text-gray-500 hover:text-brand transition-colors"
-                  title="Fullscreen Viewer"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5m-11 11h4m-4 0v-4m0 4l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
-                  </svg>
-                </button>
-              </div>
-
-              {pdfLoadError ? (
-                <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center text-gray-500 space-y-4">
-                  <svg className="w-12 h-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                  </svg>
-                  <div>
-                    <h4 className="text-gray-800 font-bold">Unable to display PDF directly</h4>
-                    <p className="text-sm text-gray-400 mt-1 max-w-sm">
-                      Your browser's PDF plug-in might be blocked. Click below to view the OFP in a new window.
-                    </p>
-                  </div>
-                  <a
-                    href={getPdfUrl()}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="bg-brand text-white hover:bg-brand-dark font-bold text-sm px-5 py-2.5 rounded-xl transition-colors inline-block shadow-sm"
-                  >
-                    Open PDF in New Window
-                  </a>
-                </div>
-              ) : (
-                <iframe
-                  src={`${getPdfUrl()}#toolbar=1&zoom=100`}
-                  className="w-full h-full border-0 rounded-lg bg-white"
-                  title="SimBrief OFP Viewer"
-                  onError={() => setPdfLoadError(true)}
-                ></iframe>
-              )}
-            </div>
-
+            {activeTab === "settings" && (
+              <EFBSettings
+                availableVoices={availableVoices}
+                selectedVoiceName={selectedVoiceName}
+                setSelectedVoiceName={setSelectedVoiceName}
+                speechRate={speechRate}
+                setSpeechRate={setSpeechRate}
+                speechPitch={speechPitch}
+                setSpeechPitch={setSpeechPitch}
+                triggerKeyword={triggerKeyword}
+                setTriggerKeyword={setTriggerKeyword}
+                playChime={playChime}
+                setPlayChime={setPlayChime}
+                autoAdvance={autoAdvance}
+                setAutoAdvance={setAutoAdvance}
+                autoCollapse={autoCollapse}
+                setAutoCollapse={setAutoCollapse}
+                loadOverride={loadOverride}
+                setLoadOverride={setLoadOverride}
+                directionOverride={directionOverride}
+                setDirectionOverride={setDirectionOverride}
+                aircraftOverride={aircraftOverride}
+                setAircraftOverride={setAircraftOverride}
+                getCalculatedLoad={getCalculatedLoad}
+                getFlightDirection={getFlightDirection}
+                aircraftCode={aircraftCode}
+                testSelectedVoice={testSelectedVoice}
+                transcriptLog={transcriptLog}
+                coPilotRunning={coPilotRunning}
+                updateSettings={updateSettings}
+              />
+            )}
           </div>
         ) : (
           <div className="text-center py-8 text-sm text-gray-500 font-semibold">
