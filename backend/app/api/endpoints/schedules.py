@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -18,6 +19,7 @@ from app.services.schedule_service import (
     create_wave,
     delete_schedule,
     delete_wave,
+    get_schedule,
     get_schedule_booking_count,
     get_schedules,
     get_waves,
@@ -62,24 +64,42 @@ async def list_schedules(
     ]
 
 
+async def check_group_access(db: AsyncSession, group_id: int, pilot: Pilot):
+    from app.services.group_service import get_group_members
+    from app.models.live_models import StaffRole, Permission
+
+    # Check if pilot is member of group
+    members = await get_group_members(db, group_id)
+    if pilot.id in [m.pilot_id for m in members]:
+        return
+
+    # Check if pilot is staff/admin via Permission table
+    perm_result = await db.execute(
+        select(Permission).where(
+            Permission.userid == pilot.id,
+            Permission.name.in_(["admin", "opsmanage"]),
+        ).limit(1)
+    )
+    if perm_result.scalar_one_or_none() is not None:
+        return
+
+    # Check if pilot is staff/admin via StaffRole table
+    staff_result = await db.execute(
+        select(StaffRole).where(StaffRole.user_id == pilot.id).limit(1)
+    )
+    if staff_result.scalar_one_or_none() is not None:
+        return
+
+    raise HTTPException(status_code=403, detail="Not authorized for this group's operations")
+
+
 @router.post("", response_model=ScheduleOut)
 async def create_schedule_route(
     data: ScheduleCreate,
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
-    from app.services.group_service import get_group_members
-
-    members = await get_group_members(db, data.group_id)
-    member_ids = [m.pilot_id for m in members]
-    if pilot.id not in member_ids:
-        from app.models.live_models import StaffRole
-        from sqlalchemy import select
-
-        staff_result = await db.execute(select(StaffRole).where(StaffRole.user_id == pilot.id))
-        if not staff_result.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="Not a member of this group")
-
+    await check_group_access(db, data.group_id, pilot)
     schedule = await create_schedule(db, {**data.model_dump(), "created_by": pilot.id, "status": "draft"})
     return ScheduleOut(
         id=schedule.id,
@@ -106,9 +126,11 @@ async def update_schedule_route(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
-    schedule = await update_schedule(db, schedule_id, data.model_dump(exclude_none=True))
+    schedule = await get_schedule(db, schedule_id)
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
+    await check_group_access(db, schedule.group_id, pilot)
+    schedule = await update_schedule(db, schedule_id, data.model_dump(exclude_none=True))
     return ScheduleOut(
         id=schedule.id,
         group_id=schedule.group_id,
@@ -133,6 +155,10 @@ async def delete_schedule_route(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
+    schedule = await get_schedule(db, schedule_id)
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    await check_group_access(db, schedule.group_id, pilot)
     success = await delete_schedule(db, schedule_id)
     if not success:
         raise HTTPException(status_code=404, detail="Schedule not found")
@@ -145,9 +171,11 @@ async def propose_schedule(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
-    schedule = await update_schedule_status(db, schedule_id, "proposed")
+    schedule = await get_schedule(db, schedule_id)
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
+    await check_group_access(db, schedule.group_id, pilot)
+    schedule = await update_schedule_status(db, schedule_id, "proposed")
     return ScheduleOut(
         id=schedule.id,
         group_id=schedule.group_id,
@@ -271,7 +299,7 @@ async def create_wave_route(
 async def delete_wave_route(
     wave_id: int,
     db: AsyncSession = Depends(get_db),
-    pilot: Pilot = Depends(get_current_pilot),
+    pilot: Pilot = Depends(get_current_staff),
 ):
     success = await delete_wave(db, wave_id)
     if not success:

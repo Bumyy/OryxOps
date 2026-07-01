@@ -34,6 +34,23 @@ async def get_me(
     pilot: Pilot = Depends(get_current_pilot),
     db: AsyncSession = Depends(get_db),
 ):
+    from app.models.live_models import Permission, StaffRole
+
+    perm_result = await db.execute(
+        select(Permission).where(
+            Permission.userid == pilot.id,
+            Permission.name.in_(["admin", "opsmanage"]),
+        ).limit(1)
+    )
+    has_perm = perm_result.scalar_one_or_none() is not None
+
+    role_result = await db.execute(
+        select(StaffRole).where(StaffRole.user_id == pilot.id).limit(1)
+    )
+    has_role = role_result.scalar_one_or_none() is not None
+
+    is_staff = has_perm or has_role
+
     return {
         "id": pilot.id,
         "callsign": pilot.callsign,
@@ -46,4 +63,5 @@ async def get_me(
         "status": pilot.status,
         "joined": str(pilot.joined) if pilot.joined else None,
         "avatar": get_pilot_avatar(pilot),
+        "is_staff": is_staff,
     }

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_pilot
+from app.core.dependencies import get_current_pilot, get_current_staff
 from app.models.live_models import (
     LiveFlightBooking,
     LiveFlightSchedule,
@@ -18,6 +18,7 @@ from app.services.booking_service import (
     cancel_booking,
     complete_booking,
     create_booking,
+    get_booking,
     get_bookings,
     mark_no_show,
     take_over_booking,
@@ -150,6 +151,21 @@ async def complete_booking_route(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
+    booking_obj = await get_booking(db, booking_id)
+    if not booking_obj:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    if booking_obj.pilot_id != pilot.id:
+        from app.models.live_models import Permission
+        perm_result = await db.execute(
+            select(Permission).where(
+                Permission.userid == pilot.id,
+                Permission.name.in_(["admin", "opsmanage"]),
+            ).limit(1)
+        )
+        if perm_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Not authorized to complete this booking")
+
     booking = await complete_booking(db, booking_id, data.pirep_id)
     if not booking:
         raise HTTPException(status_code=400, detail="Booking not found or not in booked status")
@@ -171,7 +187,7 @@ async def complete_booking_route(
 async def no_show_booking(
     booking_id: int,
     db: AsyncSession = Depends(get_db),
-    pilot: Pilot = Depends(get_current_pilot),
+    pilot: Pilot = Depends(get_current_staff),
 ):
     booking = await mark_no_show(db, booking_id)
     if not booking:
