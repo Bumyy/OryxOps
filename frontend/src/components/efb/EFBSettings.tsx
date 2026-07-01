@@ -30,6 +30,7 @@ export interface EFBSettingsProps {
   transcriptLog: string;
   coPilotRunning: boolean;
   updateSettings: (key: string, value: any, stateSetter: (val: any) => void) => void;
+  copilotState: "IDLE" | "SPEAKING_CHALLENGE" | "SPEAKING_RESPONSE" | "LISTENING" | "VALIDATING" | "SUCCESS";
 }
 
 export default function EFBSettings({
@@ -61,6 +62,7 @@ export default function EFBSettings({
   transcriptLog,
   coPilotRunning,
   updateSettings,
+  copilotState,
 }: EFBSettingsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

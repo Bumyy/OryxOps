@@ -14,6 +14,7 @@ from app.api.endpoints import (
     settings,
     tokens,
     transfers,
+    efb,
 )
 
 api_router = APIRouter()
@@ -30,4 +31,5 @@ api_router.include_router(schedules.router)
 api_router.include_router(bookings.router)
 api_router.include_router(transfers.router)
 api_router.include_router(settings.router)
+api_router.include_router(efb.router)
 api_router.include_router(admin.router)

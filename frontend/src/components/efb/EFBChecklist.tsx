@@ -23,6 +23,7 @@ export interface EFBChecklistProps {
   announceChecklistItem: (text: string, value: string) => void;
   activePhaseIndex: number;
   setActivePhaseIndex: (idx: number) => void;
+  copilotState: "IDLE" | "SPEAKING_CHALLENGE" | "SPEAKING_RESPONSE" | "LISTENING" | "VALIDATING" | "SUCCESS";
 }
 
 export default function EFBChecklist({
@@ -47,7 +48,35 @@ export default function EFBChecklist({
   announceChecklistItem,
   activePhaseIndex,
   setActivePhaseIndex,
+  copilotState,
 }: EFBChecklistProps) {
+
+  const getStateLabel = (state: string) => {
+    switch (state) {
+      case "SPEAKING_CHALLENGE":
+        return "🗣️ Calling Challenge";
+      case "SPEAKING_RESPONSE":
+        return "🗣️ Reading Expected State";
+      case "LISTENING":
+        return "🎙️ Hot Mic: Listening";
+      case "VALIDATING":
+        return "⚡ Analyzing Response";
+      case "SUCCESS":
+        return "✅ Correct Match";
+      case "IDLE":
+      default:
+        return "💤 Co-Pilot Standby";
+    }
+  };
+
+  const getActiveItem = () => {
+    const section = compiledChecklist[activePhaseIndex];
+    if (!section) return null;
+    return section.items.find((item: any) => !checkedItems[item.id] && !item.isTable) || null;
+  };
+
+  const activeItem = getActiveItem();
+
   return (
     <div className="flex flex-col space-y-6">
       
@@ -103,24 +132,37 @@ export default function EFBChecklist({
         <div className="bg-brand-pale border border-brand-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
           <div className="flex items-center gap-3">
             <div className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-brand"></span>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${copilotState === "LISTENING" ? "bg-green-500" : "bg-brand"}`}></span>
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${copilotState === "LISTENING" ? "bg-green-500" : "bg-brand"}`}></span>
             </div>
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-brand block">🎙️ Audio Co-Pilot Mic Monitor</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-brand flex items-center gap-2">
+                🎙️ Audio Co-Pilot Mic Monitor
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${
+                  copilotState === "LISTENING" 
+                    ? "bg-green-100 text-green-700 border border-green-200 animate-pulse" 
+                    : "bg-brand/10 text-brand border border-brand/20"
+                }`}>
+                  {getStateLabel(copilotState)}
+                </span>
+              </span>
               <span className="text-sm font-semibold text-gray-700">
                 {transcriptLog ? (
                   <>
                     Heard: <span className="font-mono text-brand font-bold bg-white px-2 py-0.5 rounded border border-brand-border">"{transcriptLog}"</span>
                   </>
                 ) : (
-                  <span className="italic text-gray-400">Say your trigger word (e.g. "check") to auto-advance...</span>
+                  <span className="italic text-gray-400">
+                    {copilotState === "LISTENING" 
+                      ? `Say "${activeItem ? activeItem.value : ""}" or your override word ("${triggerKeyword}") to check...`
+                      : "Waiting for transmission sequence..."}
+                  </span>
                 )}
               </span>
             </div>
           </div>
           <div className="text-xs text-gray-400 bg-white px-2.5 py-1 rounded-xl border border-brand-border font-mono self-start sm:self-auto">
-            Active Triggers: {triggerKeyword}
+            Keyword Override: {triggerKeyword}
           </div>
         </div>
       )}

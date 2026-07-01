@@ -6,6 +6,7 @@ import aircraftsDb from "../assets/checklist/aircrafts.json";
 import EFBBriefing from "../components/efb/EFBBriefing";
 import EFBChecklist from "../components/efb/EFBChecklist";
 import EFBSettings from "../components/efb/EFBSettings";
+import EFBWeather from "../components/efb/EFBWeather";
 
 export default function EFB() {
   const revealRef = useReveal();
@@ -25,6 +26,8 @@ export default function EFB() {
   const location = useLocation();
   const activeTab = location.pathname === "/efb/checklist"
     ? "checklist"
+    : location.pathname === "/efb/weather"
+    ? "weather"
     : location.pathname === "/efb/settings"
     ? "settings"
     : "briefing";
@@ -47,6 +50,7 @@ export default function EFB() {
   const [coPilotRunning, setCoPilotRunning] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [transcriptLog, setTranscriptLog] = useState("");
+  const [copilotState, setCopilotState] = useState<"IDLE" | "SPEAKING_CHALLENGE" | "SPEAKING_RESPONSE" | "LISTENING" | "VALIDATING" | "SUCCESS">("IDLE");
 
   // Checklist Engine States
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
@@ -596,6 +600,73 @@ export default function EFB() {
 
   const compiledChecklist = getCompiledChecklist();
 
+  // Dynamic accepted response variations for fuzzy matching
+  const getAcceptedResponses = (text: string, value: string): string[] => {
+    const cleanVal = value.toLowerCase().trim();
+    
+    // Always valid generic pilot confirmations
+    const base = ["check", "checked", "set", "done", "confirm", "confirmed"];
+    const results = [cleanVal, ...base];
+
+    if (cleanVal === "on") {
+      results.push("on", "active", "engaged");
+    } else if (cleanVal === "off") {
+      results.push("off", "deactivated", "cut");
+    } else if (cleanVal.includes("start")) {
+      results.push("start", "run", "running", "on");
+    } else if (cleanVal.includes("connect")) {
+      results.push("connected", "connect", "hooked up");
+    } else if (cleanVal.includes("disconnect")) {
+      results.push("disconnected", "disconnect", "removed");
+    } else if (cleanVal === "rotate") {
+      results.push("rotate", "rotation", "lifting");
+    } else if (cleanVal.includes("gear up")) {
+      results.push("gear up", "up", "retracted");
+    } else if (cleanVal.includes("arm")) {
+      results.push("armed", "arm", "spoilers armed");
+    } else if (cleanVal.includes("%")) {
+      const digits = cleanVal.replace(/[^0-9]/g, "");
+      if (digits) {
+        results.push(digits, `${digits}%`, `${digits} percent`, "set", "checked");
+      }
+    }
+
+    return Array.from(new Set(results.map(r => r.trim()).filter(r => r.length > 0)));
+  };
+
+  // String similarity score computation (Levenshtein + substring fallback)
+  const calculateSimilarity = (s1: string, s2: string): number => {
+    s1 = s1.toLowerCase().trim();
+    s2 = s2.toLowerCase().trim();
+    
+    if (s1 === s2) return 1.0;
+    if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+
+    const m = s1.length;
+    const n = s2.length;
+    if (m === 0) return n === 0 ? 1.0 : 0.0;
+    if (n === 0) return 0.0;
+
+    const d: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) d[i][0] = i;
+    for (let j = 0; j <= n; j++) d[0][j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+        d[i][j] = Math.min(
+          d[i - 1][j] + 1,
+          d[i][j - 1] + 1,
+          d[i - 1][j - 1] + cost
+        );
+      }
+    }
+
+    const distance = d[m][n];
+    const maxLength = Math.max(m, n);
+    return 1.0 - (distance / maxLength);
+  };
+
   // Phonetic translation dictionary for natural pronunciation
   const getPhoneticText = (str: string) => {
     if (!str) return "";
@@ -667,6 +738,8 @@ export default function EFB() {
   const announceChecklistItem = (text: string, value: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
 
+    setCopilotState("SPEAKING_CHALLENGE");
+
     // Turn microphone off while co-pilot is speaking to avoid hearing itself or ambient loops
     if (recognitionRef.current && isListeningRef.current) {
       try {
@@ -694,6 +767,8 @@ export default function EFB() {
 
     // Speak the response after a natural 450ms pilot pause
     challengeUtterance.onend = () => {
+      if (!coPilotRunningRef.current) return;
+      setCopilotState("SPEAKING_RESPONSE");
       setTimeout(() => {
         if (!coPilotRunningRef.current) return;
         
@@ -712,6 +787,7 @@ export default function EFB() {
           setTimeout(() => {
             if (coPilotRunningRef.current) {
               playMicClick();
+              setCopilotState("LISTENING");
               if (!isListeningRef.current) {
                 try {
                   recognitionRef.current?.start();
@@ -780,6 +856,7 @@ export default function EFB() {
 
     if (!targetItemId) return;
 
+    setCopilotState("SUCCESS");
     setCheckedItems(prev => {
       const next = { ...prev, [targetItemId]: true };
       playSuccessChime();
@@ -861,14 +938,24 @@ export default function EFB() {
         
         // Show live transcript to the user for testing
         setTranscriptLog(rawTranscript);
+        setCopilotState("VALIDATING");
 
+        // 1. Check for manual keyword overrides (like "check" or "checked")
         const keywords = triggerKeywordRef.current.split(",").map(k => k.trim().toLowerCase());
-        const hasMatch = keywords.some(kw => {
+        const hasKeywordMatch = keywords.some(kw => {
           const regex = new RegExp(`\\b${kw}\\b`, "i");
           return regex.test(transcript) || transcript.includes(kw);
         });
 
-        if (hasMatch) {
+        // 2. Check for expected value fuzzy matching
+        let hasFuzzyMatch = false;
+        const activeItem = getFirstUncheckedItemInPhase(activePhaseIndexRef.current);
+        if (activeItem) {
+          const accepted = getAcceptedResponses(activeItem.text, activeItem.value);
+          hasFuzzyMatch = accepted.some(acc => calculateSimilarity(transcript, acc) >= 0.82);
+        }
+
+        if (hasKeywordMatch || hasFuzzyMatch) {
           // Immediately stop recognition to clear native audio buffer & prevent echo loops
           try {
             rec.stop();
@@ -876,6 +963,9 @@ export default function EFB() {
           setIsListening(false);
           
           handleCheckActiveItemRef.current();
+        } else {
+          // Revert state back to listening if mismatch occurred
+          setCopilotState("LISTENING");
         }
       };
 
@@ -931,6 +1021,7 @@ export default function EFB() {
       setCoPilotRunning(false);
       setIsListening(false);
       setTranscriptLog("");
+      setCopilotState("IDLE");
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
@@ -950,6 +1041,7 @@ export default function EFB() {
     setCoPilotRunning(false);
     setIsListening(false);
     setTranscriptLog("");
+    setCopilotState("IDLE");
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -1156,7 +1248,12 @@ export default function EFB() {
                 announceChecklistItem={announceChecklistItem}
                 activePhaseIndex={activePhaseIndex}
                 setActivePhaseIndex={setActivePhaseIndex}
+                copilotState={copilotState}
               />
+            )}
+
+            {activeTab === "weather" && (
+              <EFBWeather ofpData={ofpData} />
             )}
 
             {activeTab === "settings" && (
@@ -1189,6 +1286,7 @@ export default function EFB() {
                 transcriptLog={transcriptLog}
                 coPilotRunning={coPilotRunning}
                 updateSettings={updateSettings}
+                copilotState={copilotState}
               />
             )}
           </div>
