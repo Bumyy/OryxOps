@@ -45,7 +45,7 @@ Thumbs.db
 
 # --- SQL dumps / assets that shouldn't be committed ---
 *.sql
-assets/
+/assets/
 
 # --- OS ---
 Desktop.ini
