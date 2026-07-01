@@ -50,3 +50,11 @@ assets/
 # --- OS ---
 Desktop.ini
 $RECYCLE.BIN/
+
+# --- Leftover Token Files (untracked but preserved locally) ---
+untracked_token_files/
+backend/app/api/endpoints/tokens.py
+backend/app/services/token_service.py
+frontend/src/pages/Tokens.tsx
+frontend/src/pages/admin/TokensPage.tsx
+frontend/src/store/slices/tokenSlice.ts

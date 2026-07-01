@@ -3,7 +3,6 @@ import authReducer from "./slices/authSlice";
 import careerReducer from "./slices/careerSlice";
 import groupReducer from "./slices/groupSlice";
 import aircraftReducer from "./slices/aircraftSlice";
-import tokenReducer from "./slices/tokenSlice";
 import scheduleReducer from "./slices/scheduleSlice";
 import bookingReducer from "./slices/bookingSlice";
 import transferReducer from "./slices/transferSlice";
@@ -17,7 +16,6 @@ export const store = configureStore({
     career: careerReducer,
     group: groupReducer,
     aircraft: aircraftReducer,
-    token: tokenReducer,
     schedule: scheduleReducer,
     booking: bookingReducer,
     transfer: transferReducer,

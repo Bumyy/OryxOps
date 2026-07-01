@@ -12,7 +12,6 @@ from app.api.endpoints import (
     routes,
     schedules,
     settings,
-    tokens,
     transfers,
     efb,
 )
@@ -25,7 +24,6 @@ api_router.include_router(careers.router)
 api_router.include_router(discovery.router)
 api_router.include_router(aircraft.router)
 api_router.include_router(groups.router)
-api_router.include_router(tokens.router)
 api_router.include_router(routes.router)
 api_router.include_router(schedules.router)
 api_router.include_router(bookings.router)

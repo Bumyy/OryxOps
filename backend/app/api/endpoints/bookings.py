@@ -22,7 +22,6 @@ from app.services.booking_service import (
     mark_no_show,
     take_over_booking,
 )
-from app.services.token_service import spend_tokens
 from app.services.pilot_utils import get_pilot_avatar
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])

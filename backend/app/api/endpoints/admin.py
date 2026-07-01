@@ -15,7 +15,6 @@ from app.models.live_models import (
     LiveGroupAircraft,
     LiveGroupPilot,
     LivePilotCareer,
-    LiveTokens,
     Pilot,
 )
 from app.schemas.career import PilotCareerOut
@@ -94,11 +93,7 @@ async def enroll_pilot(
     )
     db.add(career)
 
-    token_wallet = await db.execute(
-        select(LiveTokens).where(LiveTokens.pilot_id == data.pilot_id)
-    )
-    if not token_wallet.scalar_one_or_none():
-        db.add(LiveTokens(pilot_id=data.pilot_id, balance=0, total_earned=0, total_spent=0))
+    # Token wallet registration removed (token system disabled)
 
     await db.commit()
     await db.refresh(career)
