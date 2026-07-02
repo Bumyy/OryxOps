@@ -30,6 +30,7 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/me")
+@router.get("/me/")
 async def get_me(
     pilot: Pilot = Depends(get_current_pilot),
     db: AsyncSession = Depends(get_db),
