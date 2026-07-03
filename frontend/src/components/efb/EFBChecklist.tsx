@@ -263,12 +263,20 @@ export default function EFBChecklist({
                     )}
                     {section.items.map((item: any, iIdx: number) => {
                       if (item.isTable) {
+                        const headers = item.headers || ["LOAD RANGE (%)", "FLAPS", "VAPP (KTS)", "VFLARE (KTS)"];
+                        const rows = item.rows || (item.tableData ? item.tableData.map((ld: any) => [
+                          `${ld.load_range[0]}% - ${ld.load_range[1]}%`,
+                          ld.flaps,
+                          `${ld.vapp} KTS`,
+                          `${ld.vflare} KTS`
+                        ]) : []);
+
                         return (
                           <div key={item.id || iIdx} className="py-4 overflow-x-auto">
                             <table className="w-full text-left border-collapse text-xs">
                               <thead>
                                 <tr className="border-b border-brand-border bg-gray-50">
-                                  {item.headers.map((h: string, hIdx: number) => (
+                                  {headers.map((h: string, hIdx: number) => (
                                     <th key={hIdx} className="p-2.5 font-bold text-gray-500 uppercase tracking-wider">
                                       {h}
                                     </th>
@@ -276,7 +284,7 @@ export default function EFBChecklist({
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-100 font-mono">
-                                {item.rows.map((row: string[], rIdx: number) => (
+                                {rows.map((row: string[], rIdx: number) => (
                                   <tr key={rIdx} className="hover:bg-gray-50/50">
                                     {row.map((cell: string, cIdx: number) => (
                                       <td key={cIdx} className="p-2.5 text-gray-700">
