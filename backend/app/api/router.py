@@ -7,13 +7,14 @@ from app.api.endpoints import (
     bookings,
     careers,
     discovery,
+    efb,
     groups,
+    if_live,
     pilots,
     routes,
     schedules,
     settings,
     transfers,
-    efb,
 )
 
 api_router = APIRouter()
@@ -31,3 +32,4 @@ api_router.include_router(transfers.router)
 api_router.include_router(settings.router)
 api_router.include_router(efb.router)
 api_router.include_router(admin.router)
+api_router.include_router(if_live.router)

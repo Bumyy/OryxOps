@@ -41,6 +41,7 @@ class ScheduleOut(BaseModel):
     approved_by: int | None = None
     week_start: str
     booking_count: int = 0
+    if_schedule_id: str | None = None
 
     model_config = {"from_attributes": True}
 

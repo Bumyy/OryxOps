@@ -26,6 +26,7 @@ from app.services.schedule_service import (
     update_schedule,
     update_schedule_status,
 )
+from app.services.if_sync_service import try_auto_sync_to_if
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
 
@@ -201,6 +202,10 @@ async def approve_schedule(
     schedule = await update_schedule_status(db, schedule_id, "approved", approved_by=pilot.id)
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
+
+    await try_auto_sync_to_if(db, schedule)
+    await db.commit()
+
     return ScheduleOut(
         id=schedule.id,
         group_id=schedule.group_id,
@@ -215,6 +220,7 @@ async def approve_schedule(
         created_by=schedule.created_by,
         approved_by=schedule.approved_by,
         week_start=str(schedule.week_start),
+        if_schedule_id=schedule.if_schedule_id,
     )
 
 

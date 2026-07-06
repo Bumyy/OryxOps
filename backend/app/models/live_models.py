@@ -209,6 +209,7 @@ class LiveAircraft(Base):
     aircraft_type_id = Column(Integer, ForeignKey("aircraft.id"), nullable=False)
     registration = Column(String(10), nullable=False, unique=True)
     if_aircraft_id = Column(String(36))
+    if_organization_aircraft_id = Column(String(36))
     current_airport = Column(String(4), nullable=False, default="OTHH")
     current_parking_id = Column(Integer, ForeignKey("parking_positions.id"))
     status = Column(
@@ -382,6 +383,7 @@ class LiveFlightSchedule(Base):
     approved_by = Column(Integer, ForeignKey("pilots.id"))
     week_start = Column(Date, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    if_schedule_id = Column(String(36), nullable=True)
 
     group = relationship("LiveFlyingGroup", back_populates="flight_schedules")
     aircraft = relationship("LiveAircraft", back_populates="flight_schedules")
@@ -462,3 +464,19 @@ class AwardGranted(Base):
     awardid = Column(Integer, nullable=False)
     pilotid = Column(Integer, nullable=False)
     dateawarded = Column(Date)
+
+
+class LiveIFOAuthToken(Base):
+    __tablename__ = "live_if_oauth_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=False, unique=True)
+    access_token = Column(Text, nullable=False)
+    refresh_token = Column(Text, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    scope = Column(String(500), nullable=True)
+    if_user_id = Column(String(36), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    pilot = relationship("Pilot", foreign_keys=[pilot_id])

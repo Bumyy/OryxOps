@@ -1,0 +1,68 @@
+name: Deploy Backend to VPS
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Copy backend files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "backend/**, !backend/venv/**, !backend/.venv/**, !backend/__pycache__/**, !backend/.env"
+          target: ${{ secrets.VPS_DEPLOY_PATH }}
+
+      - name: SSH and deploy backend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            cd ${{ secrets.VPS_DEPLOY_PATH }}/backend
+            
+            # Find and activate virtual environment
+            if [ -d "venv" ]; then
+              source venv/bin/activate
+            elif [ -d "../venv" ]; then
+              source ../venv/bin/activate
+            elif [ -d ".venv" ]; then
+              source .venv/bin/activate
+            else
+              echo "Virtual environment not found! Creating one..."
+              python3 -m venv venv
+              source venv/bin/activate
+            fi
+            
+            # Install/update dependencies
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            
+            # Restart PM2 process
+            if pm2 list | grep -q "oryxops-backend"; then
+              echo "Restarting existing PM2 process 'oryxops-backend'..."
+              pm2 restart oryxops-backend
+            elif pm2 list | grep -q "run"; then
+              echo "Restarting existing PM2 process 'run'..."
+              pm2 restart run
+            else
+              echo "Starting new PM2 process 'oryxops-backend'..."
+              pm2 start run.py --name "oryxops-backend" --interpreter python3
+            fi
+            
+            echo "Deployment completed successfully!"
