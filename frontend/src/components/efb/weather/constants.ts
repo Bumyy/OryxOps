@@ -3,27 +3,27 @@
 // ─────────────────────────────────────────────
 
 export const COLORS = {
-  // ── Card backgrounds (dark glass theme) ──────
-  bg:                "#0A0F1A",             // dark slate background
-  panelBg:           "#0D1525",             // slightly lighter dark blue
-  panelBorder:       "rgba(51,65,85,0.45)",  // slate-700/45
+  // ── Card backgrounds (light theme matching bg-white / brand border) ──────
+  bg:                "#FFFFFF",             // pure white background
+  panelBg:           "#F8FAFC",             // slate-50 background for details panel
+  panelBorder:       "rgba(226,232,240,0.8)", // slate-200 border
 
-  // ── Vector components (Garmin style) ─────────
-  aircraft:          "#FFFFFF",             // white aircraft silhouette
-  windArrow:         "#60A5FA",             // blue wind arrow
-  headwind:          "#22C55E",             // green headwind
-  tailwind:          "#EF4444",             // red tailwind
-  crosswind:         "#F59E0B",             // amber crosswind
-  compassRing:       "rgba(255,255,255,0.12)", // faint compass ring
-  label:             "rgba(203,213,225,0.90)", // slate-300
-  dimLabel:          "rgba(100,116,139,0.70)", // slate-500
+  // ── Vector components (high contrast light theme) ─────────
+  aircraft:          "#0F172A",             // dark slate aircraft outline
+  windArrow:         "#2563EB",             // royal blue wind arrow
+  headwind:          "#16A34A",             // rich green headwind
+  tailwind:          "#DC2626",             // rich red tailwind
+  crosswind:         "#D97706",             // rich amber crosswind
+  compassRing:       "rgba(15,23,42,0.08)",  // faint slate-900 compass ring
+  label:             "#0F172A",             // dark slate labels
+  dimLabel:          "rgba(15,23,42,0.50)",  // muted slate-900 labels
 
-  // ── Gauge arc colours (WindGaugeBars compatibility) ──
-  gaugeTrack:        "rgba(255,255,255,0.08)",
-  gaugeHeadwind:     "#22C55E",
-  gaugeTailwind:     "#EF4444",
-  gaugeCrosswind:    "#F59E0B",
-  gaugeGust:         "#EF4444",
+  // ── Gauge arc colours ──
+  gaugeTrack:        "rgba(15,23,42,0.06)",  // faint track arc
+  gaugeHeadwind:     "#16A34A",
+  gaugeTailwind:     "#DC2626",
+  gaugeCrosswind:    "#D97706",
+  gaugeGust:         "#DC2626",
 } as const;
 
 // ─── Gauge limits ────────────────────────────

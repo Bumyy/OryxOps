@@ -157,14 +157,15 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
       // High-fidelity SVGs from RexKramer1 (typically 80x80)
       svgW = 416;
       svgH = 416;
-      svgX = -3;
-      svgY = -13;
+      // Centering the fuselage exactly at x=170, y=215 (offset is exactly 40 units from minX/minY)
+      svgX = 170 - 40 * 5.2; // -38
+      svgY = 215 - 40 * 5.2; // 7
     } else {
       // Legacy SVGs (typically 200x200)
       svgW = 140;
       svgH = 140;
       svgX = 170 - 140 / 2; // 100
-      svgY = 195 - 140 / 2; // 125
+      svgY = 215 - 140 / 2; // 145
     }
   }
 
@@ -181,26 +182,7 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
       style={{ background: COLORS.bg }}
       aria-label={`Runway ${rwy} wind analysis diagram`}
     >
-      <style>
-        {`
-          .aircraft-silhouette path,
-          .aircraft-silhouette polygon,
-          .aircraft-silhouette rect,
-          .aircraft-silhouette circle {
-            fill: none !important;
-            stroke: currentColor !important;
-            stroke-width: 0.35px !important;
-          }
-          /* Custom accent layers (like the question mark on unidentified planes) should be filled solid */
-          .aircraft-silhouette [id*="Accent"] path,
-          .aircraft-silhouette [id*="accent"] path,
-          .aircraft-silhouette [id*="layer4"] path,
-          .aircraft-silhouette [id*="path1494"] {
-            fill: currentColor !important;
-            stroke: currentColor !important;
-          }
-        `}
-      </style>
+      {/* We completely removed the .aircraft-silhouette styling overrides to render the SVGs natively as they are */}
 
       <defs>
         <marker
@@ -245,39 +227,41 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
       <g>
         {/* Runway surface */}
         <rect
-          x="150"
-          y="40"
-          width="40"
+          x="125"
+          y="65"
+          width="90"
           height="70"
-          rx="3"
-          fill="#1E293B"
-          stroke="rgba(255, 255, 255, 0.2)"
+          rx="4"
+          fill="#1D2939"
+          stroke="rgba(255, 255, 255, 0.15)"
           strokeWidth="1"
         />
         {/* Runway threshold piano keys */}
-        <line x1="154" y1="103" x2="154" y2="108" stroke="#FFFFFF" strokeWidth="1.5" />
-        <line x1="158" y1="103" x2="158" y2="108" stroke="#FFFFFF" strokeWidth="1.5" />
-        <line x1="162" y1="103" x2="162" y2="108" stroke="#FFFFFF" strokeWidth="1.5" />
-        <line x1="178" y1="103" x2="178" y2="108" stroke="#FFFFFF" strokeWidth="1.5" />
-        <line x1="182" y1="103" x2="182" y2="108" stroke="#FFFFFF" strokeWidth="1.5" />
-        <line x1="186" y1="103" x2="186" y2="108" stroke="#FFFFFF" strokeWidth="1.5" />
+        <line x1="129" y1="129" x2="129" y2="134" stroke="#FFFFFF" strokeWidth="1.5" />
+        <line x1="135" y1="129" x2="135" y2="134" stroke="#FFFFFF" strokeWidth="1.5" />
+        <line x1="141" y1="129" x2="141" y2="134" stroke="#FFFFFF" strokeWidth="1.5" />
+        <line x1="147" y1="129" x2="147" y2="134" stroke="#FFFFFF" strokeWidth="1.5" />
+        <line x1="193" y1="129" x2="193" y2="134" stroke="#FFFFFF" strokeWidth="1.5" />
+        <line x1="199" y1="129" x2="199" y2="134" stroke="#FFFFFF" strokeWidth="1.5" />
+        <line x1="205" y1="129" x2="205" y2="134" stroke="#FFFFFF" strokeWidth="1.5" />
+        <line x1="211" y1="129" x2="211" y2="134" stroke="#FFFFFF" strokeWidth="1.5" />
         {/* Runway centerline */}
         <line
           x1="170"
-          y1="90"
+          y1="115"
           x2="170"
-          y2="45"
+          y2="70"
           stroke="#FFFFFF"
-          strokeWidth="1"
-          strokeDasharray="3,4"
+          strokeWidth="1.5"
+          strokeDasharray="5,6"
         />
         {/* Runway designator text */}
         <text
           x="170"
-          y="98"
+          y="123"
           textAnchor="middle"
           fill="#FFFFFF"
-          fontSize="10"
+          fontSize="14"
           fontWeight="bold"
           fontFamily="monospace"
         >
@@ -285,7 +269,7 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
         </text>
       </g>
 
-      {/* ── 3. Aircraft silhouette (aligned straight up, centered at 170,195) ── */}
+      {/* ── 3. Aircraft silhouette (aligned straight up, centered at 170,215) ── */}
       <svg
         x={svgX}
         y={svgY}
@@ -299,12 +283,12 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
 
       {/* ── 4. Wind Arrow Vector (Points to cockpit/nose of airplane, rotated by relative angle around plane center) ── */}
       {!isVariable && windSpeedKt >= 0.5 && (
-        <g transform={`rotate(${angle}, 170, 195)`}>
+        <g transform={`rotate(${angle}, 170, 215)`}>
           <line
             x1="170"
-            y1="85"
+            y1="105"
             x2="170"
-            y2="155"
+            y2="175"
             stroke={COLORS.windArrow}
             strokeWidth="3.5"
             strokeLinecap="round"
@@ -312,7 +296,7 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
           />
           {/* Arrow tail notch for authentic avionics look */}
           <path
-            d="M 166 85 L 170 89 L 174 85"
+            d="M 166 105 L 170 109 L 174 105"
             fill="none"
             stroke={COLORS.windArrow}
             strokeWidth="2.5"
@@ -322,7 +306,7 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
       )}
 
       {/* ── 5. Absolute wind readout (Top center) ── */}
-      <g transform="translate(170, 32)">
+      <g transform="translate(170, 40)">
         <text
           x="0"
           y="0"
@@ -347,28 +331,28 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
         </text>
       </g>
 
-      {/* ── 6. Component readout labels (arranged around compass frame) ── */}
+      {/* ── 6. Component readout labels (arranged dynamically outside the compass circle) ── */}
       
-      {/* LEFT: Headwind */}
+      {/* HEADWIND (Top center, completely outside compass circle) */}
       {!isVariable && vectors.headwind >= 0 && (
-        <g transform="translate(30, 170)">
+        <g transform="translate(170, 16)">
           <text
             x="0"
-            y="-4"
-            textAnchor="start"
+            y="0"
+            textAnchor="middle"
             fill={COLORS.headwind}
-            fontSize="18"
+            fontSize="14"
             fontWeight="bold"
             fontFamily="monospace"
           >
-            {Math.round(hw)} <tspan fontSize="9" fontWeight="normal">KT</tspan>
+            {Math.round(hw)} <tspan fontSize="8" fontWeight="normal">KT</tspan>
           </text>
           <text
             x="0"
-            y="7"
-            textAnchor="start"
+            y="9"
+            textAnchor="middle"
             fill={COLORS.dimLabel}
-            fontSize="8"
+            fontSize="7"
             fontWeight="bold"
             letterSpacing="0.5"
           >
@@ -377,7 +361,7 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
         </g>
       )}
 
-      {/* BOTTOM: Tailwind (only if headwind is negative) */}
+      {/* TAILWIND (Bottom center, completely outside compass circle) */}
       {!isVariable && vectors.headwind < 0 && (
         <g transform="translate(170, 316)">
           <text
@@ -405,9 +389,37 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
         </g>
       )}
 
-      {/* RIGHT: Crosswind */}
-      {!isVariable && (
-        <g transform="translate(310, 170)">
+      {/* LEFT CROSSWIND (Only if crosswind is coming from the left) */}
+      {!isVariable && vectors.crosswind < 0 && (
+        <g transform="translate(15, 215)">
+          <text
+            x="0"
+            y="-4"
+            textAnchor="start"
+            fill={COLORS.crosswind}
+            fontSize="18"
+            fontWeight="bold"
+            fontFamily="monospace"
+          >
+            {Math.round(cw)} <tspan fontSize="9" fontWeight="normal">KT</tspan>
+          </text>
+          <text
+            x="0"
+            y="7"
+            textAnchor="start"
+            fill={COLORS.dimLabel}
+            fontSize="8"
+            fontWeight="bold"
+            letterSpacing="0.5"
+          >
+            CROSSWIND (L)
+          </text>
+        </g>
+      )}
+
+      {/* RIGHT CROSSWIND (Only if crosswind is coming from the right) */}
+      {!isVariable && vectors.crosswind >= 0 && (
+        <g transform="translate(325, 215)">
           <text
             x="0"
             y="-4"
@@ -428,23 +440,23 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
             fontWeight="bold"
             letterSpacing="0.5"
           >
-            CROSSWIND ({vectors.crosswind < 0 ? "L" : "R"})
+            CROSSWIND (R)
           </text>
         </g>
       )}
 
       {/* ── 7. Bonus descriptors overlay (lower center) ── */}
       {qualityLabel && (
-        <g transform="translate(170, 265)">
+        <g transform="translate(170, 285)">
           <rect
             x="-75"
             y="-9"
             width="150"
             height="18"
             rx="4"
-            fill="rgba(13, 21, 37, 0.9)"
+            fill={COLORS.bg}
             stroke={qualityLabel.startsWith("✔") ? COLORS.headwind : COLORS.crosswind}
-            strokeWidth="0.75"
+            strokeWidth="1"
           />
           <text
             x="0"

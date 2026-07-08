@@ -130,7 +130,7 @@ function ArcGauge({
               key={frac}
               x1={ix.toFixed(1)} y1={iy.toFixed(1)}
               x2={ox.toFixed(1)} y2={oy.toFixed(1)}
-              stroke="rgba(255,255,255,0.22)"
+              stroke={COLORS.compassRing}
               strokeWidth="1.5"
             />
           );
@@ -142,7 +142,7 @@ function ArcGauge({
           y={ARC_CY - 20}
           textAnchor="middle"
           dominantBaseline="middle"
-          fill={dim ? "rgba(150,170,200,0.5)" : (warning ? color : "rgba(220,235,255,0.95)")}
+          fill={dim ? "rgba(15,23,42,0.30)" : (warning ? color : COLORS.label)}
           fontSize="27"
           fontWeight="bold"
           fontFamily="monospace"
@@ -157,7 +157,7 @@ function ArcGauge({
           y={ARC_CY - 1}
           textAnchor="middle"
           dominantBaseline="middle"
-          fill="rgba(148,163,184,0.75)"
+          fill={COLORS.dimLabel}
           fontSize="9.5"
           fontWeight="bold"
           fontFamily="monospace"
@@ -173,8 +173,8 @@ function ArcGauge({
               x={ARC_CX + 20} y={ARC_CY - 38}
               width="26"       height="14"
               rx="3.5"
-              fill="rgba(239,68,68,0.22)"
-              stroke="rgba(239,68,68,0.55)"
+              fill="rgba(220,38,38,0.08)"
+              stroke="rgba(220,38,38,0.3)"
               strokeWidth="0.8"
             />
             <text
@@ -197,7 +197,7 @@ function ArcGauge({
         className={`text-[12px] font-bold tracking-widest uppercase mt-0.5 ${
           warning ? "animate-pulse" : ""
         }`}
-        style={{ color: warning ? color : "rgba(148,163,184,0.8)" }}
+        style={{ color: warning ? color : COLORS.dimLabel }}
       >
         {label}
       </span>
@@ -235,7 +235,7 @@ export const WindGaugeBars = React.memo(function WindGaugeBars({
   return (
     <div
       className="flex items-end gap-4 px-4 py-4"
-      style={{ background: "rgba(10,15,26,0.85)", borderTop: "1px solid rgba(51,65,85,0.35)" }}
+      style={{ background: COLORS.panelBg, borderTop: "1px solid " + COLORS.panelBorder }}
     >
       {/* Headwind / Tailwind */}
       <ArcGauge
@@ -248,7 +248,7 @@ export const WindGaugeBars = React.memo(function WindGaugeBars({
       />
 
       {/* Divider */}
-      <div className="w-px self-stretch" style={{ background: "rgba(51,65,85,0.5)" }} />
+      <div className="w-px self-stretch" style={{ background: COLORS.panelBorder }} />
 
       {/* Crosswind */}
       <ArcGauge
@@ -260,7 +260,7 @@ export const WindGaugeBars = React.memo(function WindGaugeBars({
       />
 
       {/* Divider */}
-      <div className="w-px self-stretch" style={{ background: "rgba(51,65,85,0.5)" }} />
+      <div className="w-px self-stretch" style={{ background: COLORS.panelBorder }} />
 
       {/* Gust */}
       <ArcGauge

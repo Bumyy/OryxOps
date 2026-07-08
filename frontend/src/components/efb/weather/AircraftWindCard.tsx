@@ -53,13 +53,13 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
 
   return (
     <div
-      className="w-full rounded-2xl overflow-hidden shadow-xl border border-slate-700/60 flex flex-col md:flex-row"
-      style={{ background: COLORS.bg }}
+      className="w-full rounded-2xl overflow-hidden shadow-sm border flex flex-col md:flex-row"
+      style={{ background: COLORS.bg, borderColor: COLORS.panelBorder }}
     >
       {/* ══════════════════════════════════════
           LEFT PANEL — Aircraft Wind Diagram & Gauges
       ══════════════════════════════════════ */}
-      <div className="flex flex-col md:w-[58%] min-w-0">
+      <div className="flex flex-col md:w-[70%] min-w-0">
         
         {/* Diagram Area */}
         <div
@@ -67,7 +67,7 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
           style={{
             background: COLORS.bg,
             aspectRatio: "1 / 1", // clean square format
-            maxHeight: 350,
+            maxHeight: 400,
           }}
         >
           <AircraftDiagram
@@ -82,17 +82,17 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
           {/* Warnings Badges inside visualizer overlay */}
           <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
             {showTailwindWarning && (
-              <div className="bg-red-950/80 border border-red-500/50 text-red-200 text-[8.5px] font-black px-2 py-0.5 rounded font-mono tracking-widest shadow-md">
+              <div className="bg-red-50 border border-red-200 text-red-700 text-[8.5px] font-black px-2 py-0.5 rounded font-mono tracking-widest shadow-sm">
                 ⚠ HIGH TAILWIND
               </div>
             )}
             {showCrosswindWarning && (
-              <div className="bg-amber-950/80 border border-amber-500/50 text-amber-200 text-[8.5px] font-black px-2 py-0.5 rounded font-mono tracking-widest shadow-md">
+              <div className="bg-amber-50 border border-amber-200 text-amber-700 text-[8.5px] font-black px-2 py-0.5 rounded font-mono tracking-widest shadow-sm">
                 ⚠ HIGH CROSSWIND
               </div>
             )}
             {gustBadgeKt && (
-              <div className="bg-blue-950/80 border border-blue-500/40 text-blue-200 text-[8.5px] font-black px-2 py-0.5 rounded font-mono tracking-widest shadow-md">
+              <div className="bg-blue-50 border border-blue-200 text-blue-700 text-[8.5px] font-black px-2 py-0.5 rounded font-mono tracking-widest shadow-sm">
                 GUSTS {gustBadgeKt}KT
               </div>
             )}
@@ -112,7 +112,7 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
           RIGHT PANEL — Textual Details & Limits
       ══════════════════════════════════════ */}
       <div
-        className="flex flex-col justify-between p-5 md:w-[42%] min-w-0 border-t md:border-t-0 md:border-l"
+        className="flex flex-col justify-between p-5 md:w-[30%] min-w-0 border-t md:border-t-0 md:border-l"
         style={{ background: COLORS.panelBg, borderColor: COLORS.panelBorder }}
       >
         <div>
@@ -137,7 +137,7 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
 
             <div className="flex items-center gap-2 shrink-0 ml-3">
               {rwy === planRwy && (
-                <span className="text-[9px] bg-blue-500/15 border border-blue-500/30 text-blue-300 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                <span className="text-[9px] bg-blue-500/10 border border-blue-500/20 text-blue-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                   PLANNED
                 </span>
               )}
@@ -145,7 +145,7 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
                 <button
                   type="button"
                   onClick={() => onRemove(rwy)}
-                  className="text-slate-500 hover:text-red-400 text-xs p-1 leading-none transition-colors"
+                  className="text-slate-400 hover:text-red-500 text-xs p-1 leading-none transition-colors"
                   title="Remove runway"
                   aria-label={`Remove runway ${rwy}`}
                 >
@@ -158,7 +158,7 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
           {/* Wind Summary Card */}
           <div
             className="rounded-xl px-3 py-2.5 mb-4 border"
-            style={{ background: "rgba(15,23,42,0.4)", borderColor: COLORS.panelBorder }}
+            style={{ background: "rgba(15,23,42,0.03)", borderColor: COLORS.panelBorder }}
           >
             <span
               className="text-[9px] font-bold uppercase tracking-widest block mb-1"
@@ -187,8 +187,8 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
               <div
                 className="rounded-xl p-3 border flex justify-between items-center"
                 style={{
-                  background: "rgba(15,23,42,0.2)",
-                  borderColor: isTailwind ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.20)",
+                  background: "rgba(15,23,42,0.01)",
+                  borderColor: isTailwind ? "rgba(220,38,38,0.25)" : "rgba(22,163,74,0.20)",
                 }}
               >
                 <div>
@@ -208,8 +208,8 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
               <div
                 className="rounded-xl p-3 border flex justify-between items-center"
                 style={{
-                  background: "rgba(15,23,42,0.2)",
-                  borderColor: showCrosswindWarning ? "rgba(245,158,11,0.25)" : COLORS.panelBorder,
+                  background: "rgba(15,23,42,0.01)",
+                  borderColor: showCrosswindWarning ? "rgba(217,119,6,0.25)" : COLORS.panelBorder,
                 }}
               >
                 <div>
@@ -232,7 +232,7 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
         {!vectors.isVariable && (
           <p
             className="text-[9.5px] font-medium leading-relaxed mt-4 pt-3 border-t"
-            style={{ color: COLORS.dimLabel, borderColor: "rgba(51,65,85,0.25)" }}
+            style={{ color: COLORS.dimLabel, borderColor: COLORS.panelBorder }}
           >
             Relative angle to runway heading ({getRunwayHeading(rwy)}°) is{" "}
             <span className="font-mono" style={{ color: COLORS.label }}>
