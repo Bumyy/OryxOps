@@ -61,7 +61,9 @@ async def list_bookings(
             flight_departure=b.schedule.departure if b.schedule else None,
             flight_arrival=b.schedule.arrival if b.schedule else None,
             flight_scheduled_dep=str(b.schedule.scheduled_departure) if b.schedule else None,
+            flight_number=b.schedule.flight_number if b.schedule else None,
             aircraft_registration=b.schedule.aircraft.registration if b.schedule and b.schedule.aircraft else None,
+            aircraft_icao=b.schedule.aircraft.aircraft_type.icao if b.schedule and b.schedule.aircraft and b.schedule.aircraft.aircraft_type else None,
         )
         for b in bookings
     ]
@@ -124,7 +126,9 @@ async def create_booking_route(
             flight_departure=schedule.departure,
             flight_arrival=schedule.arrival,
             flight_scheduled_dep=str(schedule.scheduled_departure) if schedule.scheduled_departure else None,
+            flight_number=schedule.flight_number,
             aircraft_registration=schedule.aircraft.registration if schedule.aircraft else None,
+            aircraft_icao=schedule.aircraft.aircraft_type.icao if schedule.aircraft and schedule.aircraft.aircraft_type else None,
         )
         for b in bookings
     ]
@@ -180,6 +184,9 @@ async def complete_booking_route(
         booked_at=str(booking.booked_at),
         status=booking.status,
         completed_pirep_id=booking.completed_pirep_id,
+        flight_number=booking.schedule.flight_number if booking.schedule else None,
+        aircraft_registration=booking.schedule.aircraft.registration if booking.schedule and booking.schedule.aircraft else None,
+        aircraft_icao=booking.schedule.aircraft.aircraft_type.icao if booking.schedule and booking.schedule.aircraft and booking.schedule.aircraft.aircraft_type else None,
     )
 
 
@@ -202,6 +209,9 @@ async def no_show_booking(
         token_cost=booking.token_cost,
         booked_at=str(booking.booked_at),
         status=booking.status,
+        flight_number=booking.schedule.flight_number if booking.schedule else None,
+        aircraft_registration=booking.schedule.aircraft.registration if booking.schedule and booking.schedule.aircraft else None,
+        aircraft_icao=booking.schedule.aircraft.aircraft_type.icao if booking.schedule and booking.schedule.aircraft and booking.schedule.aircraft.aircraft_type else None,
     )
 
 
@@ -227,4 +237,7 @@ async def take_over_booking_route(
         taken_over_by=pilot.id,
         taken_over_by_name=pilot.callsign,
         taken_over_at=str(booking.taken_over_at) if booking.taken_over_at else None,
+        flight_number=booking.schedule.flight_number if booking.schedule else None,
+        aircraft_registration=booking.schedule.aircraft.registration if booking.schedule and booking.schedule.aircraft else None,
+        aircraft_icao=booking.schedule.aircraft.aircraft_type.icao if booking.schedule and booking.schedule.aircraft and booking.schedule.aircraft.aircraft_type else None,
     )

@@ -18,7 +18,9 @@ class BookingOut(BaseModel):
     flight_departure: str | None = None
     flight_arrival: str | None = None
     flight_scheduled_dep: str | None = None
+    flight_number: str | None = None
     aircraft_registration: str | None = None
+    aircraft_icao: str | None = None
 
     model_config = {"from_attributes": True}
 

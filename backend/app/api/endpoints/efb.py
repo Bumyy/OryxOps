@@ -52,3 +52,28 @@ async def get_airport_weather(icao: str):
             
     except httpx.RequestError as exc:
         raise HTTPException(status_code=502, detail=f"Failed to communicate with aviationweather.gov: {exc}")
+
+@router.get("/direction")
+def get_flight_direction_route(dep: str, arr: str):
+    from app.services.efb_service import calculate_flight_direction
+    return {"direction": calculate_flight_direction(dep, arr)}
+
+@router.get("/runways")
+def get_airport_runways_route(icao: str):
+    from app.services.efb_service import get_airport_runways
+    return get_airport_runways(icao)
+
+
+@router.get("/simbrief")
+async def get_simbrief_ofp(userid: str):
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            url = f"https://www.simbrief.com/api/xml.fetcher.php?userid={userid}&json=1"
+            res = await client.get(url)
+            if res.status_code != 200:
+                raise HTTPException(status_code=res.status_code, detail="Failed to fetch from SimBrief")
+            return res.json()
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to communicate with SimBrief: {exc}")
+
+

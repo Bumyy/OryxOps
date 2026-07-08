@@ -3,24 +3,28 @@ import { useLocation } from "react-router-dom";
 import useReveal from "../hooks/useReveal";
 import checklistTemplate from "../assets/checklist/checklist_template.json";
 import aircraftsDb from "../assets/checklist/aircrafts.json";
-import EFBBriefing from "../components/efb/EFBBriefing";
-import EFBChecklist from "../components/efb/EFBChecklist";
-import EFBSettings from "../components/efb/EFBSettings";
-import EFBWeather from "../components/efb/EFBWeather";
+import EFBBriefing from "../components/efb/briefing/EFBBriefing";
+import EFBChecklist from "../components/efb/checklist/EFBChecklist";
+import EFBSettings from "../components/efb/settings/EFBSettings";
+import EFBWeather from "../components/efb/weather/EFBWeather";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { fetchBookings } from "../store/slices/bookingSlice";
+
 
 export default function EFB() {
   const revealRef = useReveal();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
+  const { bookings } = useAppSelector((state) => state.booking);
   
   // Base Connection & OFP States
-  const [simbriefUsername, setSimbriefUsername] = useState(() => {
-    return localStorage.getItem("simbrief_pilot_id") || "";
-  });
-  const [isSavedPilotId, setIsSavedPilotId] = useState(!!localStorage.getItem("simbrief_pilot_id"));
+  const simbriefId = user?.simbrief_id;
   const [zuluTime, setZuluTime] = useState("");
   const [ofpData, setOfpData] = useState<any>(null);
   const [loadingOfp, setLoadingOfp] = useState(false);
   const [ofpError, setOfpError] = useState<string | null>(null);
   const [pdfLoadError, setPdfLoadError] = useState(false);
+
 
   // Tab state derived from router path
   const location = useLocation();
@@ -36,6 +40,18 @@ export default function EFB() {
   const [aircraftOverride, setAircraftOverride] = useState<string | null>(null);
   const [loadOverride, setLoadOverride] = useState<number | null>(null);
   const [directionOverride, setDirectionOverride] = useState<"east" | "west" | null>(null);
+  const [manualLoad, setManualLoad] = useState<number>(75);
+  const [calculatedDirection, setCalculatedDirection] = useState<"east" | "west">("east");
+
+  // Fetch active bookings on load
+  useEffect(() => {
+    if (user?.id) {
+      dispatch(fetchBookings({ pilot_id: user.id, status: "booked" }));
+    }
+  }, [user, dispatch]);
+
+  const activeBooking = bookings.find((b) => b.status === "booked");
+
 
   // Co-Pilot Settings State
   const [selectedVoiceName, setSelectedVoiceName] = useState(() => localStorage.getItem("copilot_voice") || "");
@@ -118,7 +134,7 @@ export default function EFB() {
     setOfpError(null);
     setPdfLoadError(false);
     try {
-      const res = await fetch(`https://www.simbrief.com/api/xml.fetcher.php?userid=${pilotId}&json=1`);
+      const res = await fetch(`/api/efb/simbrief?userid=${pilotId}`);
       if (!res.ok) {
         throw new Error("Unable to retrieve your latest SimBrief flight plan.");
       }
@@ -138,31 +154,18 @@ export default function EFB() {
     }
   };
 
-  // Fetch automatically when pilot ID is saved/available
+  // Fetch automatically when pilot's simbrief_id is available
   useEffect(() => {
-    if (isSavedPilotId && simbriefUsername) {
-      fetchSimBriefOFP(simbriefUsername);
+    if (simbriefId) {
+      fetchSimBriefOFP(String(simbriefId));
+    } else {
+      setOfpData(null);
     }
-  }, [isSavedPilotId]);
-
-  const handleSavePilotId = () => {
-    if (simbriefUsername.trim()) {
-      localStorage.setItem("simbrief_pilot_id", simbriefUsername.trim());
-      setIsSavedPilotId(true);
-    }
-  };
-
-  const handleClearPilotId = () => {
-    localStorage.removeItem("simbrief_pilot_id");
-    setSimbriefUsername("");
-    setIsSavedPilotId(false);
-    setOfpData(null);
-    setOfpError(null);
-  };
+  }, [simbriefId]);
 
   const handleRefreshOfp = () => {
-    if (simbriefUsername) {
-      fetchSimBriefOFP(simbriefUsername);
+    if (simbriefId) {
+      fetchSimBriefOFP(String(simbriefId));
     }
   };
 
@@ -209,20 +212,20 @@ export default function EFB() {
 
   // Dynamic Variable Calculations for Checklist
   const getCalculatedLoad = () => {
-    if (!ofpData) return 78;
+    if (!ofpData) return manualLoad;
     const payload = parseFloat(ofpData.weights?.payload);
     const maxTow = parseFloat(ofpData.weights?.max_tow);
     const oew = parseFloat(ofpData.weights?.oew);
     if (!isNaN(payload) && !isNaN(maxTow) && !isNaN(oew) && maxTow - oew > 0) {
       return Math.min(100, Math.max(0, Math.round((payload / (maxTow - oew)) * 100)));
     }
-    return 78;
+    return manualLoad;
   };
 
-  const activeLoad = loadOverride !== null ? loadOverride : getCalculatedLoad();
+  const activeLoad = loadOverride !== null ? loadOverride : (ofpData ? getCalculatedLoad() : manualLoad);
 
   const getFlightDirection = () => {
-    if (!ofpData) return "east";
+    if (!ofpData) return calculatedDirection;
     const depLon = parseFloat(ofpData.origin?.pos_long);
     const arrLon = parseFloat(ofpData.destination?.pos_long);
     if (isNaN(depLon) || isNaN(arrLon)) return "east";
@@ -233,10 +236,28 @@ export default function EFB() {
     return diff < 0 ? "west" : "east";
   };
 
-  const activeDirection = directionOverride !== null ? directionOverride : getFlightDirection();
+  // Fetch flight direction from backend dynamically if booking is loaded
+  useEffect(() => {
+    const dep = activeBooking?.flight_departure;
+    const arr = activeBooking?.flight_arrival;
+    if (dep && arr) {
+      fetch(`/api/efb/direction?dep=${dep}&arr=${arr}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.direction === "west") {
+            setCalculatedDirection("west");
+          } else {
+            setCalculatedDirection("east");
+          }
+        })
+        .catch(() => setCalculatedDirection("east"));
+    }
+  }, [activeBooking]);
 
-  const aircraftCode = ofpData?.aircraft?.icao_code?.toUpperCase() || "";
-  const activeAircraft = aircraftOverride || aircraftCode;
+  const activeDirection = directionOverride !== null ? directionOverride : (ofpData ? getFlightDirection() : calculatedDirection);
+
+  const aircraftCode = ofpData?.aircraft?.icao_code?.toUpperCase() || activeBooking?.aircraft_icao?.toUpperCase() || "";
+  const activeAircraft = aircraftOverride || aircraftCode || "A320";
   const aircraftInfo = aircraftsDb[activeAircraft as keyof typeof aircraftsDb] as any;
 
   // Retrieve performance data
@@ -1118,113 +1139,108 @@ export default function EFB() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-brand-border pb-5 mb-6 gap-4">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#2ECC71] shadow-sm shadow-[#2ECC71]/70"></span>
-            <h2 className="text-lg font-bold text-brand">SimBrief Dispatch System</h2>
+            <h2 className="text-lg font-bold text-brand">
+              {activeTab === "briefing" && "SimBrief Dispatch System"}
+              {activeTab === "checklist" && "Interactive Checklist & Co-Pilot"}
+              {activeTab === "weather" && "Weather & Runway Performance"}
+              {activeTab === "settings" && "EFB Preferences & Settings"}
+            </h2>
           </div>
 
-          <div className="flex items-center gap-2">
-            {isSavedPilotId ? (
+          {activeTab === "briefing" && simbriefId && (
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-3 bg-brand-pale border border-brand-border px-3 py-1.5 rounded-xl">
                 <span className="text-xs text-gray-500 font-semibold">PILOT ID:</span>
-                <span className="font-mono font-bold text-brand text-sm">{simbriefUsername}</span>
-                <button
-                  onClick={handleClearPilotId}
-                  className="text-red-600 hover:text-red-800 font-bold ml-1 text-sm"
-                  title="Disconnect SimBrief ID"
-                >
-                  Disconnect
-                </button>
+                <span className="font-mono font-bold text-brand text-sm">{simbriefId}</span>
               </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="SimBrief Pilot ID"
-                  value={simbriefUsername}
-                  onChange={e => setSimbriefUsername(e.target.value)}
-                  className="bg-white border border-brand-border text-gray-800 px-3 py-1.5 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:border-brand w-40"
-                />
-                <button
-                  onClick={handleSavePilotId}
-                  className="bg-brand text-white text-sm font-bold px-4 py-1.5 rounded-xl hover:bg-brand-dark transition-colors shadow-sm"
-                >
-                  Connect
-                </button>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Content Body */}
-        {!isSavedPilotId ? (
-          <div className="text-center py-16 px-4 max-w-md mx-auto">
-            <div className="w-16 h-16 bg-brand-pale rounded-full flex items-center justify-center mx-auto mb-5 border border-brand-border">
-              <svg className="w-8 h-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-brand">Connect SimBrief Account</h3>
-            <p className="text-gray-500 text-sm mt-2 max-w-sm mx-auto leading-relaxed">
-              Please enter your SimBrief Pilot ID at the top right to synchronize and view your latest Operational Flight Plan (OFP).
-            </p>
-            <a
-              href="https://www.simbrief.com/system/dispatch.php"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-6 bg-brand text-white hover:bg-brand-dark text-sm font-bold px-5 py-2.5 rounded-xl transition-colors inline-block shadow-sm"
-            >
-              Generate Flight Plan on SimBrief
-            </a>
-          </div>
-        ) : loadingOfp ? (
-          <div className="text-center py-24 flex flex-col items-center justify-center space-y-4">
-            <div className="w-10 h-10 border-4 border-brand-border border-t-brand rounded-full animate-spin"></div>
-            <div className="text-sm font-bold text-gray-500 tracking-wide">Retrieving latest dispatch briefing...</div>
-          </div>
-        ) : ofpError ? (
-          <div className="text-center py-16 px-4 max-w-md mx-auto">
-            <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-5 border border-yellow-200">
-              <svg className="w-8 h-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-gray-800">{ofpError}</h3>
-            <p className="text-gray-500 text-sm mt-2 max-w-sm mx-auto leading-relaxed">
-              Ensure you have generated a flight plan on SimBrief first, or try entering your Pilot ID again.
-            </p>
-            <div className="flex justify-center gap-3 mt-6">
-              <button
-                onClick={handleRefreshOfp}
-                className="bg-white border border-brand-border text-brand font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-brand-hover-bg transition-colors"
-              >
-                Retry Fetch
-              </button>
-              <a
-                href="https://www.simbrief.com/system/dispatch.php"
-                target="_blank"
-                rel="noreferrer"
-                className="bg-brand text-white hover:bg-brand-dark text-sm font-bold px-5 py-2.5 rounded-xl transition-colors inline-block"
-              >
-                Open SimBrief
-              </a>
-            </div>
-          </div>
-        ) : ofpData ? (
+        {(ofpData || activeBooking) ? (
           <div className="flex flex-col">
+            {/* BRIEFING TAB: renders loaded SimBrief OFP or activeBooking dispatch fallback */}
             {activeTab === "briefing" && (
-              <EFBBriefing
-                ofpData={ofpData}
-                units={units}
-                flightNum={flightNum}
-                formatTimestampToTime={formatTimestampToTime}
-                formatWeight={formatWeight}
-                getPdfUrl={getPdfUrl}
-                handleRefreshOfp={handleRefreshOfp}
-                pdfLoadError={pdfLoadError}
-                setPdfLoadError={setPdfLoadError}
-                handleToggleFullscreen={handleToggleFullscreen}
-              />
+              <>
+                {ofpData ? (
+                  <EFBBriefing
+                    ofpData={ofpData}
+                    units={units}
+                    flightNum={flightNum}
+                    formatTimestampToTime={formatTimestampToTime}
+                    formatWeight={formatWeight}
+                    getPdfUrl={getPdfUrl}
+                    handleRefreshOfp={handleRefreshOfp}
+                    pdfLoadError={pdfLoadError}
+                    setPdfLoadError={setPdfLoadError}
+                    handleToggleFullscreen={handleToggleFullscreen}
+                    activeBooking={activeBooking}
+                    activeLoad={activeLoad}
+                    setActiveLoad={setManualLoad}
+                    activeCruiseAlt={parseInt(getPerformanceData().cruise_altitude.replace(/\D/g, "")) * 100 || 35000}
+                    setActiveCruiseAlt={() => {}}
+                  />
+                ) : activeBooking ? (
+                  <EFBBriefing
+                    ofpData={null}
+                    units={units}
+                    flightNum={flightNum}
+                    formatTimestampToTime={formatTimestampToTime}
+                    formatWeight={formatWeight}
+                    getPdfUrl={getPdfUrl}
+                    handleRefreshOfp={handleRefreshOfp}
+                    pdfLoadError={pdfLoadError}
+                    setPdfLoadError={setPdfLoadError}
+                    handleToggleFullscreen={handleToggleFullscreen}
+                    activeBooking={activeBooking}
+                    activeLoad={activeLoad}
+                    setActiveLoad={setManualLoad}
+                    activeCruiseAlt={parseInt(getPerformanceData().cruise_altitude.replace(/\D/g, "")) * 100 || 35000}
+                    setActiveCruiseAlt={() => {}}
+                  />
+                ) : !simbriefId ? (
+                  <div className="text-center py-16 px-4 max-w-md mx-auto bg-gray-50/50 border border-brand-border rounded-3xl">
+                    <div className="w-16 h-16 bg-brand-pale rounded-full flex items-center justify-center mx-auto mb-5 border border-brand-border">
+                      <svg className="w-8 h-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-brand">SimBrief ID Not Linked</h3>
+                    <p className="text-gray-500 text-sm mt-2 max-w-sm mx-auto leading-relaxed">
+                      No SimBrief ID is linked to your pilot profile. Please contact staff to link your SimBrief ID to your profile.
+                    </p>
+                  </div>
+                ) : loadingOfp ? (
+                  <div className="text-center py-20 flex flex-col items-center justify-center space-y-4">
+                    <div className="w-10 h-10 border-4 border-brand-border border-t-brand rounded-full animate-spin" />
+                    <div className="text-xs font-bold text-gray-500 tracking-wide">
+                      Fetching operational flight plan from SimBrief…
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-16 px-4 max-w-md mx-auto bg-gray-50/50 border border-brand-border rounded-3xl">
+                    <div className="w-16 h-16 bg-brand-pale rounded-full flex items-center justify-center mx-auto mb-5 border border-brand-border">
+                      <svg className="w-8 h-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-brand">No SimBrief OFP Found</h3>
+                    <p className="text-gray-500 text-sm mt-2 max-w-sm mx-auto leading-relaxed">
+                      We couldn't retrieve an active flight plan from SimBrief for Pilot ID {simbriefId}. Please generate your flight plan on SimBrief.com first, then click reload.
+                    </p>
+                    <button
+                      onClick={handleRefreshOfp}
+                      className="mt-6 bg-brand text-white text-xs font-bold px-6 py-2.5 rounded-xl hover:bg-brand-dark transition-colors shadow-sm"
+                    >
+                      🔄 Retry SimBrief Fetch
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
+            {/* Other tabs render directly based on activeBooking fallback values */}
             {activeTab === "checklist" && (
               <EFBChecklist
                 compiledChecklist={compiledChecklist}
@@ -1253,7 +1269,7 @@ export default function EFB() {
             )}
 
             {activeTab === "weather" && (
-              <EFBWeather ofpData={ofpData} />
+              <EFBWeather ofpData={ofpData} activeBooking={activeBooking} />
             )}
 
             {activeTab === "settings" && (
@@ -1291,8 +1307,16 @@ export default function EFB() {
             )}
           </div>
         ) : (
-          <div className="text-center py-8 text-sm text-gray-500 font-semibold">
-            Connect your SimBrief account to display your flight plan.
+          <div className="text-center py-16 px-4 max-w-md mx-auto bg-gray-50/50 border border-brand-border rounded-3xl">
+            <div className="w-16 h-16 bg-brand-pale rounded-full flex items-center justify-center mx-auto mb-5 border border-brand-border">
+              <svg className="w-8 h-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-brand">No Active Booking Found</h3>
+            <p className="text-gray-500 text-sm mt-2 max-w-sm mx-auto leading-relaxed">
+              Please book a schedule on the bookings dashboard to generate your EFB data.
+            </p>
           </div>
         )}
 

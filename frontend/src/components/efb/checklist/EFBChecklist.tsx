@@ -1,5 +1,5 @@
 import React from "react";
-import aircraftsDb from "../../assets/checklist/aircrafts.json";
+import aircraftsDb from "../../../assets/checklist/aircrafts.json";
 
 export interface EFBChecklistProps {
   compiledChecklist: any[];

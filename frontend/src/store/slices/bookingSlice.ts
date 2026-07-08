@@ -17,6 +17,8 @@ interface Booking {
   flight_arrival: string;
   flight_scheduled_dep: string;
   aircraft_registration: string;
+  aircraft_icao?: string;
+  flight_number?: string;
 }
 
 interface BookingState {

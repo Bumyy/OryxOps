@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <!-- Challenger 350 Silhouette (Rear engines, small bizjet) -->
+  <path fill="currentColor" d="
+    M 100 32 
+    C 102.5 32, 104 35, 104 40 
+    L 104 100 
+    L 165 142 
+    C 167 143.5, 167 145, 164 145 
+    L 134 139 
+    L 104 121 
+    L 104 168 
+    L 120 182 
+    C 121.5 183, 121.5 184, 119 184 
+    L 100 180 
+    L 81 184 
+    C 78.5 184, 78.5 183, 80 182 
+    L 96 168 
+    L 96 121 
+    L 66 139 
+    L 36 145 
+    C 33 145, 33 143.5, 35 142 
+    L 96 100 
+    L 96 40 
+    C 96 35, 97.5 32, 100 32 Z
+  "/>
+  <!-- Rear Mounted Engines -->
+  <rect x="105" y="132" width="7" height="15" rx="3.5" fill="currentColor"/>
+  <rect x="88" y="132" width="7" height="15" rx="3.5" fill="currentColor"/>
+</svg>

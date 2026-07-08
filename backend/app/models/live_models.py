@@ -51,6 +51,7 @@ class Pilot(Base):
     cargo_coins = Column(Integer, default=0)
     flying_groupid = Column(Integer, default=0)
     flying_group_airport = Column(String(4), default="OTHH")
+    simbrief_id = Column(Integer)
 
 
 class Aircraft(Base):

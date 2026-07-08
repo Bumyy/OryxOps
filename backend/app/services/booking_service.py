@@ -14,9 +14,11 @@ async def get_bookings(
     status: str | None = None,
     group_id: int | None = None,
 ) -> list[LiveFlightBooking]:
+    from app.models.live_models import LiveAircraft
     query = select(LiveFlightBooking).options(
         selectinload(LiveFlightBooking.schedule)
-        .selectinload(LiveFlightSchedule.aircraft),
+        .selectinload(LiveFlightSchedule.aircraft)
+        .selectinload(LiveAircraft.aircraft_type),
         selectinload(LiveFlightBooking.pilot),
     )
 
@@ -37,12 +39,14 @@ async def get_bookings(
 
 
 async def get_booking(db: AsyncSession, booking_id: int) -> LiveFlightBooking | None:
+    from app.models.live_models import LiveAircraft
     result = await db.execute(
         select(LiveFlightBooking)
         .where(LiveFlightBooking.id == booking_id)
         .options(
             selectinload(LiveFlightBooking.schedule)
-            .selectinload(LiveFlightSchedule.aircraft),
+            .selectinload(LiveFlightSchedule.aircraft)
+            .selectinload(LiveAircraft.aircraft_type),
             selectinload(LiveFlightBooking.pilot),
             selectinload(LiveFlightBooking.taken_over_pilot),
         )

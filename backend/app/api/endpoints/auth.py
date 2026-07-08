@@ -65,4 +65,5 @@ async def get_me(
         "joined": str(pilot.joined) if pilot.joined else None,
         "avatar": get_pilot_avatar(pilot),
         "is_staff": is_staff,
+        "simbrief_id": pilot.simbrief_id,
     }
