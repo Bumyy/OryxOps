@@ -26,7 +26,8 @@ from app.services.schedule_service import (
     update_schedule,
     update_schedule_status,
 )
-from app.services.if_sync_service import try_auto_sync_to_if
+from app.services.if_sync_service import IFScheduleSync, try_auto_sync_to_if
+from app.services.if_live_client import IFTokenManager
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
 
@@ -132,6 +133,9 @@ async def update_schedule_route(
         raise HTTPException(status_code=404, detail="Schedule not found")
     await check_group_access(db, schedule.group_id, pilot)
     schedule = await update_schedule(db, schedule_id, data.model_dump(exclude_none=True))
+    if schedule.status == "approved":
+        await try_auto_sync_to_if(db, schedule)
+        await db.commit()
     return ScheduleOut(
         id=schedule.id,
         group_id=schedule.group_id,
@@ -147,6 +151,7 @@ async def update_schedule_route(
         status=schedule.status,
         created_by=schedule.created_by,
         week_start=str(schedule.week_start),
+        if_schedule_id=schedule.if_schedule_id,
     )
 
 
@@ -160,7 +165,22 @@ async def delete_schedule_route(
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
     await check_group_access(db, schedule.group_id, pilot)
+
+    if schedule.if_schedule_id:
+        try:
+            manager = IFTokenManager()
+            client = await manager.get_client(db, pilot.id)
+            await client.open()
+            try:
+                sync = IFScheduleSync(client)
+                await sync.delete_if_schedule(db, schedule)
+            finally:
+                await client.close()
+        except Exception:
+            pass
+
     success = await delete_schedule(db, schedule_id)
+    await db.commit()
     if not success:
         raise HTTPException(status_code=404, detail="Schedule not found")
     return {"detail": "Schedule deleted"}
@@ -230,9 +250,27 @@ async def reject_schedule(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_staff),
 ):
+    schedule = await get_schedule(db, schedule_id)
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    if schedule.if_schedule_id:
+        try:
+            manager = IFTokenManager()
+            client = await manager.get_client(db, pilot.id)
+            await client.open()
+            try:
+                sync = IFScheduleSync(client)
+                await sync.delete_if_schedule(db, schedule)
+            finally:
+                await client.close()
+        except Exception:
+            pass
+
     schedule = await update_schedule_status(db, schedule_id, "draft")
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
+    await db.commit()
     return ScheduleOut(
         id=schedule.id,
         group_id=schedule.group_id,
@@ -246,6 +284,7 @@ async def reject_schedule(
         status=schedule.status,
         created_by=schedule.created_by,
         week_start=str(schedule.week_start),
+        if_schedule_id=schedule.if_schedule_id,
     )
 
 

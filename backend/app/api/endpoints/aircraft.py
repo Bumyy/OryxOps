@@ -45,6 +45,7 @@ async def list_airframes(
             aircraft_type_name=a.aircraft_type.name if a.aircraft_type else None,
             registration=a.registration,
             if_aircraft_id=a.if_aircraft_id,
+            if_organization_aircraft_id=a.if_organization_aircraft_id,
             current_airport=a.current_airport,
             current_parking_id=a.current_parking_id,
             status=a.status,

@@ -13,6 +13,8 @@ interface LiveAircraft {
   aircraft_type_id: number;
   aircraft_type_name: string;
   registration: string;
+  if_aircraft_id: string | null;
+  if_organization_aircraft_id: string | null;
   current_airport: string;
   status: string;
   current_pilot_name: string | null;

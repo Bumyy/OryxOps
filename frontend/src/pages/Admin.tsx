@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { api } from "../api/client";
 import { GroupsTab } from "./admin/GroupsPage";
 import {
   fetchSettings,
@@ -1194,10 +1195,75 @@ export function WavesTab() {
 export function SettingsTab() {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((s) => s.admin);
+  const [ifStatus, setIfStatus] = useState<{ connected: boolean; scopes?: string } | null>(null);
+  const [ifMatches, setIfMatches] = useState<any>(null);
+  const [ifLoading, setIfLoading] = useState(false);
+  const [ifMsg, setIfMsg] = useState("");
+
+  const checkIfStatus = async () => {
+    try {
+      const res = await api.get<any>("/infinite-flight/auth/status");
+      setIfStatus(res);
+    } catch {
+      setIfStatus(null);
+    }
+  };
+
+  useEffect(() => {
+    checkIfStatus();
+  }, []);
+
+  const handleConnect = async () => {
+    setIfLoading(true);
+    try {
+      const res = await api.get<{ authorize_url: string }>("/infinite-flight/auth/authorize");
+      window.location.href = res.authorize_url;
+    } catch (e: any) {
+      setIfMsg(e.message || "Failed to start auth flow");
+    }
+    setIfLoading(false);
+  };
+
+  const handleDisconnect = async () => {
+    setIfLoading(true);
+    try {
+      await api.post("/infinite-flight/auth/revoke");
+      setIfStatus(null);
+      setIfMsg("Disconnected from Infinite Flight.");
+    } catch (e: any) {
+      setIfMsg(e.message || "Failed to revoke");
+    }
+    setIfLoading(false);
+  };
+
+  const handleSyncAircraft = async () => {
+    setIfLoading(true);
+    setIfMsg("");
+    try {
+      const res = await api.post<any>("/infinite-flight/aircraft/sync-all");
+      setIfMsg(`Linked ${res.linked} aircraft. ${res.already_linked} already linked, ${res.unmatched} unmatched.`);
+      await checkIfStatus();
+    } catch (e: any) {
+      setIfMsg(e.message || "Sync failed");
+    }
+    setIfLoading(false);
+  };
+
+  const handleCheckMatches = async () => {
+    setIfLoading(true);
+    try {
+      const res = await api.get<any>("/infinite-flight/aircraft/matches");
+      setIfMatches(res);
+    } catch (e: any) {
+      setIfMsg(e.message || "Failed to load matches");
+    }
+    setIfLoading(false);
+  };
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-brand">Settings</h2>
+
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
         <div className="space-y-3">
           {settings.map((s) => (
@@ -1232,6 +1298,109 @@ export function SettingsTab() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Infinite Flight Integration */}
+      <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-brand">Infinite Flight Live</h3>
+          <span
+            className={`text-xs font-bold px-3 py-1 rounded-full ${
+              ifStatus?.connected
+                ? "bg-green-100 text-green-700"
+                : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            {ifStatus?.connected ? "Connected" : "Not Connected"}
+          </span>
+        </div>
+
+        {ifStatus?.connected && ifStatus.scopes && (
+          <p className="text-xs text-gray-400 mb-4">
+            Scopes: {ifStatus.scopes}
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-3 mb-4">
+          {!ifStatus?.connected ? (
+            <button
+              onClick={handleConnect}
+              disabled={ifLoading}
+              className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm px-5 py-2 hover:-translate-y-0.5 hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {ifLoading ? "..." : "Connect with Infinite Flight"}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={handleSyncAircraft}
+                disabled={ifLoading}
+                className="rounded-full bg-brand text-white font-semibold text-sm px-5 py-2 hover:bg-brand-light transition-colors disabled:opacity-50"
+              >
+                {ifLoading ? "..." : "Sync Aircraft"}
+              </button>
+              <button
+                onClick={handleCheckMatches}
+                disabled={ifLoading}
+                className="rounded-full border border-brand-border text-gray-600 font-semibold text-sm px-5 py-2 hover:bg-brand-pale transition-colors disabled:opacity-50"
+              >
+                Check Matches
+              </button>
+              <button
+                onClick={handleDisconnect}
+                disabled={ifLoading}
+                className="rounded-full border border-red-200 text-red-500 font-semibold text-sm px-5 py-2 hover:bg-red-50 transition-colors disabled:opacity-50"
+              >
+                Disconnect
+              </button>
+            </>
+          )}
+        </div>
+
+        {ifMsg && (
+          <p className="text-sm text-gray-600 bg-brand-pale rounded-xl p-3 mb-4">{ifMsg}</p>
+        )}
+
+        {ifMatches && (
+          <div className="overflow-x-auto mt-4">
+            <table className="w-full text-sm">
+              <thead className="bg-brand-pale text-left">
+                <tr>
+                  <th className="px-4 py-2 font-semibold text-gray-600">Local Aircraft</th>
+                  <th className="px-4 py-2 font-semibold text-gray-600">Registration</th>
+                  <th className="px-4 py-2 font-semibold text-gray-600">IF Match</th>
+                  <th className="px-4 py-2 font-semibold text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ifMatches.matches?.map((m: any) => (
+                  <tr key={m.local_id} className="border-t border-brand-border">
+                    <td className="px-4 py-2">ID: {m.local_id}</td>
+                    <td className="px-4 py-2 font-semibold">{m.local_registration}</td>
+                    <td className="px-4 py-2 text-xs text-gray-500">
+                      {m.suggested_if_aircraft
+                        ? `${m.suggested_if_aircraft.registration} (${m.suggested_if_aircraft.organization_name})`
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-2">
+                      {m.linked ? (
+                        <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                          Linked
+                        </span>
+                      ) : m.suggested_if_aircraft ? (
+                        <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
+                          Ready
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">No match</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

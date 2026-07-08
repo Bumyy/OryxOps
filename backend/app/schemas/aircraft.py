@@ -16,6 +16,7 @@ class LiveAircraftOut(BaseModel):
     aircraft_type_name: str | None = None
     registration: str
     if_aircraft_id: str | None = None
+    if_organization_aircraft_id: str | None = None
     current_airport: str
     current_parking_id: int | None = None
     status: str

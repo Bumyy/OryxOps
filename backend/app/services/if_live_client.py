@@ -706,7 +706,9 @@ class IFTokenManager:
             raise IFLiveAuthError(401, 0, "No stored token — authorize first")
 
         # Check expiry with 60-second buffer
-        if token_row.expires_at is None or token_row.expires_at < datetime.now(timezone.utc) + timedelta(seconds=60):
+        now = datetime.now(timezone.utc)
+        expires = token_row.expires_at.replace(tzinfo=timezone.utc) if token_row.expires_at else now
+        if expires < now + timedelta(seconds=60):
             await self._refresh(db, token_row)
 
         client = IFLiveClient(token_row.access_token, base_url=self.api_base_url)
@@ -741,5 +743,8 @@ class IFTokenManager:
         )
         token_row = result.scalar_one_or_none()
         if token_row:
-            await db.delete(token_row)
+            token_row.access_token = ""
+            token_row.refresh_token = ""
+            token_row.expires_at = datetime.now(timezone.utc)
+            db.add(token_row)
             await db.commit()

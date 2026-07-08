@@ -25,6 +25,7 @@ import AdminCareers from "./pages/admin/CareersPage";
 import AdminTransfers from "./pages/admin/TransfersPage";
 import AdminWaves from "./pages/admin/WavesPage";
 import AdminSettings from "./pages/admin/SettingsPage";
+import IFCallback from "./pages/IFCallback";
 
 function AuthInitializer({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
@@ -89,6 +90,7 @@ export default function App() {
     <AuthInitializer>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/oauth/if-callback" element={<IFCallback />} />
         <Route
           element={
             <ProtectedRoute>
