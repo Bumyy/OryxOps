@@ -7,6 +7,8 @@ import EFBBriefing from "../components/efb/briefing/EFBBriefing";
 import EFBChecklist from "../components/efb/checklist/EFBChecklist";
 import EFBSettings from "../components/efb/settings/EFBSettings";
 import EFBWeather from "../components/efb/weather/EFBWeather";
+import EFBAircraft from "../components/efb/aircraft/EFBAircraft";
+import EFBCharts from "../components/efb/charts/EFBCharts";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchBookings } from "../store/slices/bookingSlice";
 
@@ -32,6 +34,10 @@ export default function EFB() {
     ? "checklist"
     : location.pathname === "/efb/weather"
     ? "weather"
+    : location.pathname === "/efb/aircraft"
+    ? "aircraft"
+    : location.pathname === "/efb/charts"
+    ? "charts"
     : location.pathname === "/efb/settings"
     ? "settings"
     : "briefing";
@@ -51,6 +57,9 @@ export default function EFB() {
   }, [user, dispatch]);
 
   const activeBooking = bookings.find((b) => b.status === "booked");
+
+  // Selection of EFB data source (SimBrief vs Booking Flight Plan)
+  const [efbDataSource, setEfbDataSource] = useState<"simbrief" | "booking">("booking");
 
 
   // Co-Pilot Settings State
@@ -163,6 +172,15 @@ export default function EFB() {
     }
   }, [simbriefId]);
 
+  // Synchronize default data source when SimBrief plan is loaded or cleared
+  useEffect(() => {
+    if (ofpData) {
+      setEfbDataSource("simbrief");
+    } else {
+      setEfbDataSource("booking");
+    }
+  }, [ofpData]);
+
   const handleRefreshOfp = () => {
     if (simbriefId) {
       fetchSimBriefOFP(String(simbriefId));
@@ -222,7 +240,7 @@ export default function EFB() {
     return manualLoad;
   };
 
-  const activeLoad = loadOverride !== null ? loadOverride : (ofpData ? getCalculatedLoad() : manualLoad);
+  const activeLoad = loadOverride !== null ? loadOverride : (efbDataSource === "simbrief" && ofpData ? getCalculatedLoad() : manualLoad);
 
   const getFlightDirection = () => {
     if (!ofpData) return calculatedDirection;
@@ -254,9 +272,9 @@ export default function EFB() {
     }
   }, [activeBooking]);
 
-  const activeDirection = directionOverride !== null ? directionOverride : (ofpData ? getFlightDirection() : calculatedDirection);
+  const activeDirection = directionOverride !== null ? directionOverride : (efbDataSource === "simbrief" && ofpData ? getFlightDirection() : calculatedDirection);
 
-  const aircraftCode = ofpData?.aircraft?.icao_code?.toUpperCase() || activeBooking?.aircraft_icao?.toUpperCase() || "";
+  const aircraftCode = (efbDataSource === "simbrief" && ofpData?.aircraft?.icao_code?.toUpperCase()) || activeBooking?.aircraft_icao?.toUpperCase() || "";
   const activeAircraft = aircraftOverride || aircraftCode || "A320";
   const aircraftInfo = aircraftsDb[activeAircraft as keyof typeof aircraftsDb] as any;
 
@@ -855,11 +873,17 @@ export default function EFB() {
     }
   };
 
-  // Find next unchecked item
-  const getFirstUncheckedItemInPhase = (phaseIdx: number) => {
-    const section = compiledChecklist[phaseIdx];
-    if (!section) return null;
-    return section.items.find((item: any) => !checkedItems[item.id] && !item.isTable) || null;
+  // Find next unchecked item starting from a specific phase
+  const getNextUncheckedItemInfo = (startPhaseIdx: number, currentChecked: Record<string, boolean> = checkedItems) => {
+    for (let i = startPhaseIdx; i < compiledChecklist.length; i++) {
+      const section = compiledChecklist[i];
+      if (!section) continue;
+      const item = section.items.find((it: any) => !currentChecked[it.id] && !it.isTable);
+      if (item) {
+        return { item, phaseIdx: i };
+      }
+    }
+    return null;
   };
 
   // Check off active item and advance
@@ -869,9 +893,9 @@ export default function EFB() {
     if (itemIdOverride) {
       targetItemId = itemIdOverride;
     } else {
-      const activeItem = getFirstUncheckedItemInPhase(activePhaseIndex);
-      if (activeItem) {
-        targetItemId = activeItem.id;
+      const activeInfo = getNextUncheckedItemInfo(activePhaseIndex) || getNextUncheckedItemInfo(0);
+      if (activeInfo) {
+        targetItemId = activeInfo.item.id;
       }
     }
 
@@ -884,26 +908,18 @@ export default function EFB() {
 
       if (coPilotRunning && autoAdvance) {
         setTimeout(() => {
-          const nextActiveItem = compiledChecklist[activePhaseIndex].items.find((item: any) => !next[item.id] && !item.isTable);
-          if (nextActiveItem) {
-            announceChecklistItem(nextActiveItem.text, nextActiveItem.value);
-          } else {
-            if (activePhaseIndex < compiledChecklist.length - 1) {
-              const nextPhase = activePhaseIndex + 1;
-              if (autoCollapse) {
-                setActivePhaseIndex(nextPhase);
-              }
-              const firstItemOfNextPhase = compiledChecklist[nextPhase].items.find((item: any) => !next[item.id] && !item.isTable);
-              if (firstItemOfNextPhase) {
-                announceChecklistItem(firstItemOfNextPhase.text, firstItemOfNextPhase.value);
-              }
-            } else {
-              if (typeof window !== "undefined" && window.speechSynthesis) {
-                window.speechSynthesis.speak(new SpeechSynthesisUtterance("Checklist completed. Have a safe flight."));
-              }
-              setCoPilotRunning(false);
-              setIsListening(false);
+          const nextInfo = getNextUncheckedItemInfo(activePhaseIndex, next) || getNextUncheckedItemInfo(0, next);
+          if (nextInfo) {
+            if (nextInfo.phaseIdx !== activePhaseIndex && autoCollapse) {
+              setActivePhaseIndex(nextInfo.phaseIdx);
             }
+            announceChecklistItem(nextInfo.item.text, nextInfo.item.value);
+          } else {
+            if (typeof window !== "undefined" && window.speechSynthesis) {
+              window.speechSynthesis.speak(new SpeechSynthesisUtterance("Checklist completed. Have a safe flight."));
+            }
+            setCoPilotRunning(false);
+            setIsListening(false);
           }
         }, 700);
       } else if (coPilotRunning && !autoAdvance) {
@@ -970,7 +986,8 @@ export default function EFB() {
 
         // 2. Check for expected value fuzzy matching
         let hasFuzzyMatch = false;
-        const activeItem = getFirstUncheckedItemInPhase(activePhaseIndexRef.current);
+        const activeInfo = getNextUncheckedItemInfo(activePhaseIndexRef.current);
+        const activeItem = activeInfo ? activeInfo.item : null;
         if (activeItem) {
           const accepted = getAcceptedResponses(activeItem.text, activeItem.value);
           hasFuzzyMatch = accepted.some(acc => calculateSimilarity(transcript, acc) >= 0.82);
@@ -1047,11 +1064,14 @@ export default function EFB() {
         window.speechSynthesis.cancel();
       }
     } else {
-      const activeItem = getFirstUncheckedItemInPhase(activePhaseIndex);
+      const activeInfo = getNextUncheckedItemInfo(activePhaseIndex) || getNextUncheckedItemInfo(0);
       setCoPilotRunning(true);
       setTranscriptLog("");
-      if (activeItem) {
-        announceChecklistItem(activeItem.text, activeItem.value);
+      if (activeInfo) {
+        if (activeInfo.phaseIdx !== activePhaseIndex && autoCollapse) {
+          setActivePhaseIndex(activeInfo.phaseIdx);
+        }
+        announceChecklistItem(activeInfo.item.text, activeInfo.item.value);
       }
     }
   };
@@ -1143,6 +1163,8 @@ export default function EFB() {
               {activeTab === "briefing" && "SimBrief Dispatch System"}
               {activeTab === "checklist" && "Interactive Checklist & Co-Pilot"}
               {activeTab === "weather" && "Weather & Runway Performance"}
+              {activeTab === "aircraft" && "Aircraft Performance Reference"}
+              {activeTab === "charts" && "Aviation Charts (ChartFox Experiment)"}
               {activeTab === "settings" && "EFB Preferences & Settings"}
             </h2>
           </div>
@@ -1162,82 +1184,25 @@ export default function EFB() {
           <div className="flex flex-col">
             {/* BRIEFING TAB: renders loaded SimBrief OFP or activeBooking dispatch fallback */}
             {activeTab === "briefing" && (
-              <>
-                {ofpData ? (
-                  <EFBBriefing
-                    ofpData={ofpData}
-                    units={units}
-                    flightNum={flightNum}
-                    formatTimestampToTime={formatTimestampToTime}
-                    formatWeight={formatWeight}
-                    getPdfUrl={getPdfUrl}
-                    handleRefreshOfp={handleRefreshOfp}
-                    pdfLoadError={pdfLoadError}
-                    setPdfLoadError={setPdfLoadError}
-                    handleToggleFullscreen={handleToggleFullscreen}
-                    activeBooking={activeBooking}
-                    activeLoad={activeLoad}
-                    setActiveLoad={setManualLoad}
-                    activeCruiseAlt={parseInt(getPerformanceData().cruise_altitude.replace(/\D/g, "")) * 100 || 35000}
-                    setActiveCruiseAlt={() => {}}
-                  />
-                ) : activeBooking ? (
-                  <EFBBriefing
-                    ofpData={null}
-                    units={units}
-                    flightNum={flightNum}
-                    formatTimestampToTime={formatTimestampToTime}
-                    formatWeight={formatWeight}
-                    getPdfUrl={getPdfUrl}
-                    handleRefreshOfp={handleRefreshOfp}
-                    pdfLoadError={pdfLoadError}
-                    setPdfLoadError={setPdfLoadError}
-                    handleToggleFullscreen={handleToggleFullscreen}
-                    activeBooking={activeBooking}
-                    activeLoad={activeLoad}
-                    setActiveLoad={setManualLoad}
-                    activeCruiseAlt={parseInt(getPerformanceData().cruise_altitude.replace(/\D/g, "")) * 100 || 35000}
-                    setActiveCruiseAlt={() => {}}
-                  />
-                ) : !simbriefId ? (
-                  <div className="text-center py-16 px-4 max-w-md mx-auto bg-gray-50/50 border border-brand-border rounded-3xl">
-                    <div className="w-16 h-16 bg-brand-pale rounded-full flex items-center justify-center mx-auto mb-5 border border-brand-border">
-                      <svg className="w-8 h-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-bold text-brand">SimBrief ID Not Linked</h3>
-                    <p className="text-gray-500 text-sm mt-2 max-w-sm mx-auto leading-relaxed">
-                      No SimBrief ID is linked to your pilot profile. Please contact staff to link your SimBrief ID to your profile.
-                    </p>
-                  </div>
-                ) : loadingOfp ? (
-                  <div className="text-center py-20 flex flex-col items-center justify-center space-y-4">
-                    <div className="w-10 h-10 border-4 border-brand-border border-t-brand rounded-full animate-spin" />
-                    <div className="text-xs font-bold text-gray-500 tracking-wide">
-                      Fetching operational flight plan from SimBrief…
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-16 px-4 max-w-md mx-auto bg-gray-50/50 border border-brand-border rounded-3xl">
-                    <div className="w-16 h-16 bg-brand-pale rounded-full flex items-center justify-center mx-auto mb-5 border border-brand-border">
-                      <svg className="w-8 h-8 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-bold text-brand">No SimBrief OFP Found</h3>
-                    <p className="text-gray-500 text-sm mt-2 max-w-sm mx-auto leading-relaxed">
-                      We couldn't retrieve an active flight plan from SimBrief for Pilot ID {simbriefId}. Please generate your flight plan on SimBrief.com first, then click reload.
-                    </p>
-                    <button
-                      onClick={handleRefreshOfp}
-                      className="mt-6 bg-brand text-white text-xs font-bold px-6 py-2.5 rounded-xl hover:bg-brand-dark transition-colors shadow-sm"
-                    >
-                      🔄 Retry SimBrief Fetch
-                    </button>
-                  </div>
-                )}
-              </>
+              <EFBBriefing
+                ofpData={ofpData}
+                units={units}
+                flightNum={flightNum}
+                formatTimestampToTime={formatTimestampToTime}
+                formatWeight={formatWeight}
+                getPdfUrl={getPdfUrl}
+                handleRefreshOfp={handleRefreshOfp}
+                pdfLoadError={pdfLoadError}
+                setPdfLoadError={setPdfLoadError}
+                handleToggleFullscreen={handleToggleFullscreen}
+                activeBooking={activeBooking}
+                activeLoad={activeLoad}
+                setActiveLoad={setManualLoad}
+                activeCruiseAlt={parseInt(getPerformanceData().cruise_altitude.replace(/\D/g, "")) * 100 || 35000}
+                setActiveCruiseAlt={() => {}}
+                efbDataSource={efbDataSource}
+                setEfbDataSource={setEfbDataSource}
+              />
             )}
 
             {/* Other tabs render directly based on activeBooking fallback values */}
@@ -1269,7 +1234,23 @@ export default function EFB() {
             )}
 
             {activeTab === "weather" && (
-              <EFBWeather ofpData={ofpData} activeBooking={activeBooking} />
+              <EFBWeather ofpData={efbDataSource === "simbrief" ? ofpData : null} activeBooking={activeBooking} />
+            )}
+
+            {activeTab === "aircraft" && (
+              <EFBAircraft
+                aircraftInfo={aircraftInfo}
+                activeAircraft={activeAircraft}
+                activeDirection={activeDirection}
+                aircraftCode={aircraftCode}
+              />
+            )}
+
+            {activeTab === "charts" && (
+              <EFBCharts
+                ofpData={efbDataSource === "simbrief" ? ofpData : null}
+                activeBooking={activeBooking}
+              />
             )}
 
             {activeTab === "settings" && (

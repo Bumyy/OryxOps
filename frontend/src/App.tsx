@@ -25,6 +25,7 @@ import AdminCareers from "./pages/admin/CareersPage";
 import AdminTransfers from "./pages/admin/TransfersPage";
 import AdminWaves from "./pages/admin/WavesPage";
 import AdminSettings from "./pages/admin/SettingsPage";
+import AdminAutoScheduler from "./pages/admin/AutoSchedulerPage";
 import IFCallback from "./pages/IFCallback";
 
 function AuthInitializer({ children }: { children: React.ReactNode }) {
@@ -111,6 +112,8 @@ export default function App() {
           <Route path="/efb" element={<EFB />} />
           <Route path="/efb/checklist" element={<EFB />} />
           <Route path="/efb/weather" element={<EFB />} />
+          <Route path="/efb/aircraft" element={<EFB />} />
+          <Route path="/efb/charts" element={<EFB />} />
           <Route path="/efb/settings" element={<EFB />} />
           <Route path="/admin/pilots" element={<AdminPilots />} />
           <Route path="/admin/groups" element={<AdminGroups />} />
@@ -119,6 +122,7 @@ export default function App() {
           <Route path="/admin/transfers" element={<AdminTransfers />} />
           <Route path="/admin/waves" element={<AdminWaves />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/admin/auto-scheduler" element={<AdminAutoScheduler />} />
         </Route>
       </Routes>
     </AuthInitializer>

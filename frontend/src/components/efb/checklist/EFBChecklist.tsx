@@ -70,9 +70,19 @@ export default function EFBChecklist({
   };
 
   const getActiveItem = () => {
-    const section = compiledChecklist[activePhaseIndex];
-    if (!section) return null;
-    return section.items.find((item: any) => !checkedItems[item.id] && !item.isTable) || null;
+    for (let i = activePhaseIndex; i < compiledChecklist.length; i++) {
+      const section = compiledChecklist[i];
+      if (!section) continue;
+      const item = section.items.find((item: any) => !checkedItems[item.id] && !item.isTable);
+      if (item) return item;
+    }
+    for (let i = 0; i < activePhaseIndex; i++) {
+      const section = compiledChecklist[i];
+      if (!section) continue;
+      const item = section.items.find((item: any) => !checkedItems[item.id] && !item.isTable);
+      if (item) return item;
+    }
+    return null;
   };
 
   const activeItem = getActiveItem();

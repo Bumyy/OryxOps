@@ -8,6 +8,34 @@ export default function Bookings() {
   const user = useAppSelector((s) => s.auth.user);
   const [pirepId, setPirepId] = useState<Record<number, string>>({});
 
+  const getSimbriefUrl = (b: any) => {
+    const orig = b.flight_departure.toUpperCase();
+    const dest = b.flight_arrival.toUpperCase();
+    const type = (b.aircraft_icao || "B77W").toUpperCase();
+    const callsign = (b.pilot_callsign || user?.callsign || "").toUpperCase();
+    const fltnum = b.flight_number || "";
+
+    const params = new URLSearchParams({
+      orig,
+      dest,
+      type,
+      callsign,
+      airline: "QRV",
+    });
+    if (fltnum) {
+      params.set("fltnum", fltnum);
+    }
+    return `https://www.simbrief.com/system/dispatch.php?${params.toString()}`;
+  };
+
+  const getFlightawareUrl = (b: any) => {
+    const params = new URLSearchParams({
+      origin: b.flight_departure.toUpperCase(),
+      destination: b.flight_arrival.toUpperCase(),
+    });
+    return `https://www.flightaware.com/live/findflight?${params.toString()}`;
+  };
+
   useEffect(() => {
     if (user) dispatch(fetchBookings({ pilot_id: user.id }));
   }, [user]);
@@ -34,8 +62,30 @@ export default function Bookings() {
                   <td className="px-5 py-3">{b.aircraft_registration}</td>
                   <td className="px-5 py-3 font-semibold">
                     <div>{b.flight_departure} &rarr; {b.flight_arrival}</div>
-                    <div className="text-[9px] font-bold text-gray-500 uppercase mt-0.5 bg-gray-100 px-1.5 py-0.5 rounded-full inline-block">
-                      {b.booking_type === "departure" ? "Departure Only" : b.booking_type === "arrival" ? "Arrival Only" : "Full Flight"}
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      <div className="text-[9px] font-bold text-gray-500 uppercase bg-gray-100 px-1.5 py-0.5 rounded-full inline-block">
+                        {b.booking_type === "departure" ? "Departure Only" : b.booking_type === "arrival" ? "Arrival Only" : "Full Flight"}
+                      </div>
+                      {b.status === "booked" && (
+                        <>
+                          <a
+                            href={getSimbriefUrl(b)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-bold text-brand hover:bg-brand/10 transition-colors flex items-center gap-1 bg-brand-pale border border-brand-border px-2 py-0.5 rounded-lg"
+                          >
+                            <span>✈️ Dispatch (SimBrief)</span>
+                          </a>
+                          <a
+                            href={getFlightawareUrl(b)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-bold text-sky-700 hover:bg-sky-100 transition-colors flex items-center gap-1 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-lg"
+                          >
+                            <span>🌐 Route (FlightAware)</span>
+                          </a>
+                        </>
+                      )}
                     </div>
                   </td>
                   <td className="px-5 py-3 text-xs">{b.flight_scheduled_dep ? new Date(b.flight_scheduled_dep).toLocaleString() : "—"}</td>

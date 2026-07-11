@@ -12,6 +12,7 @@ from app.schemas.schedule import (
     ScheduleUpdate,
     WaveCreate,
     WaveOut,
+    AutoScheduleRequest,
 )
 from app.services.schedule_service import (
     bulk_approve_schedules,
@@ -25,6 +26,7 @@ from app.services.schedule_service import (
     get_waves,
     update_schedule,
     update_schedule_status,
+    generate_auto_schedules,
 )
 from app.services.if_sync_service import IFScheduleSync, try_auto_sync_to_if
 from app.services.if_live_client import IFTokenManager
@@ -350,3 +352,28 @@ async def delete_wave_route(
     if not success:
         raise HTTPException(status_code=404, detail="Wave not found")
     return {"detail": "Wave deleted"}
+
+
+@router.post("/auto-generate")
+async def auto_generate_schedules_route(
+    data: AutoScheduleRequest,
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_staff),
+):
+    try:
+        count = await generate_auto_schedules(
+            db,
+            group_id=data.group_id,
+            aircraft_id=data.aircraft_id,
+            num_roundtrips=data.num_roundtrips,
+            haul_preference=data.haul_preference,
+            start_time_str=data.start_time,
+            creator_id=pilot.id,
+            min_hours=data.min_hours,
+            max_hours=data.max_hours,
+        )
+        return {"proposed_count": count}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")

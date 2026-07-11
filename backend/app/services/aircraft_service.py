@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -14,7 +14,14 @@ from app.models.live_models import (
 
 
 async def get_aircraft_types(db: AsyncSession) -> list[Aircraft]:
-    result = await db.execute(select(Aircraft))
+    result = await db.execute(
+        select(Aircraft).where(
+            or_(
+                Aircraft.liveryname.ilike("%qatar%"),
+                Aircraft.name.ilike("%qatar%")
+            )
+        )
+    )
     return list(result.scalars().all())
 
 

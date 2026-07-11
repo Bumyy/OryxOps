@@ -305,6 +305,11 @@ export function AircraftTab() {
   const [airport, setAirport] = useState("OTHH");
   const [editStatus, setEditStatus] = useState<Record<number, string>>({});
 
+  useEffect(() => {
+    dispatch(fetchAirframes());
+    dispatch(fetchAircraftTypes());
+  }, [dispatch]);
+
   const handleCreate = async () => {
     if (!reg || !typeId) return;
     await dispatch(
@@ -946,6 +951,10 @@ export function TransfersTab() {
   const dispatch = useAppDispatch();
   const { transfers } = useAppSelector((s) => s.transfer);
 
+  useEffect(() => {
+    dispatch(fetchTransfers());
+  }, [dispatch]);
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-brand">Transfer Requests</h2>
@@ -1211,7 +1220,8 @@ export function SettingsTab() {
 
   useEffect(() => {
     checkIfStatus();
-  }, []);
+    dispatch(fetchSettings());
+  }, [dispatch]);
 
   const handleConnect = async () => {
     setIfLoading(true);

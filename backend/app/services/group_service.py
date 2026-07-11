@@ -123,6 +123,17 @@ async def assign_pilots_to_group(
 ) -> list[LiveGroupPilot]:
     assignments = []
     for pilot_id in pilot_ids:
+        # Mark all other active group memberships as removed to enforce single-group membership
+        other_active_result = await db.execute(
+            select(LiveGroupPilot).where(
+                LiveGroupPilot.pilot_id == pilot_id,
+                LiveGroupPilot.group_id != group_id,
+                LiveGroupPilot.removed_at.is_(None)
+            )
+        )
+        for other in other_active_result.scalars().all():
+            other.removed_at = datetime.utcnow()
+
         exists_result = await db.execute(
             select(LiveGroupPilot).where(
                 LiveGroupPilot.group_id == group_id,
@@ -130,7 +141,10 @@ async def assign_pilots_to_group(
                 LiveGroupPilot.removed_at.is_(None),
             )
         )
-        if exists_result.scalar_one_or_none():
+        existing_assignment = exists_result.scalar_one_or_none()
+        if existing_assignment:
+            # If already assigned to this group, just update their admin status
+            existing_assignment.is_group_admin = 1 if is_group_admin else 0
             continue
 
         assignment = LiveGroupPilot(

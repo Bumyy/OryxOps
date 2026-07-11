@@ -75,3 +75,13 @@ class ScheduleUpdate(BaseModel):
 class ScheduleBulkApprove(BaseModel):
     group_id: int
     week_start: str
+
+
+class AutoScheduleRequest(BaseModel):
+    group_id: int
+    aircraft_id: int
+    num_roundtrips: int
+    haul_preference: str
+    start_time: str
+    min_hours: int | None = 0
+    max_hours: int | None = 0

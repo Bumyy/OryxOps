@@ -48,6 +48,9 @@ export default function Calendar() {
   const [availableRoutes, setAvailableRoutes] = useState<AvailableRoute[]>([]);
   const [loadingRoutes, setLoadingRoutes] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<any | null>(null);
+  const [editDepTime, setEditDepTime] = useState("");
+  const [editArrTime, setEditArrTime] = useState("");
+  const [updatingTime, setUpdatingTime] = useState(false);
   const [bookings, setBookings] = useState<Record<number, any[]>>({});
   const [myBookingsFilter, setMyBookingsFilter] = useState(false);
   const [cloning, setCloning] = useState(false);
@@ -102,6 +105,13 @@ export default function Calendar() {
       setBookings(map);
     }).catch(() => setBookings({}));
   }, [schedules]);
+
+  useEffect(() => {
+    if (editingSchedule) {
+      setEditDepTime(editingSchedule.scheduled_departure);
+      setEditArrTime(editingSchedule.scheduled_arrival);
+    }
+  }, [editingSchedule]);
 
   function getWeekStart() { const d = new Date(); d.setUTCDate(d.getUTCDate() - d.getUTCDay() + 1); return d.toISOString().split("T")[0]; }
   function getSlotDate(day: number, hour: number): Date { const d = new Date(weekStart + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + day); d.setUTCHours(hour, 0, 0, 0); return d; }
@@ -800,6 +810,61 @@ export default function Calendar() {
                   </div>
                 );
               })()}
+            </div>
+            
+            {/* Shift/Edit Times Form */}
+            <div className="border-t border-brand-border/40 pt-3.5 mt-3.5 mb-4 space-y-3">
+              <h4 className="text-[11px] font-bold text-brand uppercase tracking-wider">Shift Flight Times (UTC)</h4>
+              <div>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">Departure</label>
+                <input
+                  type="datetime-local"
+                  value={editDepTime ? editDepTime.slice(0, 16) : ""}
+                  onChange={(e) => setEditDepTime(e.target.value)}
+                  className="w-full border border-brand-border rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-brand bg-white text-gray-700"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-gray-500 mb-1">Arrival</label>
+                <input
+                  type="datetime-local"
+                  value={editArrTime ? editArrTime.slice(0, 16) : ""}
+                  onChange={(e) => setEditArrTime(e.target.value)}
+                  className="w-full border border-brand-border rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-brand bg-white text-gray-700"
+                />
+              </div>
+              <button
+                type="button"
+                disabled={updatingTime}
+                onClick={async () => {
+                  if (!editDepTime || !editArrTime) return;
+                  setUpdatingTime(true);
+                  try {
+                    const formatDt = (s: string) => s.slice(0, 19).replace("T", " ");
+                    const res = await dispatch(updateSchedule({
+                      id: editingSchedule.id,
+                      data: {
+                        scheduled_departure: formatDt(editDepTime),
+                        scheduled_arrival: formatDt(editArrTime)
+                      }
+                    }));
+                    if (updateSchedule.fulfilled.match(res)) {
+                      alert("Schedule times shifted successfully!");
+                      refreshSchedules();
+                      setEditingSchedule(null);
+                    } else {
+                      alert("Failed to shift schedule times: " + (res.error?.message || "Unknown error"));
+                    }
+                  } catch (err: any) {
+                    alert("Error: " + err.message);
+                  } finally {
+                    setUpdatingTime(false);
+                  }
+                }}
+                className="w-full rounded-full bg-brand text-white py-1.5 hover:bg-brand-dark text-[10px] font-black transition-colors cursor-pointer text-center"
+              >
+                {updatingTime ? "Saving..." : "Save Shifted Times"}
+              </button>
             </div>
             <div className="flex flex-col gap-3 text-xs font-bold">
               {editingSchedule.status === "approved" && (() => {
