@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     if_client_id: str = ""
     if_client_secret: str = ""
     if_redirect_uri: str = ""
+    if_api_key: str = ""
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

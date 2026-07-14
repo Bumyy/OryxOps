@@ -1,24 +1,36 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { api } from "../../api/client";
 
-interface Booking {
+export interface Booking {
   id: number;
   schedule_id: number;
-  pilot_id: number;
-  pilot_callsign: string;
-  pilot_avatar?: string;
-  booking_type: string;
-  token_cost: number;
+  departure_pilot_id: number | null;
+  departure_pilot_callsign: string | null;
+  arrival_pilot_id: number | null;
+  arrival_pilot_callsign: string | null;
+  departure_pirep_id: number | null;
+  arrival_pirep_id: number | null;
   booked_at: string;
+  dispatched_at: string | null;
+  pax_count: number | null;
+  landing_fpm: number | null;
+  reputation_score: number | null;
+  earnings: number | null;
+  expenses: number | null;
   status: string;
-  completed_pirep_id: number | null;
-  taken_over_by_name: string | null;
+  pirep_accepted: number | null;
+
   flight_departure: string;
   flight_arrival: string;
   flight_scheduled_dep: string;
   aircraft_registration: string;
   aircraft_icao?: string;
   flight_number?: string;
+  flight_time_minutes?: number | null;
+  fuel_burned?: number | null;
+  diverted?: boolean;
+  actual_arrival?: string;
+  scheduled_duration_minutes?: number | null;
 }
 
 interface BookingState {
@@ -54,10 +66,20 @@ export const cancelBooking = createAsyncThunk(
   (id: number) => api.delete(`/bookings/${id}`),
 );
 
+export const dispatchBooking = createAsyncThunk(
+  "booking/dispatch",
+  (id: number) => api.post<Booking>(`/bookings/${id}/dispatch`),
+);
+
 export const completeBooking = createAsyncThunk(
   "booking/complete",
-  ({ id, pirepId }: { id: number; pirepId: number }) =>
-    api.post<Booking>(`/bookings/${id}/complete`, { pirep_id: pirepId }),
+  ({ id, flightTimeMinutes, fuelBurned, landingFpm, actualArrival }: { id: number; flightTimeMinutes: number; fuelBurned: number; landingFpm: number; actualArrival?: string }) =>
+    api.post<Booking>(`/bookings/${id}/complete`, {
+      flight_time_minutes: flightTimeMinutes,
+      fuel_burned: fuelBurned,
+      landing_fpm: landingFpm,
+      actual_arrival: actualArrival
+    }),
 );
 
 export const noShowBooking = createAsyncThunk(
@@ -75,9 +97,19 @@ const bookingSlice = createSlice({
   initialState,
   reducers: {},
   extraReducers: (builder) => {
-    builder.addCase(fetchBookings.fulfilled, (state, action) => {
-      state.bookings = action.payload;
-    });
+    builder
+      .addCase(fetchBookings.pending, (state) => {
+        state.loading = true;
+        state.bookings = [];
+      })
+      .addCase(fetchBookings.fulfilled, (state, action) => {
+        state.loading = false;
+        state.bookings = action.payload;
+      })
+      .addCase(fetchBookings.rejected, (state) => {
+        state.loading = false;
+        state.bookings = [];
+      });
   },
 });
 

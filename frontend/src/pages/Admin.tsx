@@ -48,7 +48,8 @@ type Tab =
   | "careers"
   | "transfers"
   | "waves"
-  | "settings";
+  | "settings"
+  | "rates";
 
 export default function Admin() {
   const dispatch = useAppDispatch();
@@ -57,7 +58,10 @@ export default function Admin() {
   const { pilots } = useAppSelector((s) => s.pilot);
   const { airframes, types } = useAppSelector((s) => s.aircraft);
   const { transfers } = useAppSelector((s) => s.transfer);
+  const user = useAppSelector((s) => s.auth.user);
   const [tab, setTab] = useState<Tab>("pilots");
+
+  const isEligibleForRates = user && user.callsign && ["QRV001", "QRV002", "QRV003", "QRV004"].includes(user.callsign.toUpperCase());
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "pilots", label: "Pilots" },
@@ -69,6 +73,10 @@ export default function Admin() {
     { key: "settings", label: "Settings" },
   ];
 
+  if (isEligibleForRates) {
+    tabs.push({ key: "rates", label: "Rate Changer" });
+  }
+
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
     if (hash && tabs.some((t) => t.key === hash)) setTab(hash as Tab);
@@ -78,7 +86,7 @@ export default function Admin() {
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     dispatch(fetchSettings());
@@ -120,6 +128,7 @@ export default function Admin() {
       {tab === "transfers" && <TransfersTab />}
       {tab === "waves" && <WavesTab />}
       {tab === "settings" && <SettingsTab />}
+      {tab === "rates" && isEligibleForRates && <RatesTab />}
     </div>
   );
 }
@@ -1412,6 +1421,376 @@ export function SettingsTab() {
           </div>
         )}
       </div>
+
+      {/* Embedded Leg Economics Simulator */}
+      <LegSimulatorPanel />
     </div>
   );
 }
+
+
+export function RatesTab() {
+  const dispatch = useAppDispatch();
+  const { settings } = useAppSelector((s) => s.admin);
+
+  useEffect(() => {
+    dispatch(fetchSettings());
+  }, [dispatch]);
+
+  // Group settings by their category
+  const econSettings = settings.filter(s => s.setting_key.startsWith("econ_") && !s.setting_key.includes("payout") && !s.setting_key.includes("min_payout"));
+  const repuSettings = settings.filter(s => s.setting_key.startsWith("repu_"));
+  const salarySettings = settings.filter(s => s.setting_key.includes("payout") || s.setting_key.includes("min_payout"));
+
+  const renderGroup = (title: string, icon: string, list: typeof settings) => (
+    <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 space-y-4">
+      <h3 className="text-sm font-black text-brand-dark flex items-center gap-1.5 border-b border-brand-border/40 pb-2.5 uppercase tracking-wider">
+        {icon} {title}
+      </h3>
+      <div className="space-y-4">
+        {list.map((s) => (
+          <div key={s.setting_key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-1.5 last:border-0 border-b border-gray-50 pb-4">
+            <div className="space-y-0.5">
+              <span className="font-bold text-xs text-gray-700">{s.setting_key}</span>
+              <p className="text-[10px] text-gray-400 font-medium max-w-md">{s.description}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                defaultValue={s.setting_value}
+                onBlur={async (e) => {
+                  if (e.target.value !== s.setting_value) {
+                    const res = await dispatch(
+                      updateSetting({
+                        key: s.setting_key,
+                        value: e.target.value,
+                      })
+                    );
+                    if (!updateSetting.fulfilled.match(res)) {
+                      alert("Failed to update rate: " + (res.error?.message || "Unknown error"));
+                    } else {
+                      dispatch(fetchSettings());
+                    }
+                  }
+                }}
+                className="border border-brand-border rounded-xl px-3 py-2 text-xs font-mono font-bold w-32 focus:border-brand focus:outline-none"
+              />
+            </div>
+          </div>
+        ))}
+        {list.length === 0 && (
+          <p className="text-xs text-gray-400 italic">No settings loaded.</p>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-black text-brand-dark tracking-tight">💰 Rate Changer Center</h2>
+        <p className="text-gray-400 text-xs mt-1">Configure global parameters affecting pilot payouts, flight leg earnings, and reputation scoring.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {renderGroup("Leg Economics & Ticket pricing", "✈️", econSettings)}
+        {renderGroup("Reputation Score Metrics", "🌟", repuSettings)}
+        {renderGroup("Salary Payout Percentages & Limits", "💵", salarySettings)}
+      </div>
+
+      {/* Embedded Leg Economics Simulator */}
+      <LegSimulatorPanel />
+    </div>
+  );
+}
+
+
+export function LegSimulatorPanel() {
+  const { settings } = useAppSelector((s) => s.admin);
+  const specs = useAppSelector((s) => s.aircraft.specs) || {};
+
+  // Simulator Inputs State
+  const [selectedAircraft, setSelectedAircraft] = useState("A320");
+  const [paxCount, setPaxCount] = useState(150);
+  const [flightTime, setFlightTime] = useState(120);
+  const [fuelBurned, setFuelBurned] = useState(3000);
+  const [landingFpm, setLandingFpm] = useState(120);
+  const [airportClass, setAirportClass] = useState<"large" | "medium" | "small">("large");
+  const [isDiverted, setIsDiverted] = useState(false);
+  const [isSplit, setIsSplit] = useState(false);
+
+  // Helper to extract a setting value (falling back to custom defaults)
+  const getSetting = (key: string, def: number): number => {
+    const s = settings.find((x) => x.setting_key === key);
+    return s ? parseFloat(s.setting_value) : def;
+  };
+
+  const aircraftKeys = Object.keys(specs);
+  const currentSpec = specs[selectedAircraft] || {};
+  const capacity = currentSpec.properties?.capacity || 180;
+
+  // Auto-adjust pax count slider max if aircraft changes
+  useEffect(() => {
+    if (paxCount > capacity) {
+      setPaxCount(capacity);
+    }
+  }, [selectedAircraft, capacity]);
+
+  // Read current live rates
+  const ticketBasePrice = getSetting("econ_ticket_base_price", 220);
+  const ticketDurationRate = getSetting("econ_ticket_duration_rate", 1.20);
+  const fuelPriceRate = getSetting("econ_fuel_price_rate", 1.10);
+  const fixedRatePerSeat = getSetting("econ_fixed_rate_per_seat", 120);
+  const serviceRatePerPax = getSetting("econ_service_rate_per_pax", 60);
+  const diversionRatePerPax = getSetting("econ_diversion_charge_per_pax", 100);
+
+  const feeLarge = getSetting("econ_airport_fee_large", 7000);
+  const feeMedium = getSetting("econ_airport_fee_medium", 3500);
+  const feeSmall = getSetting("econ_airport_fee_small", 1200);
+
+  const payoutShareSolo = getSetting("econ_payout_share_solo", 0.10);
+  const payoutShareSplit = getSetting("econ_payout_share_split", 0.05);
+  const minPayoutSolo = getSetting("econ_min_payout_solo", 750);
+  const minPayoutSplit = getSetting("econ_min_payout_split", 350);
+
+  const grace = getSetting("repu_punctuality_grace", 30);
+  const smoothThreshold = getSetting("repu_smoothness_threshold", 100);
+  const smoothDivisor = getSetting("repu_smoothness_divisor", 4.0);
+
+  // Calculations
+  const ticketPrice = ticketBasePrice + (flightTime * ticketDurationRate);
+  const grossRevenue = paxCount * ticketPrice;
+
+  const fuelCost = fuelBurned * fuelPriceRate;
+  
+  let landingFee = feeSmall;
+  if (airportClass === "large") landingFee = feeLarge;
+  else if (airportClass === "medium") landingFee = feeMedium;
+
+  let landingPenalty = 0;
+  if (landingFpm <= 100) landingPenalty = 0;
+  else if (landingFpm <= 200) landingPenalty = 500;
+  else if (landingFpm <= 300) landingPenalty = 2000;
+  else if (landingFpm <= 400) landingPenalty = 6000;
+  else landingPenalty = 15000;
+
+  const operatingCost = (capacity * fixedRatePerSeat) + (paxCount * serviceRatePerPax);
+  const diversionCharge = isDiverted ? (paxCount * diversionRatePerPax) : 0;
+
+  const totalExpenses = fuelCost + landingFee + landingPenalty + operatingCost + diversionCharge;
+  const netProfit = grossRevenue - totalExpenses;
+  const profitMargin = grossRevenue > 0 ? (netProfit / grossRevenue) * 100 : 0;
+
+  const soloSalary = netProfit > 0 
+    ? Math.max(minPayoutSolo, Math.round(netProfit * payoutShareSolo)) 
+    : minPayoutSolo;
+
+  const splitSalary = netProfit > 0 
+    ? Math.max(minPayoutSplit, Math.round(netProfit * payoutShareSplit)) 
+    : minPayoutSplit;
+
+  const diff = Math.abs(flightTime - 45); // Assume 45 min scheduled duration
+  const punctualityScore = Math.max(0, 100 - (diff > grace ? (diff - grace) : 0));
+  const landingScore = Math.max(0, 100 - (landingFpm > smoothThreshold ? (landingFpm - smoothThreshold) / smoothDivisor : 0));
+  const repRating = ((punctualityScore + landingScore) / 2.0) / 20.0;
+
+  return (
+    <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 space-y-6">
+      <div>
+        <h3 className="text-lg font-black text-brand-dark flex items-center gap-1.5 border-b border-brand-border/40 pb-2.5 uppercase tracking-wider">
+          📊 Leg Economics Simulator & Previewer
+        </h3>
+        <p className="text-gray-400 text-xs mt-1">Simulate flight scenarios with current live rates to preview operational profitability and payouts.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left Side - Inputs */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500">Aircraft Model</label>
+              <select
+                value={selectedAircraft}
+                onChange={(e) => setSelectedAircraft(e.target.value)}
+                className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none"
+              >
+                {aircraftKeys.length > 0 ? (
+                  aircraftKeys.map((k) => (
+                    <option key={k} value={k}>
+                      {k} (Cap: {specs[k]?.properties?.capacity || 180} seats)
+                    </option>
+                  ))
+                ) : (
+                  <option value="A320">A320 (Cap: 180 seats)</option>
+                )}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500">Airport Category</label>
+              <select
+                value={airportClass}
+                onChange={(e) => setAirportClass(e.target.value as any)}
+                className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none"
+              >
+                <option value="large">Large Hub ({feeLarge.toLocaleString()} QAR)</option>
+                <option value="medium">Medium Airport ({feeMedium.toLocaleString()} QAR)</option>
+                <option value="small">Small Airport ({feeSmall.toLocaleString()} QAR)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between text-xs font-bold text-gray-500">
+              <span>Passenger Count</span>
+              <span className="text-brand font-mono font-bold">{paxCount} / {capacity} Pax</span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={capacity}
+              value={paxCount}
+              onChange={(e) => setPaxCount(parseInt(e.target.value))}
+              className="w-full accent-brand mt-1"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500">Flight Time (Min)</label>
+              <input
+                type="number"
+                value={flightTime}
+                onChange={(e) => setFlightTime(Math.max(1, parseInt(e.target.value) || 0))}
+                className="border border-brand-border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500">Fuel Burned (kg)</label>
+              <input
+                type="number"
+                value={fuelBurned}
+                onChange={(e) => setFuelBurned(Math.max(0, parseInt(e.target.value) || 0))}
+                className="border border-brand-border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500">Landing Rate (FPM)</label>
+              <input
+                type="number"
+                value={landingFpm}
+                onChange={(e) => setLandingFpm(Math.max(0, parseInt(e.target.value) || 0))}
+                className="border border-brand-border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-6 pt-2">
+            <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isDiverted}
+                onChange={(e) => setIsDiverted(e.target.checked)}
+                className="rounded accent-brand animate-pulse"
+              />
+              Diverted Flight
+            </label>
+
+            <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isSplit}
+                onChange={(e) => setIsSplit(e.target.checked)}
+                className="rounded accent-brand"
+              />
+              Split Flight (Co-pilot share)
+            </label>
+          </div>
+        </div>
+
+        {/* Right Side - Results Preview */}
+        <div className="bg-brand-pale/40 border border-brand-border/40 rounded-2xl p-5 space-y-4">
+          <div className="border-b border-brand-border/30 pb-3">
+            <span className="text-[10px] uppercase font-bold text-gray-450">Net Profit</span>
+            <div className="flex justify-between items-baseline mt-0.5">
+              <span className={`text-2xl font-black ${netProfit >= 0 ? "text-green-700" : "text-rose-700"}`}>
+                {netProfit.toLocaleString()} QAR
+              </span>
+              <span className={`text-xs font-black px-2 py-0.5 rounded-full ${netProfit >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                {profitMargin.toFixed(1)}% Margin
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-xs">
+            <div>
+              <span className="text-gray-400 font-bold block mb-1">Gross Revenue</span>
+              <span className="font-extrabold text-gray-700">{grossRevenue.toLocaleString()} QAR</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-bold block mb-1">Total Expenses</span>
+              <span className="font-extrabold text-gray-700">{totalExpenses.toLocaleString()} QAR</span>
+            </div>
+          </div>
+
+          <div className="border-t border-brand-border/30 pt-3 space-y-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-500 font-semibold">🎟️ Passenger Revenue:</span>
+              <span className="font-black text-gray-700">{grossRevenue.toLocaleString()} QAR</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500 font-semibold">✈️ Dynamic Operating Cost:</span>
+              <span className="font-black text-rose-700">-{operatingCost.toLocaleString()} QAR</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500 font-semibold">⛽ Fuel Cost:</span>
+              <span className="font-black text-rose-700">-{fuelCost.toLocaleString()} QAR</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500 font-semibold">🏢 Landing Fee ({airportClass.toUpperCase()}):</span>
+              <span className="font-black text-rose-700">-{landingFee.toLocaleString()} QAR</span>
+            </div>
+            {landingPenalty > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500 font-semibold">💥 Hard Landing Penalty:</span>
+                <span className="font-black text-rose-700">-{landingPenalty.toLocaleString()} QAR</span>
+              </div>
+            )}
+            {isDiverted && (
+              <div className="flex justify-between">
+                <span className="text-gray-500 font-semibold">🔀 Diversion Care Surcharge:</span>
+                <span className="font-black text-rose-700">-{diversionCharge.toLocaleString()} QAR</span>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-brand-border/30 pt-3 space-y-2.5">
+            <div className="flex justify-between items-center text-xs">
+              <div>
+                <span className="text-gray-500 font-bold block">Overall Leg Reputation:</span>
+                <span className="text-[9px] text-gray-400">Punctuality: {punctualityScore.toFixed(0)}% | Landing: {landingScore.toFixed(0)}%</span>
+              </div>
+              <span className="text-sm font-black text-brand">{repRating.toFixed(2)} / 5.00 ★</span>
+            </div>
+
+            <div className="flex justify-between items-center text-xs bg-white border border-brand-border/40 p-2.5 rounded-xl">
+              <div>
+                <span className="text-gray-700 font-black block">Pilot Payout Preview:</span>
+                <span className="text-[9px] text-gray-400">
+                  {isSplit 
+                    ? `Split Payout (Share: ${(payoutShareSplit*100).toFixed(0)}% | Floor: ${minPayoutSplit} QAR)` 
+                    : `Solo Payout (Share: ${(payoutShareSolo*100).toFixed(0)}% | Floor: ${minPayoutSolo} QAR)`}
+                </span>
+              </div>
+              <span className="text-sm font-black text-green-700 font-mono">
+                {isSplit ? `${splitSalary.toLocaleString()} QAR` : `${soloSalary.toLocaleString()} QAR`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+

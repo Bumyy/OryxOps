@@ -1,5 +1,4 @@
-import React from "react";
-import aircraftsDb from "../../../assets/checklist/aircrafts.json";
+import { useAppSelector } from "../../../store/hooks";
 
 export interface EFBSettingsProps {
   availableVoices: SpeechSynthesisVoice[];
@@ -64,6 +63,8 @@ export default function EFBSettings({
   updateSettings,
   copilotState,
 }: EFBSettingsProps) {
+  const aircraftsDb = useAppSelector((state) => state.aircraft.specs) || {};
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       

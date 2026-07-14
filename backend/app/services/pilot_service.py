@@ -8,7 +8,7 @@ from app.models.live_models import (
     LiveGroupAircraft,
     LiveGroupPilot,
     LivePilotCareer,
-    LiveTokens,
+    LiveCurrency,
     Pilot,
     Pirep,
     AwardGranted,
@@ -61,7 +61,7 @@ async def get_pilot_detail(db: AsyncSession, pilot_id: int) -> dict | None:
         return None
 
     token_result = await db.execute(
-        select(LiveTokens).where(LiveTokens.pilot_id == pilot_id)
+        select(LiveCurrency).where(LiveCurrency.pilot_id == pilot_id)
     )
     token = token_result.scalar_one_or_none()
 

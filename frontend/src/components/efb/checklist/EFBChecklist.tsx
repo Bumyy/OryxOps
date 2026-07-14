@@ -1,5 +1,4 @@
-import React from "react";
-import aircraftsDb from "../../../assets/checklist/aircrafts.json";
+import { useAppSelector } from "../../../store/hooks";
 
 export interface EFBChecklistProps {
   compiledChecklist: any[];
@@ -50,6 +49,7 @@ export default function EFBChecklist({
   setActivePhaseIndex,
   copilotState,
 }: EFBChecklistProps) {
+  const aircraftsDb = useAppSelector((state) => state.aircraft.specs) || {};
 
   const getStateLabel = (state: string) => {
     switch (state) {

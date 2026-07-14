@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_staff
-from app.models.live_models import LiveSetting, Pilot
+from app.core.dependencies import get_current_staff, get_current_pilot
+from app.models.live_models import LiveSetting, Pilot, Permission
 from app.schemas.settings import SettingOut, SettingUpdate
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -31,8 +31,24 @@ async def update_setting(
     key: str,
     data: SettingUpdate,
     db: AsyncSession = Depends(get_db),
-    staff: Pilot = Depends(get_current_staff),
+    pilot: Pilot = Depends(get_current_pilot),
 ):
+    # Security authorization check
+    is_rate_setting = key.startswith("econ_") or key.startswith("repu_")
+    if is_rate_setting:
+        if not (pilot.callsign and pilot.callsign.upper() in ["QRV001", "QRV002", "QRV003", "QRV004"]):
+            raise HTTPException(status_code=403, detail="Only QRV001 to QRV004 can update rate settings")
+    else:
+        # Check standard staff permission
+        result = await db.execute(
+            select(Permission).where(
+                Permission.userid == pilot.id,
+                Permission.name.in_(["admin", "opsmanage"]),
+            ).limit(1)
+        )
+        if result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Staff access required")
+
     result = await db.execute(select(LiveSetting).where(LiveSetting.setting_key == key))
     setting = result.scalar_one_or_none()
     if not setting:

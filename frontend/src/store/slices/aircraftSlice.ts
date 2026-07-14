@@ -29,6 +29,7 @@ interface AircraftState {
   types: AircraftType[];
   airframes: LiveAircraft[];
   currentAirframe: (LiveAircraft & { history?: any[] }) | null;
+  specs: any | null;
   loading: boolean;
 }
 
@@ -36,11 +37,16 @@ const initialState: AircraftState = {
   types: [],
   airframes: [],
   currentAirframe: null,
+  specs: null,
   loading: false,
 };
 
 export const fetchAircraftTypes = createAsyncThunk("aircraft/fetchTypes", () =>
   api.get<AircraftType[]>("/aircraft/types"),
+);
+
+export const fetchAircraftSpecs = createAsyncThunk("aircraft/fetchSpecs", () =>
+  api.get<any>("/aircraft/specs"),
 );
 
 export const fetchAirframes = createAsyncThunk(
@@ -84,6 +90,9 @@ const aircraftSlice = createSlice({
     builder
       .addCase(fetchAircraftTypes.fulfilled, (state, action) => {
         state.types = action.payload;
+      })
+      .addCase(fetchAircraftSpecs.fulfilled, (state, action) => {
+        state.specs = action.payload;
       })
       .addCase(fetchAirframes.fulfilled, (state, action) => {
         state.airframes = action.payload;

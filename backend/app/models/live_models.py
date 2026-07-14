@@ -303,8 +303,8 @@ class LiveGroupAircraft(Base):
     aircraft = relationship("LiveAircraft", back_populates="group_assignments")
 
 
-class LiveTokens(Base):
-    __tablename__ = "live_tokens"
+class LiveCurrency(Base):
+    __tablename__ = "live_currency"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=False, unique=True)
@@ -315,8 +315,8 @@ class LiveTokens(Base):
     pilot = relationship("Pilot", foreign_keys=[pilot_id])
 
 
-class LiveTokenTransaction(Base):
-    __tablename__ = "live_token_transactions"
+class LiveCurrencyTransaction(Base):
+    __tablename__ = "live_currency_transactions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=False)
@@ -348,13 +348,6 @@ class LiveScheduleWave(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     group_id = Column(Integer, ForeignKey("live_flying_groups.id"), nullable=True)
     name = Column(String(50), nullable=False)
-    wave_type = Column(
-        Enum("departure", "arrival", name="wave_type"),
-        nullable=False,
-        default="departure",
-    )
-    departure_window_start = Column(Time, nullable=False)
-    departure_window_end = Column(Time, nullable=False)
     week_start = Column(Date, nullable=False)
 
     group = relationship("LiveFlyingGroup", back_populates="waves")
@@ -401,27 +394,24 @@ class LiveFlightBooking(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     schedule_id = Column(Integer, ForeignKey("live_flight_schedule.id"), nullable=False)
-    pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=False)
-    token_cost = Column(Integer, nullable=False, default=0)
+    departure_pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=True)
+    arrival_pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=True)
+    departure_pirep_id = Column(Integer, ForeignKey("pireps.id"), nullable=True)
+    arrival_pirep_id = Column(Integer, ForeignKey("pireps.id"), nullable=True)
     booked_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    status = Column(
-        Enum("booked", "completed", "no_show", "cancelled", "reassigned", name="booking_status"),
-        nullable=False,
-        default="booked",
-    )
-    booking_type = Column(
-        String(20),
-        nullable=False,
-        default="both",
-    )
-    completed_pirep_id = Column(Integer, ForeignKey("pireps.id"))
-    taken_over_by = Column(Integer, ForeignKey("pilots.id"))
-    taken_over_at = Column(DateTime)
+    dispatched_at = Column(DateTime, nullable=True)
+    pax_count = Column(Integer, nullable=True)
+    landing_fpm = Column(Integer, nullable=True)
+    reputation_score = Column(Float, nullable=True)
+    earnings = Column(Float, nullable=True)
+    expenses = Column(Float, nullable=True)
+    status = Column(String(20), nullable=False, default="booked")
 
     schedule = relationship("LiveFlightSchedule", back_populates="bookings")
-    pilot = relationship("Pilot", foreign_keys=[pilot_id])
-    completed_pirep = relationship("Pirep", foreign_keys=[completed_pirep_id])
-    taken_over_pilot = relationship("Pilot", foreign_keys=[taken_over_by])
+    departure_pilot = relationship("Pilot", foreign_keys=[departure_pilot_id])
+    arrival_pilot = relationship("Pilot", foreign_keys=[arrival_pilot_id])
+    departure_pirep = relationship("Pirep", foreign_keys=[departure_pirep_id])
+    arrival_pirep = relationship("Pirep", foreign_keys=[arrival_pirep_id])
 
 
 class LiveSetting(Base):

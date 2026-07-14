@@ -64,6 +64,18 @@ async def list_airframes(
     ]
 
 
+@router.get("/specs")
+async def get_aircraft_specs():
+    import json
+    import os
+    assets_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets")
+    specs_path = os.path.join(assets_dir, "aircrafts.json")
+    if not os.path.exists(specs_path):
+        raise HTTPException(status_code=404, detail="Aircraft specs file not found")
+    with open(specs_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 @router.get("/{airframe_id}", response_model=LiveAircraftDetailOut)
 async def get_airframe_detail(airframe_id: int, db: AsyncSession = Depends(get_db)):
     airframe = await get_airframe(db, airframe_id)
@@ -157,3 +169,7 @@ async def update_airframe_route(
         total_flights=airframe.total_flights,
         home_base=airframe.home_base,
     )
+
+
+
+

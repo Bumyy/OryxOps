@@ -11,7 +11,6 @@ from app.models.live_models import (
     LiveFlightSchedule,
     LiveGroupAircraft,
     LiveScheduleWave,
-    LiveTokens,
     Route,
 )
 

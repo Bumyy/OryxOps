@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { fetchMe, logout } from "./store/slices/authSlice";
+import { fetchAircraftSpecs } from "./store/slices/aircraftSlice";
 
 import Layout from "./components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -44,6 +45,8 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
         const result = await dispatch(fetchMe());
         if (fetchMe.rejected.match(result)) {
           dispatch(logout());
+        } else {
+          dispatch(fetchAircraftSpecs());
         }
       } catch (err) {
         console.error("Auth check failed:", err);

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import useReveal from "../hooks/useReveal";
 import checklistTemplate from "../assets/checklist/checklist_template.json";
-import aircraftsDb from "../assets/checklist/aircrafts.json";
 import EFBBriefing from "../components/efb/briefing/EFBBriefing";
 import EFBChecklist from "../components/efb/checklist/EFBChecklist";
 import EFBSettings from "../components/efb/settings/EFBSettings";
@@ -18,6 +17,7 @@ export default function EFB() {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
   const { bookings } = useAppSelector((state) => state.booking);
+  const aircraftsDb = useAppSelector((state) => state.aircraft.specs) || {};
   
   // Base Connection & OFP States
   const simbriefId = user?.simbrief_id;
