@@ -336,36 +336,18 @@ async def dispatch_booking(db: AsyncSession, booking_id: int, pilot_id: int) -> 
     # 3. Calculate Passenger load
     variance = random.uniform(0.95, 1.05)
     
+    rep_stmt = select(func.avg(LiveCurrencyTransaction.amount)).where(
+        LiveCurrencyTransaction.transaction_type == "lift_boost"
+    )
+    avg_rep_val = (await db.execute(rep_stmt)).scalar()
+    avg_rep = float(avg_rep_val) if avg_rep_val is not None else 80.0
+
     if dep_apt == "OTHH":
         # Outbound: Passenger load based on global average reputation
-        rep_stmt = select(func.avg(LiveCurrencyTransaction.amount)).where(
-            LiveCurrencyTransaction.transaction_type == "lift_boost"
-        )
-        avg_rep_val = (await db.execute(rep_stmt)).scalar()
-        avg_rep = float(avg_rep_val) if avg_rep_val is not None else 80.0
-            
         pax = int(capacity * (avg_rep / 100.0) * variance)
     else:
-        # Inbound: Passenger load based on last completed flight on this aircraft airframe + Return Flight reduced pax (70-90%)
-        aircraft_id = booking.schedule.aircraft_id if booking.schedule else None
-        last_rep = 80.0
-        if aircraft_id:
-            # Query last completed booking for this aircraft
-            last_booking_stmt = (
-                select(LiveFlightBooking)
-                .join(LiveFlightSchedule)
-                .where(
-                    LiveFlightSchedule.aircraft_id == aircraft_id,
-                    LiveFlightBooking.status == "completed"
-                )
-                .order_by(LiveFlightBooking.booked_at.desc())
-                .limit(1)
-            )
-            last_booking = (await db.execute(last_booking_stmt)).scalar_one_or_none()
-            if last_booking and last_booking.reputation_score is not None:
-                last_rep = float(last_booking.reputation_score)
-                
-        pax = int(capacity * (last_rep / 100.0) * variance * random.uniform(0.70, 0.90))
+        # Inbound: Passenger load based on global average reputation + Return Flight reduced pax (70-90%)
+        pax = int(capacity * (avg_rep / 100.0) * variance * random.uniform(0.70, 0.90))
 
     pax = max(10, min(capacity, pax))  # Clamp between 10 and max capacity
     

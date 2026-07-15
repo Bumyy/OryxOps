@@ -8,8 +8,9 @@ import EFBSettings from "../components/efb/settings/EFBSettings";
 import EFBWeather from "../components/efb/weather/EFBWeather";
 import EFBAircraft from "../components/efb/aircraft/EFBAircraft";
 import EFBCharts from "../components/efb/charts/EFBCharts";
+import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { fetchBookings } from "../store/slices/bookingSlice";
+import { fetchBookings, dispatchBooking, completeBooking, cancelBooking } from "../store/slices/bookingSlice";
 
 
 export default function EFB() {
@@ -70,6 +71,8 @@ export default function EFB() {
   const [playChime, setPlayChime] = useState(() => localStorage.getItem("copilot_chime") !== "false");
   const [autoAdvance, setAutoAdvance] = useState(() => localStorage.getItem("copilot_auto_advance") !== "false");
   const [autoCollapse, setAutoCollapse] = useState(() => localStorage.getItem("copilot_auto_collapse") !== "false");
+  const [copilotKey, setCopilotKey] = useState(() => localStorage.getItem("copilot_key") || "Space");
+  const [showFloatingButton, setShowFloatingButton] = useState(() => localStorage.getItem("copilot_show_floating") !== "false");
 
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [coPilotRunning, setCoPilotRunning] = useState(false);
@@ -1230,6 +1233,8 @@ export default function EFB() {
                 activePhaseIndex={activePhaseIndex}
                 setActivePhaseIndex={setActivePhaseIndex}
                 copilotState={copilotState}
+                copilotKey={copilotKey}
+                showFloatingButton={showFloatingButton}
               />
             )}
 
@@ -1284,6 +1289,10 @@ export default function EFB() {
                 coPilotRunning={coPilotRunning}
                 updateSettings={updateSettings}
                 copilotState={copilotState}
+                copilotKey={copilotKey}
+                setCopilotKey={setCopilotKey}
+                showFloatingButton={showFloatingButton}
+                setShowFloatingButton={setShowFloatingButton}
               />
             )}
           </div>

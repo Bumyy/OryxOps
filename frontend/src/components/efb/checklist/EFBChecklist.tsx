@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { useAppSelector } from "../../../store/hooks";
 
 export interface EFBChecklistProps {
@@ -23,6 +24,8 @@ export interface EFBChecklistProps {
   activePhaseIndex: number;
   setActivePhaseIndex: (idx: number) => void;
   copilotState: "IDLE" | "SPEAKING_CHALLENGE" | "SPEAKING_RESPONSE" | "LISTENING" | "VALIDATING" | "SUCCESS";
+  copilotKey: string;
+  showFloatingButton: boolean;
 }
 
 export default function EFBChecklist({
@@ -48,6 +51,8 @@ export default function EFBChecklist({
   activePhaseIndex,
   setActivePhaseIndex,
   copilotState,
+  copilotKey,
+  showFloatingButton,
 }: EFBChecklistProps) {
   const aircraftsDb = useAppSelector((state) => state.aircraft.specs) || {};
 
@@ -86,6 +91,131 @@ export default function EFBChecklist({
   };
 
   const activeItem = getActiveItem();
+
+  // Keyboard listener for checklist advancing key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in input/textarea/contenteditable
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.getAttribute("contenteditable") === "true")) {
+        return;
+      }
+
+      let isMatch = false;
+      if (copilotKey === "Space" && (e.code === "Space" || e.key === " ")) {
+        isMatch = true;
+      } else if (copilotKey === "Enter" && e.code === "Enter") {
+        isMatch = true;
+      } else if (copilotKey === "ArrowRight" && e.code === "ArrowRight") {
+        isMatch = true;
+      } else if (copilotKey === "ArrowDown" && e.code === "ArrowDown") {
+        isMatch = true;
+      } else if (copilotKey === "KeyC" && e.code === "KeyC") {
+        isMatch = true;
+      } else if (copilotKey === "KeyV" && e.code === "KeyV") {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        e.preventDefault();
+        handleCheckActiveItem();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [copilotKey, activePhaseIndex, checkedItems, handleCheckActiveItem]);
+
+  // Touch/Mouse draggable floating advance button positioning
+  const [position, setPosition] = useState(() => {
+    try {
+      const saved = localStorage.getItem("copilot_btn_pos");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.x === "number" && typeof parsed.y === "number") {
+          return parsed;
+        }
+      }
+    } catch {}
+    // Default position: bottom right area (fixed viewport offset coordinates)
+    return { x: window.innerWidth - 88, y: window.innerHeight - 100 };
+  });
+
+  const positionRef = useRef(position);
+  useEffect(() => {
+    positionRef.current = position;
+  }, [position]);
+
+  // Sync position on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const current = positionRef.current;
+      const x = Math.max(10, Math.min(window.innerWidth - 80, current.x));
+      const y = Math.max(10, Math.min(window.innerHeight - 80, current.y));
+      setPosition({ x, y });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX - position.x;
+    const startY = e.clientY - position.y;
+    let moved = false;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      moved = true;
+      let newX = moveEvent.clientX - startX;
+      let newY = moveEvent.clientY - startY;
+
+      newX = Math.max(10, Math.min(window.innerWidth - 80, newX));
+      newY = Math.max(10, Math.min(window.innerHeight - 80, newY));
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      localStorage.setItem("copilot_btn_pos", JSON.stringify(positionRef.current));
+      if (!moved) {
+        handleCheckActiveItem();
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const startX = touch.clientX - position.x;
+    const startY = touch.clientY - position.y;
+    let moved = false;
+
+    const handleTouchMove = (moveEvent: TouchEvent) => {
+      moved = true;
+      const curTouch = moveEvent.touches[0];
+      let newX = curTouch.clientX - startX;
+      let newY = curTouch.clientY - startY;
+
+      newX = Math.max(10, Math.min(window.innerWidth - 80, newX));
+      newY = Math.max(10, Math.min(window.innerHeight - 80, newY));
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleTouchEnd = () => {
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+      localStorage.setItem("copilot_btn_pos", JSON.stringify(positionRef.current));
+      if (!moved) {
+        handleCheckActiveItem();
+      }
+    };
+
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+  };
 
   return (
     <div className="flex flex-col space-y-6">
@@ -363,6 +493,27 @@ export default function EFBChecklist({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Mobile/Tablet touch draggable checklist advance button */}
+      {showFloatingButton && (
+        <div
+          style={{
+            position: "fixed",
+            left: `${position.x}px`,
+            top: `${position.y}px`,
+            zIndex: 9999,
+            touchAction: "none",
+          }}
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          className="w-14 h-14 bg-gradient-to-br from-brand to-brand-dark hover:from-brand-light hover:to-brand text-white rounded-full shadow-lg shadow-brand/30 flex items-center justify-center cursor-move transition-transform active:scale-95 border-2 border-brand-pale select-none"
+          title="Drag to reposition, Tap to advance checklist"
+        >
+          <svg className="w-7 h-7 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
         </div>
       )}
     </div>

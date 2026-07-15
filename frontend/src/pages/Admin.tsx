@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { api } from "../api/client";
 import { GroupsTab } from "./admin/GroupsPage";
+import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
 import {
   fetchSettings,
   updateSetting,
@@ -1422,8 +1423,11 @@ export function SettingsTab() {
         )}
       </div>
 
-      {/* Embedded Leg Economics Simulator */}
-      <LegSimulatorPanel />
+      {/* Embedded Leg Economics Simulator & Pax Boarding Simulator */}
+      <div className="flex flex-col gap-6">
+        <LegSimulatorPanel />
+        <PaxSimulatorPanel />
+      </div>
     </div>
   );
 }
@@ -1497,8 +1501,11 @@ export function RatesTab() {
         {renderGroup("Salary Payout Percentages & Limits", "💵", salarySettings)}
       </div>
 
-      {/* Embedded Leg Economics Simulator */}
-      <LegSimulatorPanel />
+      {/* Embedded Leg Economics Simulator & Pax Boarding Simulator */}
+      <div className="flex flex-col gap-6">
+        <LegSimulatorPanel />
+        <PaxSimulatorPanel />
+      </div>
     </div>
   );
 }
@@ -1511,7 +1518,9 @@ export function LegSimulatorPanel() {
   // Simulator Inputs State
   const [selectedAircraft, setSelectedAircraft] = useState("A320");
   const [paxCount, setPaxCount] = useState(150);
-  const [flightTime, setFlightTime] = useState(120);
+  const [flightTimeHours, setFlightTimeHours] = useState("2");
+  const [flightTimeMinutes, setFlightTimeMinutes] = useState("0");
+  const flightTime = (parseInt(flightTimeHours) || 0) * 60 + (parseInt(flightTimeMinutes) || 0);
   const [fuelBurned, setFuelBurned] = useState(3000);
   const [landingFpm, setLandingFpm] = useState(120);
   const [airportClass, setAirportClass] = useState<"large" | "medium" | "small">("large");
@@ -1656,13 +1665,27 @@ export function LegSimulatorPanel() {
 
           <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500">Flight Time (Min)</label>
-              <input
-                type="number"
-                value={flightTime}
-                onChange={(e) => setFlightTime(Math.max(1, parseInt(e.target.value) || 0))}
-                className="border border-brand-border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none"
-              />
+              <label className="text-xs font-bold text-gray-500">Flight Time (HH:MM)</label>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  placeholder="HH"
+                  min="0"
+                  value={flightTimeHours}
+                  onChange={(e) => setFlightTimeHours(e.target.value)}
+                  className="border border-brand-border rounded-xl px-2 py-2 text-xs font-mono font-bold focus:outline-none w-[45%] text-center"
+                />
+                <span className="text-gray-400 font-bold">:</span>
+                <input
+                  type="number"
+                  placeholder="MM"
+                  min="0"
+                  max="59"
+                  value={flightTimeMinutes}
+                  onChange={(e) => setFlightTimeMinutes(e.target.value)}
+                  className="border border-brand-border rounded-xl px-2 py-2 text-xs font-mono font-bold focus:outline-none w-[45%] text-center"
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -1790,6 +1813,104 @@ export function LegSimulatorPanel() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+export function PaxSimulatorPanel() {
+  const specs = useAppSelector((s) => s.aircraft.specs) || {};
+  const [isOpen, setIsOpen] = useState(false);
+  const [paxCount, setPaxCount] = useState(150);
+  const [aircraftIcao, setAircraftIcao] = useState("A320");
+  const [flightNumber, setFlightNumber] = useState("QR100");
+  const [origin, setOrigin] = useState("OTHH");
+  const [destination, setDestination] = useState("DNMM");
+
+  const capacity = specs[aircraftIcao]?.properties?.capacity || 180;
+
+  return (
+    <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 space-y-6">
+      <div>
+        <h3 className="text-lg font-black text-brand-dark flex items-center gap-1.5 border-b border-brand-border/40 pb-2.5 uppercase tracking-wider">
+          🎬 Boarding Animation Simulator
+        </h3>
+        <p className="text-gray-400 text-xs mt-1">Preview passenger Manifest Odometers, Seat grids, and boarding animations.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-bold text-gray-500">Passenger Count</label>
+          <input
+            type="number"
+            value={paxCount}
+            onChange={(e) => setPaxCount(Number(e.target.value) || 0)}
+            className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-bold text-gray-500">Aircraft Model (ICAO)</label>
+          <select
+            value={aircraftIcao}
+            onChange={(e) => setAircraftIcao(e.target.value)}
+            className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none"
+          >
+            {Object.keys(specs).map((k) => (
+              <option key={k} value={k}>
+                {k} (Cap: {specs[k]?.properties?.capacity || 180})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-bold text-gray-500">Flight Number</label>
+          <input
+            type="text"
+            value={flightNumber}
+            onChange={(e) => setFlightNumber(e.target.value.toUpperCase())}
+            className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none uppercase"
+          />
+        </div>
+        <div className="flex flex-col gap-1 col-span-1">
+          <label className="text-xs font-bold text-gray-500">Origin / Departure</label>
+          <input
+            type="text"
+            maxLength={4}
+            value={origin}
+            onChange={(e) => setOrigin(e.target.value.toUpperCase())}
+            className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none uppercase"
+          />
+        </div>
+        <div className="flex flex-col gap-1 col-span-1">
+          <label className="text-xs font-bold text-gray-500">Destination / Arrival</label>
+          <input
+            type="text"
+            maxLength={4}
+            value={destination}
+            onChange={(e) => setDestination(e.target.value.toUpperCase())}
+            className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none uppercase"
+          />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-brand to-brand-dark text-white font-black py-3 rounded-2xl text-xs transition-all shadow-md cursor-pointer hover:opacity-90"
+      >
+        ⚡ Launch Boarding Simulation
+      </button>
+
+      {/* Pax Boarding Preview Modal */}
+      <PaxBoardingModal
+        isOpen={isOpen}
+        finalPaxCount={paxCount}
+        aircraftIcao={aircraftIcao}
+        flightNumber={flightNumber}
+        origin={origin}
+        destination={destination}
+        seatCapacity={capacity}
+        onComplete={() => setIsOpen(false)}
+      />
     </div>
   );
 }

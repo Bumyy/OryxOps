@@ -1,20 +1,44 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { fetchBookings, cancelBooking, completeBooking, noShowBooking, dispatchBooking } from "../store/slices/bookingSlice";
+import { fetchBookings, cancelBooking } from "../store/slices/bookingSlice";
 import { api } from "../api/client";
 
 export default function Bookings() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { bookings, loading } = useAppSelector((s) => s.booking);
   const aircraftData = useAppSelector((s) => s.aircraft.specs);
   const user = useAppSelector((s) => s.auth.user);
-  
+
   const [activeTab, setActiveTab] = useState<"bookings" | "logs">("bookings");
-  const [flightTimeMinutes, setFlightTimeMinutes] = useState<Record<number, string>>({});
-  const [fuelBurned, setFuelBurned] = useState<Record<number, string>>({});
-  const [landingFpm, setLandingFpm] = useState<Record<number, string>>({});
-  const [actualArrival, setActualArrival] = useState<Record<number, string>>({});
   const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
+  
+  const [rates, setRates] = useState<Record<string, number>>({
+    econ_fuel_price_rate: 1.10,
+    econ_ticket_base_price: 150.0,
+    econ_ticket_duration_rate: 2.00,
+    econ_fixed_rate_per_seat: 120.0,
+    econ_service_rate_per_pax: 60.0,
+    econ_diversion_charge_per_pax: 100.0,
+    econ_payout_share_solo: 0.10,
+    econ_payout_share_split: 0.05,
+    econ_min_payout_solo: 750.0,
+    econ_min_payout_split: 350.0,
+  });
+
+  useEffect(() => {
+    api.get("/settings").then((res: any) => {
+      const data = res.data;
+      if (Array.isArray(data)) {
+        const mapped: Record<string, number> = {};
+        data.forEach((s: any) => {
+          mapped[s.setting_key] = parseFloat(s.setting_value) || 0;
+        });
+        setRates((prev) => ({ ...prev, ...mapped }));
+      }
+    }).catch((err) => console.error("Failed to load settings:", err));
+  }, []);
 
   const refetch = () => {
     if (user) {
@@ -30,34 +54,6 @@ export default function Bookings() {
     refetch();
   }, [user, activeTab]);
 
-  const getSimbriefUrl = (b: any) => {
-    const orig = b.flight_departure.toUpperCase();
-    const dest = b.flight_arrival.toUpperCase();
-    const type = (b.aircraft_icao || "B77W").toUpperCase();
-    const callsign = (b.departure_pilot_callsign || user?.callsign || "").toUpperCase();
-    const fltnum = b.flight_number || "";
-
-    const params = new URLSearchParams({
-      orig,
-      dest,
-      type,
-      callsign,
-      airline: "QRV",
-    });
-    if (fltnum) {
-      params.set("fltnum", fltnum);
-    }
-    return `https://www.simbrief.com/system/dispatch.php?${params.toString()}`;
-  };
-
-  const getFlightawareUrl = (b: any) => {
-    const params = new URLSearchParams({
-      origin: b.flight_departure.toUpperCase(),
-      destination: b.flight_arrival.toUpperCase(),
-    });
-    return `https://www.flightaware.com/live/findflight?${params.toString()}`;
-  };
-
   const handleCancel = async (id: number) => {
     if (confirm("Are you sure you want to cancel this booking?")) {
       const res = await dispatch(cancelBooking(id));
@@ -66,46 +62,6 @@ export default function Bookings() {
       } else {
         alert("Failed to cancel booking: " + (res.error?.message || "Unknown error"));
       }
-    }
-  };
-
-  const handleDispatch = async (id: number) => {
-    const res = await dispatch(dispatchBooking(id));
-    if (dispatchBooking.fulfilled.match(res)) {
-      refetch();
-    } else {
-      alert("Failed to dispatch flight: " + (res.error?.message || "Unknown error"));
-    }
-  };
-
-  const handleComplete = async (id: number, scheduledArrival: string) => {
-    const minutes = Number(flightTimeMinutes[id] || 0);
-    const fuel = Number(fuelBurned[id] || 0);
-    const fpm = Number(landingFpm[id] || 0);
-    const arrival = (actualArrival[id] || "").trim().toUpperCase() || scheduledArrival.toUpperCase();
-
-    if (minutes <= 0 || fuel < 0 || fpm < 0) {
-      alert("Please fill in valid positive statistics (Flight Time, Fuel, and Landing rate).");
-      return;
-    }
-
-    if (arrival.length !== 4) {
-      alert("Please enter a valid 4-letter ICAO code for the Landing Airport.");
-      return;
-    }
-
-    const res = await dispatch(completeBooking({
-      id,
-      flightTimeMinutes: minutes,
-      fuelBurned: fuel,
-      landingFpm: fpm,
-      actualArrival: arrival
-    }));
-    if (completeBooking.fulfilled.match(res)) {
-      alert("Flight PIREP submitted successfully! Placed in pending review.");
-      refetch();
-    } else {
-      alert("Failed to complete flight: " + (res.error?.message || "Unknown error"));
     }
   };
 
@@ -156,154 +112,108 @@ export default function Bookings() {
           ))}
         </div>
       ) : activeTab === "bookings" ? (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {bookings.map((b) => {
             const isDeparturePilot = user?.id === b.departure_pilot_id;
-            const isArrivalPilot = user?.id === b.arrival_pilot_id;
             const isSolo = b.departure_pilot_id === b.arrival_pilot_id;
+            const isDispatched = !!b.dispatched_at;
 
             return (
               <div
                 key={b.id}
-                className="bg-white rounded-3xl border border-brand-border shadow-sm overflow-hidden p-6 flex flex-col md:flex-row gap-6 justify-between items-start"
+                className={`bg-white rounded-3xl border shadow-sm overflow-hidden transition-all ${
+                  isDispatched
+                    ? "border-emerald-300 ring-1 ring-emerald-200/60"
+                    : "border-brand-border"
+                }`}
               >
-                {/* Left side: route details */}
-                <div className="space-y-3 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-black text-brand-dark uppercase tracking-tight">
-                      {b.flight_departure} ➔ {b.flight_arrival}
-                    </span>
-                    {b.flight_number && (
-                      <span className="text-[10px] font-extrabold text-brand bg-brand-pale border border-brand-border/60 px-2 py-0.5 rounded-md">
-                        {b.flight_number}
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-gray-500 font-bold">
-                    Aircraft: <span className="text-gray-700">{b.aircraft_registration} ({b.aircraft_icao})</span>
-                  </p>
-
-                  <div className="flex gap-2 flex-wrap">
-                    {isSolo ? (
-                      <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100/50 border border-emerald-200/50 px-2 py-0.5 rounded-md">
-                        👤 Solo Flight
-                      </span>
-                    ) : (
-                      <>
-                        <span className="text-[9px] font-bold text-sky-800 bg-sky-100/50 border border-sky-200/50 px-2 py-0.5 rounded-md">
-                          🛫 Takeoff: {b.departure_pilot_callsign || "Vacant"}
-                        </span>
-                        <span className="text-[9px] font-bold text-purple-800 bg-purple-100/50 border border-purple-200/50 px-2 py-0.5 rounded-md">
-                          🛬 Landing: {b.arrival_pilot_callsign || "Vacant"}
-                        </span>
-                      </>
-                    )}
-                    {b.pax_count !== null && (
-                      <span className="text-[9px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
-                        👥 {b.pax_count} Pax Loaded
-                      </span>
-                    )}
-                  </div>
-
-                  {b.dispatched_at ? (
-                    <div className="flex gap-2 pt-1.5">
-                      <a
-                        href={getSimbriefUrl(b)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[9px] font-extrabold text-brand hover:bg-brand/10 bg-brand-pale border border-brand-border px-2.5 py-1.5 rounded-xl transition-colors"
-                      >
-                        ✈️ SimBrief OFP
-                      </a>
-                      <a
-                        href={getFlightawareUrl(b)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[9px] font-extrabold text-sky-700 hover:bg-sky-100 bg-sky-50 border border-sky-200 px-2.5 py-1.5 rounded-xl transition-colors"
-                      >
-                        🌐 Flightaware Tracker
-                      </a>
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-gray-400 italic">Not dispatched. SimBrief planning requires dispatching.</p>
-                  )}
+                {/* Status ribbon */}
+                <div className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${
+                  isDispatched
+                    ? "bg-emerald-50 text-emerald-700 border-b border-emerald-200"
+                    : "bg-amber-50 text-amber-700 border-b border-amber-200"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isDispatched ? "bg-emerald-500 animate-pulse" : "bg-amber-400"}`} />
+                  {isDispatched ? "✈️ Dispatched — Flight in Progress" : "⏳ Awaiting Dispatch"}
                 </div>
 
-                {/* Right side: dispatch form / manual complete */}
-                <div className="w-full md:w-auto flex flex-col items-end gap-3">
-                  {!b.dispatched_at ? (
-                    isDeparturePilot ? (
-                      <div className="flex flex-col gap-2 w-full">
-                        <button
-                          onClick={() => handleDispatch(b.id)}
-                          className="bg-brand text-white px-4 py-2 rounded-2xl hover:bg-brand-dark text-xs font-black transition-all cursor-pointer text-center"
-                        >
-                          🚀 Dispatch Flight
-                        </button>
-                        <button
-                          onClick={() => handleCancel(b.id)}
-                          className="text-[10px] text-red-500 font-bold hover:underline text-center cursor-pointer"
-                        >
-                          Cancel Booking
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400 italic bg-gray-50 border border-gray-100 px-3 py-2 rounded-xl text-center w-full">
-                        Waiting for takeoff pilot to dispatch
+                <div className="p-6 flex flex-col md:flex-row gap-6 justify-between items-start">
+                  {/* Left side: route details */}
+                  <div className="space-y-3 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xl font-black text-brand-dark uppercase tracking-tight">
+                        {b.flight_departure} ➔ {b.flight_arrival}
                       </span>
-                    )
-                  ) : (
-                    <>
-                      {/* Completed / Filing EFB Manual PIREP */}
-                      {isArrivalPilot || (!b.arrival_pilot_id && isDeparturePilot) ? (
-                        <div className="bg-gray-50 border border-brand-border/40 p-4 rounded-2xl w-full max-w-[280px] space-y-2.5">
-                          <h4 className="text-[11px] font-black text-brand uppercase tracking-wider">File EFB Manual PIREP</h4>
-                          <div className="space-y-2">
-                            <input
-                              type="number"
-                              placeholder="Flight Duration (Minutes)"
-                              value={flightTimeMinutes[b.id] || ""}
-                              onChange={(e) => setFlightTimeMinutes({ ...flightTimeMinutes, [b.id]: e.target.value })}
-                              className="w-full border border-brand-border/60 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:outline-brand"
-                            />
-                            <input
-                              type="number"
-                              placeholder="Fuel Burned (kg)"
-                              value={fuelBurned[b.id] || ""}
-                              onChange={(e) => setFuelBurned({ ...fuelBurned, [b.id]: e.target.value })}
-                              className="w-full border border-brand-border/60 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:outline-brand"
-                            />
-                            <input
-                              type="number"
-                              placeholder="Landing Rate (FPM)"
-                              value={landingFpm[b.id] || ""}
-                              onChange={(e) => setLandingFpm({ ...landingFpm, [b.id]: e.target.value })}
-                              className="w-full border border-brand-border/60 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:outline-brand"
-                            />
-                            <input
-                              type="text"
-                              maxLength={4}
-                              placeholder={`Landing Airport (default: ${b.flight_arrival || "OTHH"})`}
-                              value={actualArrival[b.id] || ""}
-                              onChange={(e) => setActualArrival({ ...actualArrival, [b.id]: e.target.value })}
-                              className="w-full border border-brand-border/60 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:outline-brand uppercase font-bold"
-                            />
-                          </div>
-                          <button
-                            onClick={() => handleComplete(b.id, b.flight_arrival || "OTHH")}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-black transition-colors cursor-pointer text-center"
-                          >
-                            Submit PIREP & Complete
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-gray-400 italic bg-gray-50 border border-gray-100 px-3 py-2 rounded-xl text-center w-full">
-                          Waiting for landing pilot to land & complete
-                        </div>
+                      {b.flight_number && (
+                        <span className="text-[10px] font-extrabold text-brand bg-brand-pale border border-brand-border/60 px-2 py-0.5 rounded-md">
+                          {b.flight_number}
+                        </span>
                       )}
-                    </>
-                  )}
+                    </div>
+
+                    <p className="text-xs text-gray-500 font-bold">
+                      Aircraft: <span className="text-gray-700">{b.aircraft_registration} ({b.aircraft_icao})</span>
+                    </p>
+
+                    <div className="flex gap-2 flex-wrap">
+                      {isSolo ? (
+                        <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100/50 border border-emerald-200/50 px-2 py-0.5 rounded-md">
+                          👤 Solo Flight
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-[9px] font-bold text-sky-800 bg-sky-100/50 border border-sky-200/50 px-2 py-0.5 rounded-md">
+                            🛫 Takeoff: {b.departure_pilot_callsign || "Vacant"}
+                          </span>
+                          <span className="text-[9px] font-bold text-purple-800 bg-purple-100/50 border border-purple-200/50 px-2 py-0.5 rounded-md">
+                            🛬 Landing: {b.arrival_pilot_callsign || "Vacant"}
+                          </span>
+                        </>
+                      )}
+                      {b.pax_count !== null && b.pax_count !== undefined && (
+                        <span className="text-[9px] font-bold text-violet-800 bg-violet-100/60 border border-violet-200/60 px-2 py-0.5 rounded-md">
+                          👥 {b.pax_count} Pax Manifest
+                        </span>
+                      )}
+                    </div>
+
+                    {b.flight_scheduled_dep && (
+                      <p className="text-[10px] text-gray-400">
+                        Scheduled: {new Date(b.flight_scheduled_dep).toLocaleString("en-GB", { timeZone: "UTC", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} UTC
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Right side: EFB CTA */}
+                  <div className="w-full md:w-auto flex flex-col items-stretch md:items-end gap-3 min-w-[220px]">
+                    {/* Primary: Go to EFB */}
+                    <button
+                      onClick={() => navigate("/operations")}
+                      className="flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark text-white px-5 py-3 rounded-2xl text-sm font-black transition-all shadow-md shadow-brand/20 cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 3l6 9-6 9" />
+                      </svg>
+                      {isDispatched ? "Open Flight Ops → File PIREP" : "Open Flight Ops → Dispatch"}
+                    </button>
+
+                    {/* Secondary: Cancel (only undispatched departure pilot) */}
+                    {!isDispatched && isDeparturePilot && (
+                      <button
+                        onClick={() => handleCancel(b.id)}
+                        className="text-[10px] text-red-500 font-bold hover:underline text-center cursor-pointer"
+                      >
+                        Cancel Booking
+                      </button>
+                    )}
+
+                    {/* Info blurb */}
+                    <p className="text-[9px] text-gray-400 text-center leading-relaxed">
+                      {isDispatched
+                        ? "Dispatch, fuel calculations & PIREP filing now live in Flight Operations."
+                        : "All flight operations including dispatching are in the Flight Operations center."}
+                    </p>
+                  </div>
                 </div>
               </div>
             );
@@ -324,7 +234,6 @@ export default function Bookings() {
             const isRejected = b.status === "rejected";
 
             if (isCancelled || isRejected) {
-              {/* Red box format */}
               return (
                 <div
                   key={b.id}
@@ -340,11 +249,11 @@ export default function Bookings() {
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 font-bold">
-                      Flight: {b.flight_number || "CM"} · Aircraft: {b.aircraft_registration} ({b.aircraft_icao})
+                      Flight: {b.flight_number || "—"} · Aircraft: {b.aircraft_registration} ({b.aircraft_icao})
                     </p>
                   </div>
                   <div className="text-xs text-red-700 italic font-medium bg-red-100/40 px-4 py-2.5 rounded-2xl border border-red-200/50">
-                    {isCancelled 
+                    {isCancelled
                       ? "Flight was cancelled by dispatcher/crew before completion."
                       : "Manual PIREP was rejected by staff. Wallet payout and ledger rows were withheld."}
                   </div>
@@ -352,7 +261,6 @@ export default function Bookings() {
               );
             }
 
-            {/* Completed -> Blue box format */}
             const isPending = b.pirep_accepted === 0;
 
             return (
@@ -434,7 +342,7 @@ export default function Bookings() {
                           <h5 className="font-extrabold text-[10px] text-brand border-b border-brand-border/20 pb-1 flex items-center gap-1.5 uppercase tracking-wider">
                             🌟 REPUTATION PERFORMANCE
                           </h5>
-                          
+
                           {/* Punctuality gauge */}
                           <div className="space-y-2 bg-white p-4 rounded-2xl border border-brand-border/40 shadow-xs">
                             <div className="flex justify-between items-center text-xs">
@@ -449,15 +357,14 @@ export default function Bookings() {
                                 })()}
                               </span>
                             </div>
-                            
-                            {/* Gauge bar */}
+
                             {(() => {
                               if (!b.flight_time_minutes || !b.scheduled_duration_minutes) return null;
                               const diff = Math.abs(b.flight_time_minutes - b.scheduled_duration_minutes);
                               const score = Math.max(0, 100 - (diff > 30 ? (diff - 30) : 0));
                               return (
                                 <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                                  <div 
+                                  <div
                                     className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${score > 70 ? 'from-amber-500 to-emerald-500' : 'from-red-500 to-amber-500'}`}
                                     style={{ width: `${score}%` }}
                                   />
@@ -465,7 +372,6 @@ export default function Bookings() {
                               );
                             })()}
 
-                            {/* Detailed breakdown list */}
                             <div className="text-[10px] text-gray-500 space-y-1 pt-2 font-medium">
                               <div className="flex justify-between">
                                 <span>📅 Scheduled Duration:</span>
@@ -517,13 +423,12 @@ export default function Bookings() {
                               </span>
                             </div>
 
-                            {/* Gauge bar */}
                             {(() => {
                               if (!b.landing_fpm) return null;
                               const score = Math.max(0, 100 - (b.landing_fpm > 100 ? (b.landing_fpm - 100) / 4 : 0));
                               return (
                                 <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                                  <div 
+                                  <div
                                     className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${score > 70 ? 'from-amber-500 to-emerald-500' : score > 35 ? 'from-red-500 via-amber-500 to-amber-500' : 'from-red-600 to-red-500'}`}
                                     style={{ width: `${score}%` }}
                                   />
@@ -531,7 +436,6 @@ export default function Bookings() {
                               );
                             })()}
 
-                            {/* Detailed breakdown list */}
                             <div className="text-[10px] text-gray-500 space-y-1 pt-2 font-medium">
                               <div className="flex justify-between">
                                 <span>💥 Touchdown Landing Rate:</span>
@@ -580,13 +484,11 @@ export default function Bookings() {
                           </h5>
 
                           <div className="bg-white rounded-2xl border border-brand-border/50 shadow-xs overflow-hidden">
-                            {/* Receipt Header */}
                             <div className="bg-slate-50 border-b border-brand-border/40 px-4 py-2.5 flex justify-between items-center text-[9px] font-mono text-gray-400 tracking-wider">
                               <span>LEG ITEMIZATION</span>
                               <span>QRV-EFB-LOG</span>
                             </div>
 
-                            {/* Receipt Body */}
                             <div className="p-4 space-y-3.5 text-[11px] leading-relaxed">
                               {/* Ticket Revenue */}
                               <div className="flex justify-between items-start">
@@ -596,7 +498,7 @@ export default function Bookings() {
                                     {b.pax_count} passengers loaded
                                   </div>
                                   <div className="text-[8.5px] text-brand-dark italic mt-0.5">
-                                    Formula: Pax * (220 Base + {b.flight_time_minutes ? b.flight_time_minutes : 0} min * 1.2 Duration)
+                                    Formula: Pax * ({rates.econ_ticket_base_price} Base + {b.flight_time_minutes ? b.flight_time_minutes : 0} min * {rates.econ_ticket_duration_rate} Duration)
                                   </div>
                                 </div>
                                 <div className="font-black text-emerald-700 text-right whitespace-nowrap">
@@ -612,11 +514,11 @@ export default function Bookings() {
                                     {(b.fuel_burned || 0).toLocaleString()} kg fuel burned
                                   </div>
                                   <div className="text-[8.5px] text-brand-dark italic mt-0.5">
-                                    Formula: kg * 1.10 QAR/kg
+                                    Formula: kg * {rates.econ_fuel_price_rate.toFixed(2)} QAR/kg
                                   </div>
                                 </div>
                                 <div className="font-black text-rose-700 text-right whitespace-nowrap">
-                                  -{Math.round((b.fuel_burned || 0) * 1.10).toLocaleString()} QAR
+                                  -{Math.round((b.fuel_burned || 0) * rates.econ_fuel_price_rate).toLocaleString()} QAR
                                 </div>
                               </div>
 
@@ -624,28 +526,20 @@ export default function Bookings() {
                               {(() => {
                                 const ac_icao = b.aircraft_icao || "A320";
                                 const mapped_key = ({
-                                  "A380": "A388",
-                                  "B787": "B788",
-                                  "B789": "B788",
-                                  "B777": "B77W",
-                                  "B772": "B77L",
-                                  "B77F": "B77L",
-                                  "A330": "A333",
-                                  "A332": "A333",
-                                  "A340": "A359"
+                                  "A380": "A388", "B787": "B788", "B789": "B788",
+                                  "B777": "B77W", "B772": "B77L", "B77F": "B77L",
+                                  "A330": "A333", "A332": "A333", "A340": "A359"
                                 } as Record<string, string>)[ac_icao.toUpperCase()] || ac_icao.toUpperCase();
-                                
                                 const capacity = (aircraftData as any)?.[mapped_key]?.properties?.capacity || 180;
-                                const fixed_cost = capacity * 120;
-                                const service_cost = (b.pax_count || 100) * 60;
+                                const fixed_cost = capacity * rates.econ_fixed_rate_per_seat;
+                                const service_cost = (b.pax_count || 100) * rates.econ_service_rate_per_pax;
                                 const operating_cost = fixed_cost + service_cost;
-
                                 return (
                                   <div className="flex justify-between items-start border-t border-gray-100 pt-3">
                                     <div>
                                       <div className="font-black text-gray-700">✈️ Aircraft Operating Cost ({ac_icao})</div>
                                       <div className="text-[9px] text-gray-400 mt-0.5">
-                                        Fixed: {capacity} seats × 120 QAR | Service: {b.pax_count} pax × 60 QAR
+                                        Fixed: {capacity} seats × {rates.econ_fixed_rate_per_seat} QAR | Service: {b.pax_count} pax × {rates.econ_service_rate_per_pax} QAR
                                       </div>
                                     </div>
                                     <div className="font-black text-rose-700 text-right whitespace-nowrap">
@@ -662,9 +556,7 @@ export default function Bookings() {
                                     <div className={`font-black ${b.landing_fpm > 100 ? "text-red-700" : "text-gray-700"}`}>
                                       💥 Touchdown Landing Penalty
                                     </div>
-                                    <div className="text-[9px] text-gray-400 mt-0.5">
-                                      Landing rate: {b.landing_fpm} FPM
-                                    </div>
+                                    <div className="text-[9px] text-gray-400 mt-0.5">Landing rate: {b.landing_fpm} FPM</div>
                                   </div>
                                   <div className="font-black text-rose-700 text-right whitespace-nowrap">
                                     -{(() => {
@@ -685,35 +577,27 @@ export default function Bookings() {
                                   <div>
                                     <div className="font-black text-red-800">🔀 Passenger Diversion Charge</div>
                                     <div className="text-[9px] text-red-600 mt-0.5">
-                                      Diverted to {b.actual_arrival} (Formula: {b.pax_count} pax × 100 QAR)
+                                      Diverted to {b.actual_arrival} (Formula: {b.pax_count} pax × {rates.econ_diversion_charge_per_pax} QAR)
                                     </div>
                                   </div>
                                   <div className="font-black text-red-700 text-right whitespace-nowrap">
-                                    -{((b.pax_count || 100) * 100).toLocaleString()} QAR
+                                    -{((b.pax_count || 100) * rates.econ_diversion_charge_per_pax).toLocaleString()} QAR
                                   </div>
                                 </div>
                               )}
 
                               {/* Airport Landing Fee */}
                               {(() => {
-                                const fuel_exp = (b.fuel_burned || 0) * 1.10;
+                                const fuel_exp = (b.fuel_burned || 0) * rates.econ_fuel_price_rate;
                                 const ac_icao = b.aircraft_icao || "A320";
                                 const mapped_key = ({
-                                  "A380": "A388",
-                                  "B787": "B788",
-                                  "B789": "B788",
-                                  "B777": "B77W",
-                                  "B772": "B77L",
-                                  "B77F": "B77L",
-                                  "A330": "A333",
-                                  "A332": "A333",
-                                  "A340": "A359"
+                                  "A380": "A388", "B787": "B788", "B789": "B788",
+                                  "B777": "B77W", "B772": "B77L", "B77F": "B77L",
+                                  "A330": "A333", "A332": "A333", "A340": "A359"
                                 } as Record<string, string>)[ac_icao.toUpperCase()] || ac_icao.toUpperCase();
-                                
                                 const capacity = (aircraftData as any)?.[mapped_key]?.properties?.capacity || 180;
-                                const operating_cost = (capacity * 120) + ((b.pax_count || 100) * 60);
-                                const diversion_charge = b.diverted ? ((b.pax_count || 100) * 100) : 0;
-                                
+                                const operating_cost = (capacity * rates.econ_fixed_rate_per_seat) + ((b.pax_count || 100) * rates.econ_service_rate_per_pax);
+                                const diversion_charge = b.diverted ? ((b.pax_count || 100) * rates.econ_diversion_charge_per_pax) : 0;
                                 const fpm = b.landing_fpm || 100;
                                 let landing_penalty = 0;
                                 if (fpm > 100) {
@@ -722,7 +606,6 @@ export default function Bookings() {
                                   else if (fpm <= 400) landing_penalty = 6000;
                                   else landing_penalty = 15000;
                                 }
-                                
                                 const total_exp = b.expenses || 0;
                                 const landing_fee = Math.max(0, Math.round(total_exp - fuel_exp - landing_penalty - operating_cost - diversion_charge));
                                 if (landing_fee <= 0) return null;
@@ -732,9 +615,7 @@ export default function Bookings() {
                                       <div className="font-black text-gray-700">
                                         🏢 {b.diverted ? "Diverted" : "Dest."} Airport Landing Fee ({b.actual_arrival || b.flight_arrival})
                                       </div>
-                                      <div className="text-[9px] text-gray-400 mt-0.5">
-                                        Assessed landing dispatch fee
-                                      </div>
+                                      <div className="text-[9px] text-gray-400 mt-0.5">Assessed landing dispatch fee</div>
                                     </div>
                                     <div className="font-black text-rose-700 text-right whitespace-nowrap">
                                       -{landing_fee.toLocaleString()} QAR
@@ -754,15 +635,18 @@ export default function Bookings() {
                                 <div className="flex justify-between items-center text-[10px] text-gray-500 font-medium">
                                   <span>👤 Pilot Wallet Share:</span>
                                   <span>
-                                    {isSolo ? "Solo Share (10% of profit, min 750 QAR)" : "Split Crew Share (5% of profit, min 350 QAR)"}
+                                    {isSolo 
+                                      ? `Solo Share (${(rates.econ_payout_share_solo * 100).toFixed(0)}% of profit, min ${rates.econ_min_payout_solo} QAR)` 
+                                      : `Split Crew Share (${(rates.econ_payout_share_split * 100).toFixed(0)}% of profit, min ${rates.econ_min_payout_split} QAR)`
+                                    }
                                   </span>
                                 </div>
                                 <div className="flex justify-between items-center font-black text-brand pt-1 text-xs border-t border-dashed border-brand-border/30">
                                   <span>💰 Wallet Salary Payout:</span>
                                   <span>
                                     {isSolo
-                                      ? `${Math.round(Math.max(750, ((b.earnings || 0) - (b.expenses || 0)) * 0.10)).toLocaleString()} QAR`
-                                      : `${Math.round(Math.max(350, ((b.earnings || 0) - (b.expenses || 0)) * 0.05)).toLocaleString()} QAR`}
+                                      ? `${Math.round(Math.max(rates.econ_min_payout_solo, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_solo)).toLocaleString()} QAR`
+                                      : `${Math.round(Math.max(rates.econ_min_payout_split, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_split)).toLocaleString()} QAR`}
                                   </span>
                                 </div>
                               </div>
@@ -803,11 +687,11 @@ export default function Bookings() {
                       </div>
                       <div className={`text-base font-extrabold mt-0.5 ${isPending ? "text-amber-700" : "text-brand"}`}>
                         {isSolo
-                          ? `${Math.round(Math.max(750, ((b.earnings || 0) - (b.expenses || 0)) * 0.10))?.toLocaleString()} QAR`
-                          : `${Math.round(Math.max(350, ((b.earnings || 0) - (b.expenses || 0)) * 0.05))?.toLocaleString()} QAR`}
+                          ? `${Math.round(Math.max(rates.econ_min_payout_solo, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_solo))?.toLocaleString()} QAR`
+                          : `${Math.round(Math.max(rates.econ_min_payout_split, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_split))?.toLocaleString()} QAR`}
                       </div>
                       <div className="text-[8px] text-gray-400 font-bold mt-0.5 uppercase">
-                        {isSolo ? "10% Solo share" : "5% Split share"}
+                        {isSolo ? `${(rates.econ_payout_share_solo * 100).toFixed(0)}% Solo share` : `${(rates.econ_payout_share_split * 100).toFixed(0)}% Split share`}
                       </div>
                       {isPending && (
                         <div className="text-[8px] text-amber-800 font-bold bg-amber-100 border border-amber-200/50 px-2 py-0.5 rounded mt-1.5 font-sans">

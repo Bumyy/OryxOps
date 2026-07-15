@@ -11,7 +11,7 @@ export interface EFBBriefingProps {
   pdfLoadError: boolean;
   setPdfLoadError: (val: boolean) => void;
   handleToggleFullscreen: () => void;
-  
+
   // Booking-driven & manual settings properties
   activeBooking?: any;
   activeLoad: number;
@@ -34,7 +34,7 @@ export default function EFBBriefing({
   pdfLoadError,
   setPdfLoadError,
   handleToggleFullscreen,
-  
+
   activeBooking,
   activeLoad,
   setActiveLoad,
@@ -43,45 +43,62 @@ export default function EFBBriefing({
 
   efbDataSource,
   setEfbDataSource,
+
 }: EFBBriefingProps) {
+
+
 
   return (
     <div className="space-y-6">
       {/* Segmented Controller for Data Source Selection */}
       {(ofpData || activeBooking) && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white border border-brand-border rounded-2xl p-5 shadow-sm gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between bg-white border border-brand-border rounded-2xl p-5 shadow-sm gap-4">
           <div>
             <h4 className="text-sm font-bold text-brand uppercase tracking-wider">EFB Data Source</h4>
             <p className="text-xs text-gray-500 mt-1">Select the source for EFB operational calculations and checklists</p>
           </div>
-          <div className="flex bg-brand-pale rounded-xl p-1 border border-brand-border/40 self-start sm:self-auto">
-            <button
-              type="button"
-              disabled={!ofpData}
-              onClick={() => setEfbDataSource("simbrief")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                efbDataSource === "simbrief"
-                  ? "bg-brand text-white shadow-sm"
-                  : "text-gray-500 hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed"
-              }`}
-            >
-              <span>✈️ SimBrief OFP</span>
-            </button>
-            <button
-              type="button"
-              disabled={!activeBooking}
-              onClick={() => setEfbDataSource("booking")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                efbDataSource === "booking"
-                  ? "bg-brand text-white shadow-sm"
-                  : "text-gray-500 hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed"
-              }`}
-            >
-              <span>📅 Booking Plan</span>
-            </button>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 self-start md:self-auto flex-wrap">
+            {activeBooking && (
+              <a
+                href={`https://www.simbrief.com/system/dispatch.php?orig=${activeBooking.flight_departure}&dest=${activeBooking.flight_arrival}&pax=${activeBooking.pax_count || 150}&type=${activeBooking.aircraft_icao || "A320"}&flt=${activeBooking.flight_number?.replace(/\D/g, "") || "100"}&airline=${activeBooking.flight_number?.replace(/\d/g, "") || "QR"}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-br from-[#E74C3C] to-[#C0392B] text-white font-bold text-xs px-4 py-2 hover:shadow-md transition-all text-center self-start sm:self-auto"
+              >
+                <span>🔗 Generate SimBrief Plan ({activeBooking.pax_count} Pax)</span>
+              </a>
+            )}
+            <div className="flex bg-brand-pale rounded-xl p-1 border border-brand-border/40">
+              <button
+                type="button"
+                disabled={!ofpData}
+                onClick={() => setEfbDataSource("simbrief")}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  efbDataSource === "simbrief"
+                    ? "bg-brand text-white shadow-sm"
+                    : "text-gray-500 hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed"
+                }`}
+              >
+                <span>✈️ SimBrief OFP</span>
+              </button>
+              <button
+                type="button"
+                disabled={!activeBooking}
+                onClick={() => setEfbDataSource("booking")}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  efbDataSource === "booking"
+                    ? "bg-brand text-white shadow-sm"
+                    : "text-gray-500 hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed"
+                }`}
+              >
+                <span>📅 Booking Plan</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+
 
       {/* Conditional Content rendering based on Selected Data Source */}
       {efbDataSource === "simbrief" && ofpData ? (
@@ -90,7 +107,7 @@ export default function EFBBriefing({
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-brand">Captain's Briefing</h3>
           </div>
-          
+
           {/* Grid of 5 Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
             {/* Card 1 - Flight */}
@@ -464,9 +481,20 @@ export default function EFBBriefing({
                     To sync your flight planning data and view your official SimBrief PDF dispatch release inside this EFB, ensure your SimBrief Pilot ID is linked to your account.
                   </p>
 
-                  <div className="bg-white border border-brand-border/60 rounded-xl p-3.5 text-center text-xs font-medium text-gray-500">
+                  <div className="bg-white border border-brand-border/60 rounded-xl p-3.5 text-center text-xs font-medium text-gray-500 mb-3">
                     Your SimBrief ID is managed securely by flight operations staff. To register or change your ID, please contact the airline staff.
                   </div>
+
+                  {activeBooking && (
+                    <a
+                      href={`https://www.simbrief.com/system/dispatch.php?orig=${activeBooking.flight_departure}&dest=${activeBooking.flight_arrival}&pax=${activeBooking.pax_count || 150}&type=${activeBooking.aircraft_icao || "A320"}&flt=${activeBooking.flight_number?.replace(/\D/g, "") || "100"}&airline=${activeBooking.flight_number?.replace(/\d/g, "") || "QR"}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[#E74C3C] to-[#C0392B] text-white font-bold text-xs px-4 py-2.5 shadow-sm hover:shadow-md transition-all text-center w-full"
+                    >
+                      <span>🔗 Pre-fill SimBrief Flight ({activeBooking.pax_count} Pax)</span>
+                    </a>
+                  )}
                 </div>
 
                 <div className="text-[11px] text-gray-400 border-t border-brand-border pt-4">

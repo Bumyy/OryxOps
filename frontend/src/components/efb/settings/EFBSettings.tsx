@@ -30,6 +30,10 @@ export interface EFBSettingsProps {
   coPilotRunning: boolean;
   updateSettings: (key: string, value: any, stateSetter: (val: any) => void) => void;
   copilotState: "IDLE" | "SPEAKING_CHALLENGE" | "SPEAKING_RESPONSE" | "LISTENING" | "VALIDATING" | "SUCCESS";
+  copilotKey: string;
+  setCopilotKey: (val: string) => void;
+  showFloatingButton: boolean;
+  setShowFloatingButton: (val: boolean) => void;
 }
 
 export default function EFBSettings({
@@ -62,6 +66,10 @@ export default function EFBSettings({
   coPilotRunning,
   updateSettings,
   copilotState,
+  copilotKey,
+  setCopilotKey,
+  showFloatingButton,
+  setShowFloatingButton,
 }: EFBSettingsProps) {
   const aircraftsDb = useAppSelector((state) => state.aircraft.specs) || {};
 
@@ -154,6 +162,26 @@ export default function EFBSettings({
           </p>
         </div>
 
+        {/* Keyboard checklist key config */}
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-gray-500 block">KEYBOARD CHECKLIST ADVANCING KEY</label>
+          <select
+            value={copilotKey}
+            onChange={e => updateSettings("copilot_key", e.target.value, setCopilotKey)}
+            className="w-full bg-white border border-brand-border text-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand"
+          >
+            <option value="Space">Space Bar</option>
+            <option value="Enter">Enter Key</option>
+            <option value="ArrowRight">Right Arrow Key</option>
+            <option value="ArrowDown">Down Arrow Key</option>
+            <option value="KeyC">C Key</option>
+            <option value="KeyV">V Key</option>
+          </select>
+          <p className="text-[10px] text-gray-400 mt-1">
+            Pressing this key on a desktop/laptop keyboard will automatically check off the current checklist item.
+          </p>
+        </div>
+
         {/* Settings Mic Tester */}
         <div className="bg-white rounded-xl border border-brand-border p-3.5 space-y-2">
           <div className="flex items-center justify-between">
@@ -206,6 +234,15 @@ export default function EFBSettings({
               className="w-4 h-4 rounded text-brand focus:ring-brand border-gray-300 cursor-pointer"
             />
             Auto-collapse finished phases and open next phase
+          </label>
+          <label className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showFloatingButton}
+              onChange={e => updateSettings("copilot_show_floating", e.target.checked, setShowFloatingButton)}
+              className="w-4 h-4 rounded text-brand focus:ring-brand border-gray-300 cursor-pointer"
+            />
+            Show mobile/tablet floating advance button
           </label>
         </div>
 

@@ -14,6 +14,7 @@ import Calendar from "./pages/Calendar";
 import Fleet from "./pages/Fleet";
 import AircraftDetail from "./pages/AircraftDetail";
 import Bookings from "./pages/Bookings";
+import Operations from "./pages/Operations";
 import Transfers from "./pages/Transfers";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
@@ -110,6 +111,7 @@ export default function App() {
           <Route path="/fleet" element={<Fleet />} />
           <Route path="/fleet/:id" element={<AircraftDetail />} />
           <Route path="/bookings" element={<Bookings />} />
+          <Route path="/operations" element={<Operations />} />
           <Route path="/transfers" element={<Transfers />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/efb" element={<EFB />} />
