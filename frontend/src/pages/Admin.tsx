@@ -1826,6 +1826,26 @@ export function PaxSimulatorPanel() {
   const [origin, setOrigin] = useState("OTHH");
   const [destination, setDestination] = useState("DNMM");
 
+  const [liveAircraft, setLiveAircraft] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLiveAircraft = async () => {
+      try {
+        setLoading(true);
+        const data = await api.get<any[]>("/aircraft");
+        setLiveAircraft(data);
+        setError(null);
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch live fleet");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLiveAircraft();
+  }, []);
+
   const capacity = specs[aircraftIcao]?.properties?.capacity || 180;
 
   return (
@@ -1889,6 +1909,47 @@ export function PaxSimulatorPanel() {
             onChange={(e) => setDestination(e.target.value.toUpperCase())}
             className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none uppercase"
           />
+        </div>
+      </div>
+
+      {/* Live Fleet DB Connection Checker */}
+      <div className="bg-gray-50 border border-brand-border rounded-2xl p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-bold text-gray-500 flex items-center gap-1.5 uppercase">
+            🔌 DB & Backend Connection Status
+          </h4>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${error ? "bg-red-100 text-red-700" : loading ? "bg-gray-100 text-gray-500 animate-pulse" : "bg-green-100 text-green-700"}`}>
+            {error ? "OFFLINE" : loading ? "CHECKING..." : "CONNECTED"}
+          </span>
+        </div>
+        <div className="flex flex-col gap-2">
+          {loading ? (
+            <span className="text-xs text-gray-400">Loading aircraft registrations from DB...</span>
+          ) : error ? (
+            <span className="text-xs text-red-500 font-semibold text-center py-1">❌ Connection Error: {error}</span>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-gray-400">SELECT LIVE AIRFRAME (FROM DATABASE)</label>
+              <select
+                className="w-full border border-brand-border bg-white rounded-xl px-3 py-1.5 text-xs focus:outline-none font-semibold text-brand"
+                onChange={(e) => {
+                  const reg = e.target.value;
+                  if (!reg) return;
+                  const found = liveAircraft.find(a => a.registration === reg);
+                  if (found) {
+                    alert(`Selected: ${found.registration}\nType: ${found.aircraft_type_name || "N/A"}\nStatus: ${found.status}\nCurrent Airport: ${found.current_airport || "N/A"}`);
+                  }
+                }}
+              >
+                <option value="">-- {liveAircraft.length} Live Aircraft Found --</option>
+                {liveAircraft.map((a) => (
+                  <option key={a.id} value={a.registration}>
+                    {a.registration} - {a.aircraft_type_name || "ICAO"} ({a.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

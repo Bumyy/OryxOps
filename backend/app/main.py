@@ -24,4 +24,9 @@ app.include_router(api_router, prefix="/api")
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "version": "0.1.0"}
+    return {
+        "status": "ok",
+        "version": "0.1.1",
+        "built_at": "2026-07-17T11:05:24Z",
+        "description": "Auto-deployment verification test"
+    }
