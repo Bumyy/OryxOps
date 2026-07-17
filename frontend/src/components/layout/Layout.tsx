@@ -184,7 +184,6 @@ export default function Layout() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        {/* Brand */}
         <div
           className={`h-14 flex items-center justify-center border-b border-brand-border flex-shrink-0 transition-all duration-300 ${
             sidebarCollapsed ? "px-2" : "px-5"
@@ -192,37 +191,53 @@ export default function Layout() {
         >
           <Link
             to="/"
-            className="flex items-center justify-center w-full focus:outline-none"
+            className="relative flex items-center justify-center w-full h-12 focus:outline-none overflow-hidden"
           >
-            {theme === "dark" ? (
-              <img
-                src="/oryxops_logo_white.webp"
-                alt="OryxOps Logo"
-                className={`max-h-12 w-auto object-contain transition-all duration-300 ${
-                  sidebarCollapsed ? "max-h-8" : ""
-                }`}
-              />
-            ) : (
-              <img
-                src="/oryxops_logo_colored.webp"
-                alt="OryxOps Logo"
-                className={`max-h-12 w-auto object-contain transition-all duration-300 ${
-                  sidebarCollapsed ? "max-h-8" : ""
-                }`}
-              />
-            )}
+            {/* Full Logo (Visible when Expanded) */}
+            <img
+              src={
+                theme === "dark"
+                  ? "/oryxops_logo_white.webp"
+                  : "/oryxops_logo_colored.webp"
+              }
+              alt="OryxOps Logo"
+              className={`absolute transition-all duration-300 transform max-h-12 w-auto object-contain ${
+                sidebarCollapsed
+                  ? "opacity-0 scale-75 -translate-x-10 pointer-events-none"
+                  : "opacity-100 scale-100 translate-x-0"
+              }`}
+            />
+
+            {/* Icon Logo (Visible when Collapsed) */}
+            <img
+              src={
+                theme === "dark"
+                  ? "/logo_only_white.webp"
+                  : "/logo_only_colored.webp"
+              }
+              alt="OryxOps Icon"
+              className={`absolute transition-all duration-300 transform max-h-10 w-auto object-contain ${
+                sidebarCollapsed
+                  ? "opacity-100 scale-100 translate-x-0"
+                  : "opacity-0 scale-75 translate-x-10 pointer-events-none"
+              }`}
+            />
           </Link>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
+        <nav
+          className={`flex-1 overflow-y-auto py-2 space-y-0.5 transition-all duration-300 ${
+            sidebarCollapsed ? "px-1.5 no-scrollbar" : "px-3"
+          }`}
+        >
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
               title={sidebarCollapsed ? item.label : undefined}
               className={`flex items-center rounded-xl text-sm font-semibold transition-colors duration-200 ${
-                sidebarCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
+                sidebarCollapsed ? "justify-center py-2" : "gap-3 px-3 py-2.5"
               } ${
                 location.pathname === item.path ||
                 (item.path !== "/" && location.pathname.startsWith(item.path))

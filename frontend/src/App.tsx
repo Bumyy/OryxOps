@@ -63,7 +63,7 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-brand-dark text-white">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-light mb-4"></div>
-        <p className="text-sm text-gray-400">Loading QRV Live...</p>
+        <p className="text-sm text-gray-400">Loading OryxOps...</p>
       </div>
     );
   }
@@ -127,7 +127,10 @@ export default function App() {
           <Route path="/admin/transfers" element={<AdminTransfers />} />
           <Route path="/admin/waves" element={<AdminWaves />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
-          <Route path="/admin/auto-scheduler" element={<AdminAutoScheduler />} />
+          <Route
+            path="/admin/auto-scheduler"
+            element={<AdminAutoScheduler />}
+          />
         </Route>
       </Routes>
     </AuthInitializer>
