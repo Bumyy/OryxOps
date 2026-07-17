@@ -26,6 +26,7 @@ export interface EFBChecklistProps {
   copilotState: "IDLE" | "SPEAKING_CHALLENGE" | "SPEAKING_RESPONSE" | "LISTENING" | "VALIDATING" | "SUCCESS";
   copilotKey: string;
   showFloatingButton: boolean;
+  copilotInputMode: string;
 }
 
 export default function EFBChecklist({
@@ -53,6 +54,7 @@ export default function EFBChecklist({
   copilotState,
   copilotKey,
   showFloatingButton,
+  copilotInputMode,
 }: EFBChecklistProps) {
   const aircraftsDb = useAppSelector((state) => state.aircraft.specs) || {};
 
@@ -137,7 +139,6 @@ export default function EFBChecklist({
         }
       }
     } catch {}
-    // Default position: bottom right area (fixed viewport offset coordinates)
     return { x: window.innerWidth - 88, y: window.innerHeight - 100 };
   });
 
@@ -188,6 +189,7 @@ export default function EFBChecklist({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
     const touch = e.touches[0];
     const startX = touch.clientX - position.x;
     const startY = touch.clientY - position.y;
@@ -249,7 +251,7 @@ export default function EFBChecklist({
             {coPilotRunning ? (
               <>
                 <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
-                Stop Co-Pilot (Mic: {isListening ? "Listening" : "Offline"})
+                Stop Co-Pilot {copilotInputMode === "voice" ? `(Mic: ${isListening ? "Listening" : "Offline"})` : "(Manual)"}
               </>
             ) : (
               <>
@@ -269,42 +271,67 @@ export default function EFBChecklist({
 
       {/* Speech Recognition Monitor / Tester */}
       {coPilotRunning && (
-        <div className="bg-brand-pale border border-brand-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
-          <div className="flex items-center gap-3">
-            <div className="relative flex h-3 w-3">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${copilotState === "LISTENING" ? "bg-green-500" : "bg-brand"}`}></span>
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${copilotState === "LISTENING" ? "bg-green-500" : "bg-brand"}`}></span>
-            </div>
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-brand flex items-center gap-2">
-                🎙️ Audio Co-Pilot Mic Monitor
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${
-                  copilotState === "LISTENING" 
-                    ? "bg-green-100 text-green-700 border border-green-200 animate-pulse" 
-                    : "bg-brand/10 text-brand border border-brand/20"
-                }`}>
-                  {getStateLabel(copilotState)}
-                </span>
-              </span>
-              <span className="text-sm font-semibold text-gray-700">
-                {transcriptLog ? (
-                  <>
-                    Heard: <span className="font-mono text-brand font-bold bg-white px-2 py-0.5 rounded border border-brand-border">"{transcriptLog}"</span>
-                  </>
-                ) : (
-                  <span className="italic text-gray-400">
-                    {copilotState === "LISTENING" 
-                      ? `Say "${activeItem ? activeItem.value : ""}" or your override word ("${triggerKeyword}") to check...`
-                      : "Waiting for transmission sequence..."}
+        copilotInputMode === "voice" ? (
+          <div className="bg-brand-pale border border-brand-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-3 w-3">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${copilotState === "LISTENING" ? "bg-green-500" : "bg-brand"}`}></span>
+                <span className={`relative inline-flex rounded-full h-3 w-3 ${copilotState === "LISTENING" ? "bg-green-500" : "bg-brand"}`}></span>
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-brand flex items-center gap-2">
+                  🎙️ Audio Co-Pilot Mic Monitor
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${
+                    copilotState === "LISTENING" 
+                      ? "bg-green-100 text-green-700 border border-green-200 animate-pulse" 
+                      : "bg-brand/10 text-brand border border-brand/20"
+                  }`}>
+                    {getStateLabel(copilotState)}
                   </span>
-                )}
-              </span>
+                </span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {transcriptLog ? (
+                    <>
+                      Heard: <span className="font-mono text-brand font-bold bg-white px-2 py-0.5 rounded border border-brand-border">"{transcriptLog}"</span>
+                    </>
+                  ) : (
+                    <span className="italic text-gray-400">
+                      {copilotState === "LISTENING" 
+                        ? `Say "${activeItem ? activeItem.value : ""}" or your override word ("${triggerKeyword}") to check...`
+                        : "Waiting for transmission sequence..."}
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+            <div className="text-xs text-gray-400 bg-white px-2.5 py-1 rounded-xl border border-brand-border font-mono self-start sm:self-auto">
+              Keyword Override: {triggerKeyword}
             </div>
           </div>
-          <div className="text-xs text-gray-400 bg-white px-2.5 py-1 rounded-xl border border-brand-border font-mono self-start sm:self-auto">
-            Keyword Override: {triggerKeyword}
+        ) : (
+          <div className="bg-brand-pale border border-brand-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-3 w-3">
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-brand animate-bounce"></span>
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-brand flex items-center gap-2">
+                  🎛️ Co-Pilot Controller Mode
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-brand/10 text-brand border border-brand/20">
+                    {copilotState === "SPEAKING_CHALLENGE" ? "🗣️ Speaking" : "⌨️ Waiting for Key/Tap"}
+                  </span>
+                </span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {copilotState === "SPEAKING_CHALLENGE" ? (
+                    <span className="italic text-brand font-bold">Co-Pilot is reading item...</span>
+                  ) : (
+                    <span>Press <kbd className="bg-white px-1.5 py-0.5 rounded border border-brand-border font-mono font-bold text-xs">{copilotKey === "Space" ? "Spacebar" : copilotKey}</kbd> or tap the checkmark button to advance.</span>
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* Progress bar */}
@@ -348,6 +375,9 @@ export default function EFBChecklist({
           {compiledChecklist.map((section: any, sIdx: number) => {
             const isExpanded = activePhaseIndex === sIdx;
             const phaseTotal = section.items.filter((it: any) => !it.isTable).length;
+            const isTextOnly = phaseTotal === 0;
+            const isNotam = section.title.toUpperCase() === "NOTAMS" || isTextOnly;
+            
             const phaseChecked = section.items.filter((it: any) => !it.isTable && checkedItems[it.id]).length;
             const phaseFinished = phaseTotal > 0 && phaseChecked === phaseTotal;
 
@@ -355,32 +385,51 @@ export default function EFBChecklist({
               <div
                 key={sIdx}
                 className={`border rounded-2xl overflow-hidden transition-all duration-200 bg-white ${
-                  isExpanded ? "border-brand shadow-md" : "border-brand-border hover:border-brand-light"
+                  isExpanded
+                    ? isNotam
+                      ? "border-amber-500 shadow-md"
+                      : "border-brand shadow-md"
+                    : isNotam
+                    ? "border-amber-200 hover:border-amber-300"
+                    : "border-brand-border hover:border-brand-light"
                 }`}
               >
                 {/* Accordion Header */}
                 <button
                   onClick={() => setActivePhaseIndex(isExpanded ? -1 : sIdx)}
-                  className="w-full flex items-center justify-between p-4 bg-gray-50/50 hover:bg-gray-50 transition-colors"
+                  className={`w-full flex items-center justify-between p-4 transition-colors ${
+                    isNotam ? "bg-amber-50/20 hover:bg-amber-50/40" : "bg-gray-50/50 hover:bg-gray-50"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                      phaseFinished
+                      isNotam
+                        ? "bg-amber-100 text-amber-700"
+                        : phaseFinished
                         ? "bg-green-100 text-green-700"
                         : "bg-brand-pale text-brand"
                     }`}>
-                      {phaseFinished ? "✓" : sIdx + 1}
+                      {isNotam ? "ℹ️" : phaseFinished ? "✓" : sIdx + 1}
                     </span>
-                    <span className="font-bold text-gray-800 text-sm tracking-wide">
+                    <span className={`font-bold text-sm tracking-wide ${isNotam ? "text-amber-800" : "text-gray-800"}`}>
                       {section.title}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-gray-400">
-                      {phaseChecked} / {phaseTotal}
-                    </span>
+                    {!isNotam && (
+                      <span className="text-xs font-bold text-gray-400">
+                        {phaseChecked} / {phaseTotal}
+                      </span>
+                    )}
+                    {isNotam && (
+                      <span className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full uppercase tracking-wider scale-90">
+                        Notice
+                      </span>
+                    )}
                     <svg
-                      className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        isNotam ? "text-amber-400" : "text-gray-400"
+                      } ${
                         isExpanded ? "rotate-180" : ""
                       }`}
                       fill="none"
@@ -397,7 +446,11 @@ export default function EFBChecklist({
                 {isExpanded && (
                   <div className="p-4 border-t border-brand-border divide-y divide-gray-100">
                     {section.text_section && (
-                      <p className="text-xs text-gray-400 bg-gray-50 p-3 rounded-xl mb-3 leading-relaxed border border-brand-border">
+                      <p className={`text-xs p-3 rounded-xl mb-3 leading-relaxed border ${
+                        isNotam
+                          ? "text-amber-800 bg-amber-50/50 border-amber-200"
+                          : "text-gray-400 bg-gray-50 border-brand-border"
+                      }`}>
                         {section.text_section}
                       </p>
                     )}
@@ -497,7 +550,7 @@ export default function EFBChecklist({
       )}
 
       {/* Mobile/Tablet touch draggable checklist advance button */}
-      {showFloatingButton && (
+      {(showFloatingButton || copilotInputMode === "button") && (
         <div
           style={{
             position: "fixed",

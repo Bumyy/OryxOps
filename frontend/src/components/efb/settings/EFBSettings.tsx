@@ -34,6 +34,8 @@ export interface EFBSettingsProps {
   setCopilotKey: (val: string) => void;
   showFloatingButton: boolean;
   setShowFloatingButton: (val: boolean) => void;
+  copilotInputMode: string;
+  setCopilotInputMode: (val: string) => void;
 }
 
 export default function EFBSettings({
@@ -70,6 +72,8 @@ export default function EFBSettings({
   setCopilotKey,
   showFloatingButton,
   setShowFloatingButton,
+  copilotInputMode,
+  setCopilotInputMode,
 }: EFBSettingsProps) {
   const aircraftsDb = useAppSelector((state) => state.aircraft.specs) || {};
 
@@ -79,6 +83,22 @@ export default function EFBSettings({
       {/* Left Column: Speech Engine Configurations */}
       <div className="bg-gray-50/50 rounded-2xl border border-brand-border p-5 space-y-5">
         <h3 className="text-base font-bold text-brand border-b border-brand-border pb-2.5">🗣️ Co-Pilot Voice Engine</h3>
+
+        {/* Input Method Selection */}
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-gray-500 block">CO-PILOT INPUT METHOD</label>
+          <select
+            value={copilotInputMode}
+            onChange={e => updateSettings("copilot_input_mode", e.target.value, setCopilotInputMode)}
+            className="w-full bg-white border border-brand-border text-brand font-bold rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand"
+          >
+            <option value="voice">🎙️ Voice Control (Microphone)</option>
+            <option value="button">🖱️ Button &amp; Key Control</option>
+          </select>
+          <p className="text-[10px] text-gray-400 mt-1">
+            Configure whether to check items by speaking, or manually tapping the button/key.
+          </p>
+        </div>
         
         {/* Voice Selection list */}
         <div className="space-y-1">
@@ -185,21 +205,35 @@ export default function EFBSettings({
         {/* Settings Mic Tester */}
         <div className="bg-white rounded-xl border border-brand-border p-3.5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase">🎙️ Settings Mic Tester</span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${coPilotRunning ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-              {coPilotRunning ? "ACTIVE" : "OFFLINE"}
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              {copilotInputMode === "voice" ? "🎙️ Settings Mic Tester" : "🎛️ Input Controller Mode"}
+            </span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              copilotInputMode === "voice" 
+                ? coPilotRunning ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                : "bg-brand/10 text-brand"
+            }`}>
+              {copilotInputMode === "voice" ? coPilotRunning ? "ACTIVE" : "OFFLINE" : "MANUAL"}
             </span>
           </div>
-          <p className="text-[11px] text-gray-500 leading-relaxed">
-            Speak here to verify what your browser speech recognition is capturing:
-          </p>
-          <div className="bg-gray-50 rounded-lg p-2.5 border border-brand-border min-h-[40px] flex items-center justify-center text-center">
-            {transcriptLog ? (
-              <span className="text-xs font-mono font-bold text-brand">"{transcriptLog}"</span>
-            ) : (
-              <span className="text-xs text-gray-400 italic">No speech captured yet...</span>
-            )}
-          </div>
+          {copilotInputMode === "voice" ? (
+            <>
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                Speak here to verify what your browser speech recognition is capturing:
+              </p>
+              <div className="bg-gray-50 rounded-lg p-2.5 border border-brand-border min-h-[40px] flex items-center justify-center text-center">
+                {transcriptLog ? (
+                  <span className="text-xs font-mono font-bold text-brand">"{transcriptLog}"</span>
+                ) : (
+                  <span className="text-xs text-gray-400 italic">No speech captured yet...</span>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-[11px] text-gray-500 leading-relaxed font-semibold text-gray-600">
+              Microphone is offline. Press <kbd className="bg-gray-100 px-1.5 py-0.5 rounded border border-brand-border font-bold font-mono text-brand text-xs">{copilotKey === "Space" ? "Spacebar" : copilotKey}</kbd> on keyboard or tap the floating action button to check checklist items.
+            </p>
+          )}
         </div>
 
         {/* Settings toggles */}

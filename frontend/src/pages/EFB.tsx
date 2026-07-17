@@ -73,6 +73,7 @@ export default function EFB() {
   const [autoCollapse, setAutoCollapse] = useState(() => localStorage.getItem("copilot_auto_collapse") !== "false");
   const [copilotKey, setCopilotKey] = useState(() => localStorage.getItem("copilot_key") || "Space");
   const [showFloatingButton, setShowFloatingButton] = useState(() => localStorage.getItem("copilot_show_floating") !== "false");
+  const [copilotInputMode, setCopilotInputMode] = useState(() => localStorage.getItem("copilot_input_mode") || "voice");
 
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [coPilotRunning, setCoPilotRunning] = useState(false);
@@ -824,19 +825,23 @@ export default function EFB() {
         responseUtterance.rate = speechRate;
         responseUtterance.pitch = speechPitch;
 
-        // When response finishes, play hot-mic pop and start listening
+        // When response finishes, play hot-mic pop and start listening (if in voice mode)
         responseUtterance.onend = () => {
           setTimeout(() => {
             if (coPilotRunningRef.current) {
-              playMicClick();
-              setCopilotState("LISTENING");
-              if (!isListeningRef.current) {
-                try {
-                  recognitionRef.current?.start();
-                  setIsListening(true);
-                } catch (err) {
-                  console.warn("Speech start after TTS failed:", err);
+              if (copilotInputModeRef.current === "voice") {
+                playMicClick();
+                setCopilotState("LISTENING");
+                if (!isListeningRef.current) {
+                  try {
+                    recognitionRef.current?.start();
+                    setIsListening(true);
+                  } catch (err) {
+                    console.warn("Speech start after TTS failed:", err);
+                  }
                 }
+              } else {
+                setCopilotState("IDLE");
               }
             }
           }, 100);
@@ -889,8 +894,132 @@ export default function EFB() {
     return null;
   };
 
-  // Check off active item and advance
+  // Advance co-pilot sequentially through checklist phases
+  const advanceCoPilotAfterCheck = (currentChecked: Record<string, boolean>) => {
+    const currentSection = compiledChecklist[activePhaseIndex];
+    const hasMoreItems = currentSection && currentSection.items.some((it: any) => !currentChecked[it.id] && !it.isTable);
+    
+    if (hasMoreItems) {
+      const nextItem = currentSection.items.find((it: any) => !currentChecked[it.id] && !it.isTable);
+      if (nextItem) {
+        announceChecklistItem(nextItem.text, nextItem.value);
+      }
+    } else {
+      const nextPhaseIdx = activePhaseIndex + 1;
+      if (nextPhaseIdx < compiledChecklist.length) {
+        if (autoCollapse) {
+          setActivePhaseIndex(nextPhaseIdx);
+        }
+        triggerCoPilotForPhase(nextPhaseIdx, currentChecked);
+      } else {
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+          window.speechSynthesis.speak(new SpeechSynthesisUtterance("Checklist completed. Have a safe flight."));
+        }
+        setCoPilotRunning(false);
+        setIsListening(false);
+        setCopilotState("IDLE");
+      }
+    }
+  };
+
+  const triggerCoPilotForPhase = (phaseIdx: number, currentChecked: Record<string, boolean> = checkedItems) => {
+    const section = compiledChecklist[phaseIdx];
+    if (!section) return;
+
+    const isTextOnly = !section.items || section.items.filter((it: any) => !it.isTable).length === 0;
+    if (isTextOnly) {
+      announceTextSection(phaseIdx);
+    } else {
+      const item = section.items.find((it: any) => !currentChecked[it.id] && !it.isTable);
+      if (item) {
+        announceChecklistItem(item.text, item.value);
+      } else {
+        const nextPhaseIdx = phaseIdx + 1;
+        if (nextPhaseIdx < compiledChecklist.length) {
+          if (autoCollapse) {
+            setActivePhaseIndex(nextPhaseIdx);
+          }
+          triggerCoPilotForPhase(nextPhaseIdx, currentChecked);
+        } else {
+          if (typeof window !== "undefined" && window.speechSynthesis) {
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Checklist completed. Have a safe flight."));
+          }
+          setCoPilotRunning(false);
+          setIsListening(false);
+          setCopilotState("IDLE");
+        }
+      }
+    }
+  };
+
+  const announceTextSection = (sectionIdx: number) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+
+    const section = compiledChecklist[sectionIdx];
+    if (!section) return;
+
+    setCopilotState("SPEAKING_CHALLENGE");
+
+    // Turn microphone off
+    if (recognitionRef.current && isListeningRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      setIsListening(false);
+    }
+
+    window.speechSynthesis.cancel();
+
+    const titleText = getPhoneticText(section.title);
+    const bodyText = section.text_section 
+      ? (Array.isArray(section.text_section) 
+          ? section.text_section.map((t: string) => getPhoneticText(t)).join(". ") 
+          : getPhoneticText(section.text_section))
+      : "";
+    
+    const fullText = `${titleText}. ${bodyText}`;
+
+    playMicClick();
+
+    const utterance = new SpeechSynthesisUtterance(fullText);
+    if (selectedVoiceName) {
+      const voice = availableVoices.find(v => v.name === selectedVoiceName);
+      if (voice) utterance.voice = voice;
+    }
+    utterance.rate = speechRate;
+    utterance.pitch = speechPitch;
+
+    utterance.onend = () => {
+      if (!coPilotRunningRef.current) return;
+      playMicClick();
+      
+      setTimeout(() => {
+        if (!coPilotRunningRef.current) return;
+        const nextIdx = sectionIdx + 1;
+        if (nextIdx < compiledChecklist.length) {
+          setActivePhaseIndex(nextIdx);
+          triggerCoPilotForPhase(nextIdx);
+        } else {
+          window.speechSynthesis.speak(new SpeechSynthesisUtterance("Checklist completed. Have a safe flight."));
+          setCoPilotRunning(false);
+          setIsListening(false);
+          setCopilotState("IDLE");
+        }
+      }, 800);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Check off active item and advance with 300ms throttle cooldown
+  const lastCheckTimeRef = useRef(0);
+
   const handleCheckActiveItem = (itemIdOverride?: string) => {
+    const now = Date.now();
+    if (now - lastCheckTimeRef.current < 300) {
+      console.log("Check throttled to prevent double trigger.");
+      return;
+    }
+    lastCheckTimeRef.current = now;
+
     let targetItemId = "";
 
     if (itemIdOverride) {
@@ -911,24 +1040,12 @@ export default function EFB() {
 
       if (coPilotRunning && autoAdvance) {
         setTimeout(() => {
-          const nextInfo = getNextUncheckedItemInfo(activePhaseIndex, next) || getNextUncheckedItemInfo(0, next);
-          if (nextInfo) {
-            if (nextInfo.phaseIdx !== activePhaseIndex && autoCollapse) {
-              setActivePhaseIndex(nextInfo.phaseIdx);
-            }
-            announceChecklistItem(nextInfo.item.text, nextInfo.item.value);
-          } else {
-            if (typeof window !== "undefined" && window.speechSynthesis) {
-              window.speechSynthesis.speak(new SpeechSynthesisUtterance("Checklist completed. Have a safe flight."));
-            }
-            setCoPilotRunning(false);
-            setIsListening(false);
-          }
+          advanceCoPilotAfterCheck(next);
         }, 700);
       } else if (coPilotRunning && !autoAdvance) {
         // If not auto-advancing, restart microphone listening on a fresh session after the beep
         setTimeout(() => {
-          if (coPilotRunningRef.current && !isListeningRef.current) {
+          if (coPilotRunningRef.current && !isListeningRef.current && copilotInputModeRef.current === "voice") {
             try {
               recognitionRef.current?.start();
               setIsListening(true);
@@ -947,12 +1064,14 @@ export default function EFB() {
   const isListeningRef = useRef(isListening);
   const activePhaseIndexRef = useRef(activePhaseIndex);
   const handleCheckActiveItemRef = useRef(handleCheckActiveItem);
+  const copilotInputModeRef = useRef(copilotInputMode);
 
   useEffect(() => { triggerKeywordRef.current = triggerKeyword; }, [triggerKeyword]);
   useEffect(() => { coPilotRunningRef.current = coPilotRunning; }, [coPilotRunning]);
   useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
   useEffect(() => { activePhaseIndexRef.current = activePhaseIndex; }, [activePhaseIndex]);
   useEffect(() => { handleCheckActiveItemRef.current = handleCheckActiveItem; }, [handleCheckActiveItem]);
+  useEffect(() => { copilotInputModeRef.current = copilotInputMode; }, [copilotInputMode]);
 
   // Speech Recognition listener loop
   useEffect(() => {
@@ -1023,6 +1142,7 @@ export default function EFB() {
         if (
           coPilotRunningRef.current &&
           isListeningRef.current &&
+          copilotInputModeRef.current === "voice" &&
           typeof window !== "undefined" &&
           !window.speechSynthesis.speaking
         ) {
@@ -1035,7 +1155,7 @@ export default function EFB() {
       recognitionRef.current = rec;
     }
 
-    if (coPilotRunning && !isListening) {
+    if (coPilotRunning && !isListening && copilotInputMode === "voice") {
       // Do not start recording if the browser is currently announcing a checklist item
       if (typeof window !== "undefined" && !window.speechSynthesis.speaking) {
         try {
@@ -1045,7 +1165,7 @@ export default function EFB() {
           console.warn("Recognition start failed:", err);
         }
       }
-    } else if (!coPilotRunning && isListening) {
+    } else if ((!coPilotRunning || copilotInputMode !== "voice") && isListening) {
       try {
         rec.stop();
         setIsListening(false);
@@ -1055,7 +1175,7 @@ export default function EFB() {
     return () => {
       // Cleanups
     };
-  }, [coPilotRunning, isListening, triggerKeyword, activePhaseIndex]);
+  }, [coPilotRunning, isListening, triggerKeyword, activePhaseIndex, copilotInputMode]);
 
   const toggleCoPilot = () => {
     if (coPilotRunning) {
@@ -1067,15 +1187,9 @@ export default function EFB() {
         window.speechSynthesis.cancel();
       }
     } else {
-      const activeInfo = getNextUncheckedItemInfo(activePhaseIndex) || getNextUncheckedItemInfo(0);
       setCoPilotRunning(true);
       setTranscriptLog("");
-      if (activeInfo) {
-        if (activeInfo.phaseIdx !== activePhaseIndex && autoCollapse) {
-          setActivePhaseIndex(activeInfo.phaseIdx);
-        }
-        announceChecklistItem(activeInfo.item.text, activeInfo.item.value);
-      }
+      triggerCoPilotForPhase(activePhaseIndex);
     }
   };
 
@@ -1235,6 +1349,7 @@ export default function EFB() {
                 copilotState={copilotState}
                 copilotKey={copilotKey}
                 showFloatingButton={showFloatingButton}
+                copilotInputMode={copilotInputMode}
               />
             )}
 
@@ -1293,6 +1408,8 @@ export default function EFB() {
                 setCopilotKey={setCopilotKey}
                 showFloatingButton={showFloatingButton}
                 setShowFloatingButton={setShowFloatingButton}
+                copilotInputMode={copilotInputMode}
+                setCopilotInputMode={setCopilotInputMode}
               />
             )}
           </div>

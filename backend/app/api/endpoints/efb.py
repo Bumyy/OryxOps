@@ -10,7 +10,10 @@ async def get_airport_weather(icao: str):
         raise HTTPException(status_code=400, detail="Invalid ICAO code. Must be 4 characters.")
     
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 QRVLiveFlightSystem/1.0"
+        }
+        async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
             # Query last 5 hours of METARs to ensure we get at least 3 distinct observations
             metar_url = f"https://aviationweather.gov/api/data/metar?ids={clean_icao}&hours=5&format=json"
             taf_url = f"https://aviationweather.gov/api/data/taf?ids={clean_icao}&format=json"
@@ -67,7 +70,10 @@ def get_airport_runways_route(icao: str):
 @router.get("/simbrief")
 async def get_simbrief_ofp(userid: str):
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 QRVLiveFlightSystem/1.0"
+        }
+        async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
             url = f"https://www.simbrief.com/api/xml.fetcher.php?userid={userid}&json=1"
             res = await client.get(url)
             if res.status_code != 200:
