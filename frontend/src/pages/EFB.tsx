@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { api } from "../api/client";
 import { useLocation } from "react-router-dom";
 import useReveal from "../hooks/useReveal";
 import checklistTemplate from "../assets/checklist/checklist_template.json";
@@ -147,11 +148,7 @@ export default function EFB() {
     setOfpError(null);
     setPdfLoadError(false);
     try {
-      const res = await fetch(`/api/efb/simbrief?userid=${pilotId}`);
-      if (!res.ok) {
-        throw new Error("Unable to retrieve your latest SimBrief flight plan.");
-      }
-      const data = await res.json();
+      const data = await api.get<any>(`/efb/simbrief?userid=${pilotId}`);
       
       if (data.fetch?.status?.toLowerCase() !== "success" || !data.files?.pdf?.link) {
         setOfpData(null);
@@ -263,8 +260,7 @@ export default function EFB() {
     const dep = activeBooking?.flight_departure;
     const arr = activeBooking?.flight_arrival;
     if (dep && arr) {
-      fetch(`/api/efb/direction?dep=${dep}&arr=${arr}`)
-        .then((res) => res.json())
+      api.get<{ direction: string }>(`/efb/direction?dep=${dep}&arr=${arr}`)
         .then((data) => {
           if (data.direction === "west") {
             setCalculatedDirection("west");

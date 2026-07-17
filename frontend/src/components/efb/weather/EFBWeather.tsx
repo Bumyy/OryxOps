@@ -7,6 +7,7 @@
 //  for top-view silhouette wind calculations.
 // ─────────────────────────────────────────────
 import React, { useState, useEffect } from "react";
+import { api } from "../../../api/client";
 import { AircraftWindCard } from "./AircraftWindCard";
 import {
   getReciprocalRunway,
@@ -86,16 +87,9 @@ export default function EFBWeather({ ofpData, activeBooking }: EFBWeatherProps) 
 
     try {
       const cleanIcao = icao.trim().toUpperCase();
-      const res       = await fetch(`/api/efb/weather?icao=${cleanIcao}`);
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(
-          (errData as any).detail || `Failed to fetch weather for ${cleanIcao}`,
-        );
-      }
-
-      const data = await res.json();
+      const data = await api.get<{ metars: MetarReport[]; taf: TafReport | null }>(
+        `/efb/weather?icao=${cleanIcao}`
+      );
 
       if (!data.metars || data.metars.length === 0) {
         throw new Error(`No weather report available for ${cleanIcao}`);
@@ -107,11 +101,8 @@ export default function EFBWeather({ ofpData, activeBooking }: EFBWeatherProps) 
 
       // Concurrent runway fetch (non-fatal)
       try {
-        const rRes = await fetch(`/api/efb/runways?icao=${cleanIcao}`);
-        if (rRes.ok) {
-          const rData = await rRes.json();
-          setDatabaseRunways(rData as DatabaseRunway[]);
-        }
+        const rData = await api.get<DatabaseRunway[]>(`/efb/runways?icao=${cleanIcao}`);
+        setDatabaseRunways(rData);
       } catch (rwyErr) {
         console.error("Runway fetch failed:", rwyErr);
       }

@@ -25,23 +25,41 @@ async def get_airport_weather(icao: str):
             metar_list = []
             taf_data = None
             
-            if metar_res.status_code == 200:
+            if metar_res.status_code != 200:
+                raise HTTPException(
+                    status_code=502, 
+                    detail=f"aviationweather.gov METAR request failed with status code {metar_res.status_code}"
+                )
+                
+            try:
                 m_json = metar_res.json()
-                if isinstance(m_json, list) and len(m_json) > 0:
-                    # Sort descending by observation time (newest first)
-                    sorted_metars = sorted(m_json, key=lambda x: x.get("obsTime", 0), reverse=True)
-                    # Deduplicate by report time (in case of double transmissions) and take latest 3
-                    seen_times = set()
-                    for m in sorted_metars:
-                        rep_time = m.get("reportTime")
-                        if rep_time not in seen_times:
-                            seen_times.add(rep_time)
-                            metar_list.append(m)
-                            if len(metar_list) == 3:
-                                break
+            except (ValueError, TypeError) as json_err:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"aviationweather.gov METAR response is not valid JSON (possibly WAF or block page): {json_err}"
+                )
+                
+            if isinstance(m_json, list) and len(m_json) > 0:
+                # Sort descending by observation time (newest first)
+                sorted_metars = sorted(m_json, key=lambda x: x.get("obsTime", 0), reverse=True)
+                # Deduplicate by report time (in case of double transmissions) and take latest 3
+                seen_times = set()
+                for m in sorted_metars:
+                    rep_time = m.get("reportTime")
+                    if rep_time not in seen_times:
+                        seen_times.add(rep_time)
+                        metar_list.append(m)
+                        if len(metar_list) == 3:
+                            break
                     
             if taf_res.status_code == 200:
-                t_json = taf_res.json()
+                try:
+                    t_json = taf_res.json()
+                except (ValueError, TypeError) as json_err:
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"aviationweather.gov TAF response is not valid JSON (possibly WAF or block page): {json_err}"
+                    )
                 if isinstance(t_json, list) and len(t_json) > 0:
                     taf_data = t_json[0]
                     
