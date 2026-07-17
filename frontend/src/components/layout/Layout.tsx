@@ -186,20 +186,30 @@ export default function Layout() {
       >
         {/* Brand */}
         <div
-          className={`h-14 flex items-center border-b border-brand-border flex-shrink-0 transition-all duration-300 ${
-            sidebarCollapsed ? "justify-center" : "px-5"
+          className={`h-16 flex items-center justify-center border-b border-brand-border flex-shrink-0 transition-all duration-300 ${
+            sidebarCollapsed ? "px-2" : "px-5"
           }`}
         >
           <Link
             to="/"
-            className="text-2xl font-black text-brand tracking-wider truncate"
+            className="flex items-center justify-center w-full focus:outline-none"
           >
-            {sidebarCollapsed ? (
-              "QRV"
+            {theme === "dark" ? (
+              <img
+                src="/oryxops_logo_white.webp"
+                alt="OryxOps Logo"
+                className={`max-h-12 w-auto object-contain transition-all duration-300 ${
+                  sidebarCollapsed ? "max-h-8" : ""
+                }`}
+              />
             ) : (
-              <>
-                QRV<span className="text-brand-light">LIVE</span>
-              </>
+              <img
+                src="/oryxops_logo_colored.webp"
+                alt="OryxOps Logo"
+                className={`max-h-12 w-auto object-contain transition-all duration-300 ${
+                  sidebarCollapsed ? "max-h-8" : ""
+                }`}
+              />
             )}
           </Link>
         </div>
