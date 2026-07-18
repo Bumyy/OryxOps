@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchBookings, dispatchBooking, cancelBooking, completeBooking } from "../store/slices/bookingSlice";
 import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
 import { api } from "../api/client";
+import { getSimBriefAircraftType } from "../components/efb/briefing/EFBBriefing";
 
 // Aircraft fuel burn rates (kg per hour)
 const FUEL_BURN_RATES: Record<string, number> = {
@@ -269,7 +270,7 @@ export default function Operations() {
                   
                   <div className="flex flex-col gap-3">
                     <a
-                      href={`https://www.simbrief.com/system/dispatch.php?orig=${activeBooking.flight_departure}&dest=${activeBooking.flight_arrival}&pax=${activeBooking.pax_count || 150}&type=${activeBooking.aircraft_icao || "A320"}&flt=${activeBooking.flight_number?.replace(/\D/g, "") || "100"}&airline=${activeBooking.flight_number?.replace(/\d/g, "") || "QR"}`}
+                      href={`https://www.simbrief.com/system/dispatch.php?orig=${activeBooking.flight_departure}&dest=${activeBooking.flight_arrival}&pax=${activeBooking.pax_count || 150}&type=${getSimBriefAircraftType(activeBooking.aircraft_icao)}&flt=${activeBooking.flight_number?.replace(/\D/g, "") || "100"}&airline=${activeBooking.flight_number?.replace(/\d/g, "") || "QR"}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full flex items-center justify-center gap-2 bg-[#E74C3C] hover:bg-[#C0392B] text-white font-black py-3 rounded-2xl text-xs transition-all shadow-sm text-center"

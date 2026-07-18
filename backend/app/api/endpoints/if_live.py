@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_staff
 from app.models.live_models import LiveAircraft, LiveFlightSchedule, Pilot
 from app.services.if_live_client import IFLiveClient, IFTokenManager
-from app.services.if_sync_service import IFScheduleSync
+from app.services.if_sync_service import IFScheduleSync, sync_aircraft_location
 
 router = APIRouter(prefix="/infinite-flight", tags=["infinite-flight"])
 
@@ -464,3 +464,20 @@ async def if_delete_schedule(
         return {"deleted": ok}
     finally:
         await client.close()
+
+
+@router.post("/aircraft/{airframe_id}/sync-location")
+async def if_sync_aircraft_location(
+    airframe_id: int,
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_staff)
+):
+    """Fetch exact position and details from IF API and update the airframe database record."""
+    try:
+        res = await sync_aircraft_location(db, airframe_id)
+        await db.commit()
+        return res
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Details sync failed: {str(e)}")

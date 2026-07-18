@@ -1,12 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchAirframeDetail, fetchAirframeHistory, fetchAircraftTypes } from "../store/slices/aircraftSlice";
+import { api } from "../api/client";
 
 export default function AircraftDetail() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const { currentAirframe, types } = useAppSelector((s) => s.aircraft);
+  const [syncing, setSyncing] = useState(false);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -23,6 +26,20 @@ export default function AircraftDetail() {
   const a = currentAirframe;
   const t = types.find(ty => ty.id === a.aircraft_type_id);
 
+  const handleSync = async () => {
+    setSyncing(true);
+    setMessage("");
+    try {
+      await api.post(`/infinite-flight/aircraft/${id}/sync-location`);
+      setMessage("Sync complete!");
+      dispatch(fetchAirframeDetail(Number(id)));
+    } catch (e: any) {
+      setMessage(e.message || "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
       <Link to="/fleet" className="text-sm text-brand hover:underline mb-4 inline-block">&larr; Back to Fleet</Link>
@@ -32,12 +49,30 @@ export default function AircraftDetail() {
           <h1 className="text-5xl font-bold text-brand">{a.registration}</h1>
           <p className="text-lg text-gray-500">{a.aircraft_type_name}{t?.liveryname ? ` · ${t.liveryname}` : ""}</p>
         </div>
-        <span className={`text-sm font-bold px-3 py-1 rounded-full ${
-          a.status === "parked" ? "bg-green-100 text-green-700" :
-          a.status === "flying" ? "bg-blue-100 text-blue-700" :
-          a.status === "maintenance" ? "bg-yellow-100 text-yellow-700" :
-          "bg-gray-100 text-gray-500"
-        }`}>{a.status}</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          {a.if_organization_aircraft_id && (
+            <div className="flex items-center gap-2">
+              <button
+                disabled={syncing}
+                onClick={handleSync}
+                className="px-4 py-1.5 rounded-full bg-brand text-white font-semibold text-xs hover:bg-brand-light transition-colors disabled:opacity-50 shadow-sm"
+              >
+                {syncing ? "Syncing..." : "Sync Details & Location"}
+              </button>
+              {message && (
+                <span className="text-xs text-gray-500 bg-brand-pale px-3 py-1 rounded-full">
+                  {message}
+                </span>
+              )}
+            </div>
+          )}
+          <span className={`text-sm font-bold px-3 py-1 rounded-full ${
+            a.status === "parked" ? "bg-green-100 text-green-700" :
+            a.status === "flying" ? "bg-blue-100 text-blue-700" :
+            a.status === "maintenance" ? "bg-yellow-100 text-yellow-700" :
+            "bg-gray-100 text-gray-500"
+          }`}>{a.status}</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">

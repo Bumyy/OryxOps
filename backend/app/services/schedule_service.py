@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -24,6 +24,7 @@ async def get_schedules(
     query = select(LiveFlightSchedule).options(
         selectinload(LiveFlightSchedule.aircraft),
         selectinload(LiveFlightSchedule.wave),
+        selectinload(LiveFlightSchedule.route),
         selectinload(LiveFlightSchedule.creator),
     )
 
@@ -33,8 +34,11 @@ async def get_schedules(
         query = query.where(LiveFlightSchedule.week_start == week_start)
     if status:
         query = query.where(LiveFlightSchedule.status == status)
+    else:
+        # Exclude draft unless explicitly requested
+        query = query.where(LiveFlightSchedule.status != "draft")
 
-    query = query.order_by(LiveFlightSchedule.scheduled_departure)
+    query = query.order_by(LiveFlightSchedule.scheduled_departure.asc())
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -46,9 +50,8 @@ async def get_schedule(db: AsyncSession, schedule_id: int) -> LiveFlightSchedule
         .options(
             selectinload(LiveFlightSchedule.aircraft),
             selectinload(LiveFlightSchedule.wave),
+            selectinload(LiveFlightSchedule.route),
             selectinload(LiveFlightSchedule.creator),
-            selectinload(LiveFlightSchedule.approver),
-            selectinload(LiveFlightSchedule.bookings),
         )
     )
     return result.scalar_one_or_none()
@@ -87,6 +90,15 @@ async def delete_schedule(db: AsyncSession, schedule_id: int) -> bool:
     if not schedule:
         return False
     schedule.status = "cancelled"
+    
+    # Cancel all active bookings on this schedule
+    await db.execute(
+        update(LiveFlightBooking)
+        .where(LiveFlightBooking.schedule_id == schedule_id)
+        .where(LiveFlightBooking.status.in_(["booked", "dispatched"]))
+        .values(status="cancelled")
+    )
+    
     await db.commit()
     return True
 

@@ -10,6 +10,7 @@ import {
   enrollPilot,
   fetchEnrolledPilots,
   reshuffleGroup,
+  updateSimbriefId,
 } from "../store/slices/adminSlice";
 import {
   fetchGroups,
@@ -140,6 +141,7 @@ export function PilotsTab() {
   const { paths } = useAppSelector((s) => s.career);
   const [careerPathId, setCareerPathId] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [pilotSimbriefIds, setPilotSimbriefIds] = useState<Record<number, string>>({});
 
   useEffect(() => {
     dispatch(fetchEnrolledPilots());
@@ -151,9 +153,16 @@ export function PilotsTab() {
     }
   }, [paths]);
 
-  const handleEnroll = async (pilotId: number) => {
+  const handleEnroll = async (pilotId: number, simbriefIdStr?: string) => {
+    const sId = simbriefIdStr !== undefined ? simbriefIdStr : "";
+    const parsedSimbrief = sId.trim() ? parseInt(sId.trim(), 10) : null;
+
     const res = await dispatch(
-      enrollPilot({ pilot_id: pilotId, career_path_id: careerPathId })
+      enrollPilot({
+        pilot_id: pilotId,
+        career_path_id: careerPathId,
+        simbrief_id: parsedSimbrief,
+      })
     );
     if (enrollPilot.fulfilled.match(res)) {
       alert("Pilot enrolled successfully!");
@@ -161,6 +170,21 @@ export function PilotsTab() {
     } else {
       alert(
         "Failed to enroll pilot: " + (res.error?.message || "Unknown error")
+      );
+    }
+  };
+
+  const handleUpdateSimbrief = async (pilotId: number, simbriefIdStr: string) => {
+    const parsedSimbrief = simbriefIdStr.trim() ? parseInt(simbriefIdStr.trim(), 10) : null;
+    const res = await dispatch(
+      updateSimbriefId({ pilot_id: pilotId, simbrief_id: parsedSimbrief })
+    );
+    if (updateSimbriefId.fulfilled.match(res)) {
+      alert("SimBrief ID updated successfully!");
+      dispatch(fetchEnrolledPilots());
+    } else {
+      alert(
+        "Failed to update SimBrief ID: " + (res.error?.message || "Unknown error")
       );
     }
   };
@@ -226,18 +250,35 @@ export function PilotsTab() {
               {filteredUnenrolled.map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between p-3 bg-brand-pale rounded-xl border border-brand-border"
+                  className="flex flex-col p-3 bg-brand-pale rounded-xl border border-brand-border gap-2"
                 >
-                  <div>
-                    <p className="font-semibold text-sm">{p.callsign}</p>
-                    <p className="text-xs text-gray-400">{p.name}</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-sm">{p.callsign}</p>
+                      <p className="text-xs text-gray-400">{p.name}</p>
+                    </div>
+                    <button
+                      onClick={() => handleEnroll(p.id, pilotSimbriefIds[p.id])}
+                      className="text-xs rounded-full bg-brand text-white px-3 py-1 hover:bg-brand-light transition-colors"
+                    >
+                      Enroll
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleEnroll(p.id)}
-                    className="text-xs rounded-full bg-brand text-white px-3 py-1 hover:bg-brand-light transition-colors"
-                  >
-                    Enroll
-                  </button>
+                  <div className="flex items-center gap-1.5 mt-1 border-t border-brand-border/40 pt-2 justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase">SimBrief ID:</span>
+                      <input
+                        type="text"
+                        placeholder="Not set"
+                        value={pilotSimbriefIds[p.id] !== undefined ? pilotSimbriefIds[p.id] : (p.simbrief_id || "")}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPilotSimbriefIds(prev => ({ ...prev, [p.id]: val }));
+                        }}
+                        className="border border-brand-border rounded px-2 py-0.5 text-[10px] w-24 font-mono bg-white focus:outline-none focus:border-brand"
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -249,46 +290,75 @@ export function PilotsTab() {
             Enrolled ({filteredEnrolled.length})
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {filteredEnrolled.map((p) => (
-              <div
-                key={p.id}
-                className="flex flex-col p-4 bg-green-50 rounded-xl border border-green-200"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <p className="font-semibold text-sm">{p.callsign}</p>
-                    <p className="text-xs text-gray-400">{p.name}</p>
-                  </div>
-                  <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
-                </div>
+            {filteredEnrolled.map((p) => {
+              const currentSimbrief = pilotSimbriefIds[p.id] !== undefined ? pilotSimbriefIds[p.id] : (p.simbrief_id || "");
+              const isChanged = String(p.simbrief_id || "") !== String(currentSimbrief);
 
-                {p.careers && p.careers.length > 0 && (
-                  <div className="space-y-2 mt-2 pt-2 border-t border-green-200/50">
-                    {p.careers.map((c: any) => (
-                      <div
-                        key={c.career_path_id}
-                        className="flex items-center justify-between text-xs text-brand-light"
-                      >
-                        <div className="truncate flex-1">
-                          <span className="font-semibold">
-                            {c.career_path_name}:
-                          </span>{" "}
-                          {c.current_rank_name}
-                        </div>
-                        <button
-                          onClick={() => handlePromote(p.id, c.career_path_id)}
-                          className="text-[10px] bg-brand text-white font-semibold px-2 py-1 rounded-full hover:bg-brand-light transition-colors ml-2 flex-shrink-0"
-                        >
-                          Promote
-                        </button>
-                      </div>
-                    ))}
+              return (
+                <div
+                  key={p.id}
+                  className="flex flex-col p-4 bg-green-50 rounded-xl border border-green-200"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="font-semibold text-sm">{p.callsign}</p>
+                      <p className="text-xs text-gray-400">{p.name}</p>
+                    </div>
+                    <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
+                      Active
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  <div className="flex items-center justify-between gap-2 border-t border-green-200/50 pt-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase">SimBrief ID:</span>
+                      <input
+                        type="text"
+                        placeholder="Not set"
+                        value={currentSimbrief}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPilotSimbriefIds(prev => ({ ...prev, [p.id]: val }));
+                        }}
+                        className="border border-green-200 rounded px-2 py-0.5 text-[10px] w-24 font-mono bg-white focus:outline-none focus:border-brand"
+                      />
+                    </div>
+                    {isChanged && (
+                      <button
+                        onClick={() => handleUpdateSimbrief(p.id, currentSimbrief)}
+                        className="text-[9px] font-black uppercase tracking-wider bg-brand text-white px-2.5 py-1 rounded-lg hover:bg-brand-light transition-all"
+                      >
+                        Save
+                      </button>
+                    )}
+                  </div>
+
+                  {p.careers && p.careers.length > 0 && (
+                    <div className="space-y-2 mt-2 pt-2 border-t border-green-200/50">
+                      {p.careers.map((c: any) => (
+                        <div
+                          key={c.career_path_id}
+                          className="flex items-center justify-between text-xs text-brand-light"
+                        >
+                          <div className="truncate flex-1">
+                            <span className="font-semibold">
+                              {c.career_path_name}:
+                            </span>{" "}
+                            {c.current_rank_name}
+                          </div>
+                          <button
+                            onClick={() => handlePromote(p.id, c.career_path_id)}
+                            className="text-[10px] bg-brand text-white font-semibold px-2 py-1 rounded-full hover:bg-brand-light transition-colors ml-2 flex-shrink-0"
+                          >
+                            Promote
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           {filteredEnrolled.length === 0 && (
             <p className="text-sm text-gray-400 py-4">
@@ -313,6 +383,7 @@ export function AircraftTab() {
   const [reg, setReg] = useState("");
   const [typeId, setTypeId] = useState(0);
   const [airport, setAirport] = useState("OTHH");
+  const [ifOrgId, setIfOrgId] = useState("");
   const [editStatus, setEditStatus] = useState<Record<number, string>>({});
 
   useEffect(() => {
@@ -328,11 +399,13 @@ export function AircraftTab() {
         registration: reg,
         current_airport: airport,
         home_base: airport,
+        if_organization_aircraft_id: ifOrgId || null,
       })
     );
     setReg("");
     setTypeId(0);
     setAirport("OTHH");
+    setIfOrgId("");
     setShowCreate(false);
     dispatch(fetchAirframes());
   };
@@ -352,7 +425,7 @@ export function AircraftTab() {
       {showCreate && (
         <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
           <h3 className="text-lg font-bold text-brand mb-4">Add Airframe</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
             <input
               placeholder="Registration (e.g. A7-BAA)"
               value={reg}
@@ -375,6 +448,12 @@ export function AircraftTab() {
               placeholder="Delivery Airport"
               value={airport}
               onChange={(e) => setAirport(e.target.value)}
+              className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
+            />
+            <input
+              placeholder="IF Org Aircraft ID (Optional)"
+              value={ifOrgId}
+              onChange={(e) => setIfOrgId(e.target.value)}
               className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
             />
           </div>
@@ -403,6 +482,9 @@ export function AircraftTab() {
                   Status
                 </th>
                 <th className="px-5 py-3 font-semibold text-gray-600">Hours</th>
+                <th className="px-5 py-3 font-semibold text-gray-600">
+                  IF Org ID
+                </th>
                 <th className="px-5 py-3 font-semibold text-gray-600">
                   Actions
                 </th>
@@ -439,6 +521,26 @@ export function AircraftTab() {
                     </select>
                   </td>
                   <td className="px-5 py-3">{a.total_flight_hours}h</td>
+                  <td className="px-5 py-3">
+                    <input
+                      defaultValue={a.if_organization_aircraft_id || ""}
+                      placeholder="IF Org ID"
+                      onBlur={async (e) => {
+                        if (e.target.value !== (a.if_organization_aircraft_id || "")) {
+                          await dispatch(
+                            updateAirframe({
+                              id: a.id,
+                              data: {
+                                if_organization_aircraft_id: e.target.value || null,
+                              },
+                            })
+                          );
+                          dispatch(fetchAirframes());
+                        }
+                      }}
+                      className="text-xs border border-brand-border rounded-lg px-2 py-1 w-40"
+                    />
+                  </td>
                   <td className="px-5 py-3">
                     <input
                       placeholder="Move to ICAO"

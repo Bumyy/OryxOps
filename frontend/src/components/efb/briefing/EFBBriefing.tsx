@@ -1,5 +1,22 @@
 import React from "react";
 
+export const getSimBriefAircraftType = (type: string | undefined): string => {
+  const clean = (type || "").trim().toUpperCase();
+  const mapping: Record<string, string> = {
+    "A330": "A333",
+    "A350": "A359",
+    "B777": "B77W",
+    "B787": "B789",
+    "B737": "B738",
+    "777": "B77W",
+    "787": "B789",
+    "737": "B738",
+    "330": "A333",
+    "350": "A359",
+  };
+  return mapping[clean] || clean || "A320";
+};
+
 export interface EFBBriefingProps {
   ofpData: any;
   units: string;
@@ -60,7 +77,7 @@ export default function EFBBriefing({
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 self-start md:self-auto flex-wrap">
             {activeBooking && (
               <a
-                href={`https://www.simbrief.com/system/dispatch.php?orig=${activeBooking.flight_departure}&dest=${activeBooking.flight_arrival}&pax=${activeBooking.pax_count || 150}&type=${activeBooking.aircraft_icao || "A320"}&flt=${activeBooking.flight_number?.replace(/\D/g, "") || "100"}&airline=${activeBooking.flight_number?.replace(/\d/g, "") || "QR"}`}
+                href={`https://www.simbrief.com/system/dispatch.php?orig=${activeBooking.flight_departure}&dest=${activeBooking.flight_arrival}&pax=${activeBooking.pax_count || 150}&type=${getSimBriefAircraftType(activeBooking.aircraft_icao)}&flt=${activeBooking.flight_number?.replace(/\D/g, "") || "100"}&airline=${activeBooking.flight_number?.replace(/\d/g, "") || "QR"}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 rounded-full bg-gradient-to-br from-[#E74C3C] to-[#C0392B] text-white font-bold text-xs px-4 py-2 hover:shadow-md transition-all text-center self-start sm:self-auto"
@@ -487,7 +504,7 @@ export default function EFBBriefing({
 
                   {activeBooking && (
                     <a
-                      href={`https://www.simbrief.com/system/dispatch.php?orig=${activeBooking.flight_departure}&dest=${activeBooking.flight_arrival}&pax=${activeBooking.pax_count || 150}&type=${activeBooking.aircraft_icao || "A320"}&flt=${activeBooking.flight_number?.replace(/\D/g, "") || "100"}&airline=${activeBooking.flight_number?.replace(/\d/g, "") || "QR"}`}
+                      href={`https://www.simbrief.com/system/dispatch.php?orig=${activeBooking.flight_departure}&dest=${activeBooking.flight_arrival}&pax=${activeBooking.pax_count || 150}&type=${getSimBriefAircraftType(activeBooking.aircraft_icao)}&flt=${activeBooking.flight_number?.replace(/\D/g, "") || "100"}&airline=${activeBooking.flight_number?.replace(/\d/g, "") || "QR"}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[#E74C3C] to-[#C0392B] text-white font-bold text-xs px-4 py-2.5 shadow-sm hover:shadow-md transition-all text-center w-full"

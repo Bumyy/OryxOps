@@ -1,10 +1,13 @@
 from typing import Any
+import math
+import airportsdata
+from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.live_models import LiveAircraft, LiveFlightSchedule, LiveIFOAuthToken
+from app.models.live_models import LiveAircraft, LiveFlightSchedule, LiveIFOAuthToken, Pilot
 from app.services.if_live_client import (
     IFLiveClient,
     IFScheduleRequest,
@@ -232,5 +235,138 @@ async def try_auto_sync_to_if(
         return if_id
     except Exception:
         return None
+    finally:
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# Location & Metadata Telemetry Syncing
+# ---------------------------------------------------------------------------
+
+airports_db = airportsdata.load('ICAO')
+
+def _find_nearest_icao(lat: float, lon: float) -> str:
+    min_dist = float('inf')
+    closest_icao = "OTHH" # Safe default
+    
+    # Convert inputs to radians
+    lat_rad = math.radians(lat)
+    lon_rad = math.radians(lon)
+    
+    for icao, apt in airports_db.items():
+        dlat = math.radians(apt['lat']) - lat_rad
+        dlon = math.radians(apt['lon']) - lon_rad
+        
+        a = math.sin(dlat/2)**2 + math.cos(lat_rad) * math.cos(math.radians(apt['lat'])) * math.sin(dlon/2)**2
+        if a < min_dist:
+            min_dist = a
+            closest_icao = icao
+            
+    return closest_icao
+
+
+async def sync_aircraft_location(db: AsyncSession, airframe_id: int) -> dict:
+    # 1. Fetch the airframe and verify link
+    result = await db.execute(select(LiveAircraft).where(LiveAircraft.id == airframe_id))
+    aircraft = result.scalar_one_or_none()
+    if not aircraft or not aircraft.if_organization_aircraft_id:
+        raise ValueError("Aircraft is not linked to Infinite Flight.")
+        
+    # 2. Get any available staff token to initialize client
+    token_result = await db.execute(
+        select(LiveIFOAuthToken)
+        .where(LiveIFOAuthToken.refresh_token != "")
+        .where(LiveIFOAuthToken.refresh_token.isnot(None))
+    )
+    token_row = token_result.scalars().first()
+    if not token_row:
+        raise ValueError("No connected Infinite Flight staff token available.")
+        
+    manager = IFTokenManager()
+    client = await manager.get_client(db, token_row.pilot_id)
+    await client.open()
+    
+    try:
+        # 3. Request metadata & location concurrently
+        if_aircraft_data = await client.get_aircraft(aircraft.if_organization_aircraft_id)
+        position_data = await client.get_aircraft_position(aircraft.if_organization_aircraft_id)
+        
+        # Sync basic metadata
+        if if_aircraft_data.registration:
+            aircraft.registration = if_aircraft_data.registration
+        if if_aircraft_data.aircraft_id:
+            aircraft.if_aircraft_id = if_aircraft_data.aircraft_id
+            
+        lat = position_data.get("latitude")
+        lon = position_data.get("longitude")
+        is_on_ground = position_data.get("isOnGround", True)
+        state = position_data.get("state", 1)
+        updated_at_str = position_data.get("updatedAt")
+        last_pilot_id = position_data.get("lastPilotId")
+        last_pilot_username = position_data.get("lastPilotUsername")
+        
+        # 4. Resolve closest airport
+        if lat is not None and lon is not None:
+            icao = _find_nearest_icao(lat, lon)
+        else:
+            icao = aircraft.current_airport or "OTHH"
+        
+        # 5. Map Infinite Flight states & visibility to OryxOps status enums
+        # Visibility values: 2 = Hangared
+        # State values: 5 = Maintenance, 2 = InFlight
+        if if_aircraft_data.visibility == 2:
+            new_status = "in_hangar"
+        elif state == 5:
+            new_status = "maintenance"
+        elif not is_on_ground or state == 2:
+            new_status = "flying"
+        else:
+            new_status = "parked"
+            
+        # 6. Track previous location as last_airport if it has moved
+        if aircraft.current_airport != icao and new_status == "parked":
+            aircraft.last_airport = aircraft.current_airport
+            
+        aircraft.current_airport = icao
+        aircraft.status = new_status
+        
+        # 7. Resolve last pilot from database using IF ID or Username
+        resolved_pilot_id = None
+        if last_pilot_id or last_pilot_username:
+            conditions = []
+            if last_pilot_id:
+                conditions.append(Pilot.ifuserid == last_pilot_id)
+            if last_pilot_username:
+                conditions.append(Pilot.ifc == last_pilot_username)
+                
+            pilot_result = await db.execute(
+                select(Pilot.id).where(or_(*conditions))
+            )
+            resolved_pilot_id = pilot_result.scalar_one_or_none()
+            if resolved_pilot_id:
+                aircraft.last_pilot_id = resolved_pilot_id
+                
+        if updated_at_str:
+            try:
+                # Replace Z with UTC offset for isoformat parsing
+                dt = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+                aircraft.last_flight_at = dt.replace(tzinfo=None)
+            except Exception:
+                pass
+                
+        db.add(aircraft)
+        
+        return {
+            "icao": icao,
+            "status": new_status,
+            "registration": aircraft.registration,
+            "last_airport": aircraft.last_airport,
+            "last_pilot_id": resolved_pilot_id,
+            "last_pilot_username": last_pilot_username,
+            "last_flight_at": str(aircraft.last_flight_at) if aircraft.last_flight_at else None,
+            "latitude": lat,
+            "longitude": lon,
+            "is_on_ground": is_on_ground
+        }
     finally:
         await client.close()

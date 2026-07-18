@@ -12,6 +12,7 @@ interface EnrolledPilot {
   callsign: string;
   name: string;
   enrolled: boolean;
+  simbrief_id: number | null;
 }
 
 interface AdminState {
@@ -46,8 +47,14 @@ export const promotePilot = createAsyncThunk(
 
 export const enrollPilot = createAsyncThunk(
   "admin/enrollPilot",
-  (data: { pilot_id: number; career_path_id: number }) =>
+  (data: { pilot_id: number; career_path_id: number; simbrief_id?: number | null }) =>
     api.post<any>("/admin/enroll-pilot", data),
+);
+
+export const updateSimbriefId = createAsyncThunk(
+  "admin/updateSimbriefId",
+  (data: { pilot_id: number; simbrief_id: number | null }) =>
+    api.post<any>("/admin/update-simbrief", data),
 );
 
 export const fetchEnrolledPilots = createAsyncThunk(

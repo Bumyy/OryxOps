@@ -44,6 +44,7 @@ class LiveAircraftUpdate(BaseModel):
     current_airport: str | None = None
     current_parking_id: int | None = None
     home_base: str | None = None
+    if_organization_aircraft_id: str | None = None
 
 
 class LiveAircraftCreate(BaseModel):
@@ -52,6 +53,7 @@ class LiveAircraftCreate(BaseModel):
     current_airport: str = "OTHH"
     current_parking_id: int | None = None
     home_base: str = "OTHH"
+    if_organization_aircraft_id: str | None = None
 
 
 class LiveAircraftHistoryOut(BaseModel):

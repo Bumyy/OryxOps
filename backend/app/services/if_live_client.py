@@ -368,6 +368,10 @@ class IFLiveClient:
         response = await self._http.get(f"/live/aircraft/{aircraft_id}")
         return _build_if_aircraft(_parse_if_response(response))
 
+    async def get_aircraft_position(self, aircraft_id: str) -> dict:
+        response = await self._http.get(f"/live/aircraft/{aircraft_id}/position")
+        return _parse_if_response(response)
+
     # ------------------------------------------------------------------
     # Schedules — read
     # ------------------------------------------------------------------

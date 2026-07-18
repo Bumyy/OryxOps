@@ -16,6 +16,7 @@ from app.models.live_models import (
     LiveGroupPilot,
     LivePilotCareer,
     Pilot,
+    AwardGranted,
 )
 from app.schemas.career import PilotCareerOut
 from app.services.career_service import promote_pilot
@@ -28,6 +29,12 @@ PILOT_CAREER_REFETCH = PilotCareerOut
 class EnrollPilotRequest(BaseModel):
     pilot_id: int
     career_path_id: int
+    simbrief_id: int | None = None
+
+
+class UpdateSimbriefRequest(BaseModel):
+    pilot_id: int
+    simbrief_id: int | None = None
 
 
 class ReshuffleRequest(BaseModel):
@@ -59,6 +66,25 @@ async def promote_pilot_route(
     )
 
 
+# ── UPDATE PILOT SIMBRIEF ID ──
+
+@router.post("/update-simbrief")
+async def update_pilot_simbrief(
+    data: UpdateSimbriefRequest,
+    db: AsyncSession = Depends(get_db),
+    staff: Pilot = Depends(get_current_staff),
+):
+    pilot = await db.get(Pilot, data.pilot_id)
+    if not pilot:
+        raise HTTPException(status_code=404, detail="Pilot not found")
+    if pilot.status != 1:
+        raise HTTPException(status_code=400, detail="Can only update active pilots")
+        
+    pilot.simbrief_id = data.simbrief_id
+    await db.commit()
+    return {"detail": "Simbrief ID updated", "simbrief_id": pilot.simbrief_id}
+
+
 # ── ENROLL PILOT IN LIVE SYSTEM ──
 
 @router.post("/enroll-pilot")
@@ -67,6 +93,12 @@ async def enroll_pilot(
     db: AsyncSession = Depends(get_db),
     staff: Pilot = Depends(get_current_staff),
 ):
+    pilot = await db.get(Pilot, data.pilot_id)
+    if not pilot:
+        raise HTTPException(status_code=404, detail="Pilot not found")
+    if pilot.status != 1:
+        raise HTTPException(status_code=400, detail="Can only enroll active pilots")
+
     existing = await db.execute(
         select(LivePilotCareer).where(
             LivePilotCareer.pilot_id == data.pilot_id,
@@ -86,14 +118,26 @@ async def enroll_pilot(
     if not rank:
         raise HTTPException(status_code=400, detail="Career path has no ranks configured")
 
+    # Update simbrief_id if provided
+    if data.simbrief_id is not None:
+        pilot.simbrief_id = data.simbrief_id
+
+    # Grant Award ID 9 if not already granted
+    award_exist = await db.execute(
+        select(AwardGranted).where(
+            AwardGranted.awardid == 9,
+            AwardGranted.pilotid == data.pilot_id
+        )
+    )
+    if not award_exist.scalar_one_or_none():
+        db.add(AwardGranted(awardid=9, pilotid=data.pilot_id, dateawarded=date.today()))
+
     career = LivePilotCareer(
         pilot_id=data.pilot_id,
         career_path_id=data.career_path_id,
         current_rank_id=rank.id,
     )
     db.add(career)
-
-    # Token wallet registration removed (token system disabled)
 
     await db.commit()
     await db.refresh(career)
@@ -138,6 +182,7 @@ async def get_enrolled_pilots(db: AsyncSession = Depends(get_db), staff=Depends(
             "id": p.id,
             "callsign": p.callsign,
             "name": p.name,
+            "simbrief_id": p.simbrief_id,
             "careers": [],
         }
         if p.id in pilot_careers:

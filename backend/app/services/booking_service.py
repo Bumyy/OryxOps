@@ -181,7 +181,7 @@ async def get_bookings(
     status: str | None = None,
     group_id: int | None = None,
 ) -> list[LiveFlightBooking]:
-    query = select(LiveFlightBooking).options(
+    query = select(LiveFlightBooking).join(LiveFlightSchedule).options(
         selectinload(LiveFlightBooking.schedule)
         .selectinload(LiveFlightSchedule.aircraft)
         .selectinload(LiveAircraft.aircraft_type),
@@ -204,8 +204,17 @@ async def get_bookings(
             query = query.where(LiveFlightBooking.status.in_(["completed", "rejected", "cancelled"]))
         else:
             query = query.where(LiveFlightBooking.status == status)
+            if status in ["booked", "dispatched"]:
+                query = query.where(LiveFlightSchedule.status != "cancelled")
+    else:
+        # Default query filters out cancelled schedules for active bookings
+        query = query.where(
+            (LiveFlightBooking.status.in_(["completed", "rejected", "cancelled"])) |
+            (LiveFlightSchedule.status != "cancelled")
+        )
+        
     if group_id:
-        query = query.join(LiveFlightSchedule).where(
+        query = query.where(
             LiveFlightSchedule.group_id == group_id
         )
 
