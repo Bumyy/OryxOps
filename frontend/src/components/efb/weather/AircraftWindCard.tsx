@@ -65,9 +65,8 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
         <div
           className="relative w-full overflow-hidden flex items-center justify-center p-2"
           style={{
-            background: COLORS.bg,
+            background: "#0F172A", // Premium Dark Avionics Theme
             aspectRatio: "1 / 1", // clean square format
-            maxHeight: 400,
           }}
         >
           <AircraftDiagram

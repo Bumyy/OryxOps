@@ -8,7 +8,7 @@
 //  to smoothly animate arrow rotation and count numbers.
 // ─────────────────────────────────────────────
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { getAircraftSvg } from "./AircraftRegistry";
 import { getRunwayHeading, getWindQualityLabel } from "./WindCalculations";
 import { COLORS } from "./constants";
@@ -21,6 +21,22 @@ function shortestDelta(from: number, to: number): number {
   while (d >  180) d -= 360;
   return d;
 }
+
+// Generate sleek aerodynamic wind streamlines (slow, long, graceful)
+const WIND_STREAKS = Array.from({ length: 8 }).map((_, i) => ({
+  id: i,
+  offsetX: (Math.random() - 0.5) * 180, // spread across compass width
+  offsetY: (Math.random() - 0.5) * 80 - 60, // starting higher up
+  length: 120 + Math.random() * 80,     // VERY long streamlines
+  delay: Math.random() * 3,             // randomized start times
+  duration: 2.5 + Math.random() * 1.5,  // slow, graceful movement
+}));
+
+const DARK_THEME = {
+  compassRing: "rgba(255,255,255,0.15)",
+  dimLabel: "rgba(255,255,255,0.5)",
+  windArrow: "#60A5FA", // vibrant light blue
+};
 
 export const AircraftDiagram = React.memo(function AircraftDiagram({
   rwy,
@@ -135,42 +151,46 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
     };
   }, [targetAngle, targetWspd, targetHw, targetTw, targetCw]);
 
-  // ── Aircraft silhouette retrieval ───────────
+  // ── Aircraft silhouette retrieval & scaling ──
   const rawSvg = getAircraftSvg(aircraftIcao);
   const viewBoxMatch = rawSvg.match(/viewBox=["']([^"']+)["']/i);
-  const viewBox = viewBoxMatch ? viewBoxMatch[1] : "0 0 200 200";
-
+  const viewBoxStr = viewBoxMatch ? viewBoxMatch[1] : "0 0 100 100";
+  
   const cleanSvgInner = rawSvg
     .replace(/<svg[^>]*>/i, "")
     .replace(/<\/svg>/i, "");
 
-  // Dynamic centering calculations based on the SVG viewBox type
-  let svgX = 120;
-  let svgY = 145;
-  let svgW = 100;
-  let svgH = 100;
+  const aircraftGroupRef = useRef<SVGGElement>(null);
+  const [bbox, setBbox] = useState(() => {
+    const parts = viewBoxStr.split(/\s+/).map(Number);
+    if (parts.length === 4) return { x: parts[0], y: parts[1], width: parts[2], height: parts[3] };
+    return { x: 0, y: 0, width: 100, height: 100 };
+  });
 
-  const viewBoxParts = viewBox.split(/\s+/).map(Number);
-  if (viewBoxParts.length === 4) {
-    const [minX, minY, vbW, vbH] = viewBoxParts;
-    if (vbW >= 75 && vbW <= 85) {
-      // High-fidelity SVGs from RexKramer1 (typically 80x80)
-      svgW = 416;
-      svgH = 416;
-      // Centering the fuselage exactly at x=170, y=215 (offset is exactly 40 units from minX/minY)
-      svgX = 170 - 40 * 5.2; // -38
-      svgY = 215 - 40 * 5.2; // 7
-    } else {
-      // Legacy SVGs (typically 200x200)
-      svgW = 140;
-      svgH = 140;
-      svgX = 170 - 140 / 2; // 100
-      svgY = 215 - 140 / 2; // 145
+  useLayoutEffect(() => {
+    if (aircraftGroupRef.current) {
+      try {
+        const measured = aircraftGroupRef.current.getBBox();
+        if (measured && measured.width > 0 && measured.height > 0) {
+          setBbox({
+            x: measured.x,
+            y: measured.y,
+            width: measured.width,
+            height: measured.height
+          });
+        }
+      } catch (e) {
+        // Ignore fallback
+      }
     }
-  }
+  }, [cleanSvgInner]);
 
-  // Marker namespace
-  const markerId = `arrowhead-${uid}`;
+  // We want the visual height of the plane to always be ~140px.
+  // We place the nose exactly at y=145 (bottom of runway).
+  const visualHeight = 140;
+  const visualWidth = visualHeight * (bbox.width / bbox.height);
+  const svgX = 170 - visualWidth / 2;
+  const svgY = 145; // Nose of the plane aligned with runway
 
   // Wind quality descriptor (e.g. Nearly Full Headwind)
   const qualityLabel = getWindQualityLabel(vectors.relativeAngle ?? 0, windSpeedKt);
@@ -179,23 +199,32 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
     <svg
       viewBox="0 0 340 340"
       className="w-full h-full select-none"
-      style={{ background: COLORS.bg }}
+      style={{ background: "transparent" }}
       aria-label={`Runway ${rwy} wind analysis diagram`}
     >
-      {/* We completely removed the .aircraft-silhouette styling overrides to render the SVGs natively as they are */}
+      <style>
+        {`
+          @keyframes windFlowAnim {
+            0% { transform: translateY(-120px); opacity: 0; }
+            20% { opacity: 0.25; }
+            80% { opacity: 0.25; }
+            100% { transform: translateY(220px); opacity: 0; }
+          }
+          .wind-streak {
+            animation: windFlowAnim linear infinite;
+          }
+          /* Metallic outline for dark mode avionics */
+          .aircraft-silhouette * {
+            stroke: #94A3B8 !important;
+            fill: none !important;
+          }
+        `}
+      </style>
 
       <defs>
-        <marker
-          id={markerId}
-          viewBox="0 0 10 10"
-          refX="6"
-          refY="5"
-          markerWidth="6"
-          markerHeight="6"
-          orient="auto-start-reverse"
-        >
-          <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill={COLORS.windArrow} />
-        </marker>
+        <clipPath id={`compass-clip-${uid}`}>
+          <circle cx="170" cy="170" r="115" />
+        </clipPath>
       </defs>
 
       {/* ── 1. Faint compass ring + runway alignment markings ── */}
@@ -204,7 +233,7 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
         cy="170"
         r="115"
         fill="none"
-        stroke={COLORS.compassRing}
+        stroke={DARK_THEME.compassRing}
         strokeWidth="1.5"
       />
       <circle
@@ -212,16 +241,16 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
         cy="170"
         r="123"
         fill="none"
-        stroke={COLORS.compassRing}
+        stroke={DARK_THEME.compassRing}
         strokeWidth="0.75"
         strokeDasharray="2,6"
       />
 
       {/* Cardinal Labels */}
-      <text x="170" y="70" textAnchor="middle" fill={COLORS.dimLabel} fontSize="9" fontWeight="bold" fontFamily="monospace">N</text>
-      <text x="170" y="278" textAnchor="middle" fill={COLORS.dimLabel} fontSize="9" fontWeight="bold" fontFamily="monospace">S</text>
-      <text x="278" y="173" textAnchor="middle" fill={COLORS.dimLabel} fontSize="9" fontWeight="bold" fontFamily="monospace">E</text>
-      <text x="62"  y="173" textAnchor="middle" fill={COLORS.dimLabel} fontSize="9" fontWeight="bold" fontFamily="monospace">W</text>
+      <text x="170" y="70" textAnchor="middle" fill={DARK_THEME.dimLabel} fontSize="9" fontWeight="bold" fontFamily="monospace">N</text>
+      <text x="170" y="278" textAnchor="middle" fill={DARK_THEME.dimLabel} fontSize="9" fontWeight="bold" fontFamily="monospace">S</text>
+      <text x="278" y="173" textAnchor="middle" fill={DARK_THEME.dimLabel} fontSize="9" fontWeight="bold" fontFamily="monospace">E</text>
+      <text x="62"  y="173" textAnchor="middle" fill={DARK_THEME.dimLabel} fontSize="9" fontWeight="bold" fontFamily="monospace">W</text>
 
       {/* ── 2. Runway Threshold Graphic ── */}
       <g>
@@ -269,39 +298,41 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
         </text>
       </g>
 
-      {/* ── 3. Aircraft silhouette (aligned straight up, centered at 170,215) ── */}
+      {/* ── 3. Aircraft silhouette (Auto-scaled to fit precisely at the threshold) ── */}
       <svg
         x={svgX}
         y={svgY}
-        width={svgW}
-        height={svgH}
-        viewBox={viewBox}
+        width={visualWidth}
+        height={visualHeight}
+        viewBox={`${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`}
         className="aircraft-silhouette"
-        style={{ color: COLORS.aircraft }}
-        dangerouslySetInnerHTML={{ __html: cleanSvgInner }}
-      />
+        style={{ overflow: "visible" }}
+      >
+        <g ref={aircraftGroupRef} dangerouslySetInnerHTML={{ __html: cleanSvgInner }} />
+      </svg>
 
-      {/* ── 4. Wind Arrow Vector (Points to cockpit/nose of airplane, rotated by relative angle around plane center) ── */}
+      {/* ── 4. Wind Flow Particles (Flowing across the compass ring) ── */}
       {!isVariable && windSpeedKt >= 0.5 && (
-        <g transform={`rotate(${angle}, 170, 215)`}>
-          <line
-            x1="170"
-            y1="105"
-            x2="170"
-            y2="175"
-            stroke={COLORS.windArrow}
-            strokeWidth="3.5"
-            strokeLinecap="round"
-            markerEnd={`url(#${markerId})`}
-          />
-          {/* Arrow tail notch for authentic avionics look */}
-          <path
-            d="M 166 105 L 170 109 L 174 105"
-            fill="none"
-            stroke={COLORS.windArrow}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
+        <g clipPath={`url(#compass-clip-${uid})`}>
+          <g transform={`rotate(${angle}, 170, 170)`}>
+            {WIND_STREAKS.map((streak) => (
+              <line
+                key={streak.id}
+                x1={170 + streak.offsetX}
+                y1={170 + streak.offsetY}
+                x2={170 + streak.offsetX}
+                y2={170 + streak.offsetY + streak.length}
+                stroke={DARK_THEME.windArrow}
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                className="wind-streak"
+                style={{
+                  animationDuration: `${streak.duration}s`,
+                  animationDelay: `${streak.delay}s`,
+                }}
+              />
+            ))}
+          </g>
         </g>
       )}
 
@@ -311,7 +342,7 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
           x="0"
           y="0"
           textAnchor="middle"
-          fill={COLORS.windArrow}
+          fill={DARK_THEME.windArrow}
           fontSize="15"
           fontWeight="900"
           fontFamily="monospace"
@@ -322,7 +353,7 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
           x="0"
           y="12"
           textAnchor="middle"
-          fill={COLORS.dimLabel}
+          fill={DARK_THEME.dimLabel}
           fontSize="7.5"
           fontWeight="bold"
           letterSpacing="1"
@@ -454,7 +485,7 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
             width="150"
             height="18"
             rx="4"
-            fill={COLORS.bg}
+            fill="#0F172A"
             stroke={qualityLabel.startsWith("✔") ? COLORS.headwind : COLORS.crosswind}
             strokeWidth="1"
           />
@@ -474,3 +505,4 @@ export const AircraftDiagram = React.memo(function AircraftDiagram({
     </svg>
   );
 });
+
