@@ -107,7 +107,7 @@ function PilotAccessRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAppSelector((state) => state.auth);
 
-  if (!user?.is_admin) {
+  if (!user?.is_admin && !user?.is_staff) {
     return <Navigate to="/efb" replace />;
   }
 

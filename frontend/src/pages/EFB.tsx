@@ -1219,9 +1219,14 @@ export default function EFB() {
   };
 
   const units = ofpData?.params?.units || "";
-  const flightNum = ofpData?.general?.icao_airline && ofpData?.general?.flight_number
-    ? `${ofpData.general.icao_airline}${ofpData.general.flight_number}`
-    : ofpData?.general?.flight_number || "—";
+  const rawFltNum = efbDataSource === "booking" && activeBooking
+    ? activeBooking.flight_number
+    : ofpData?.general?.flight_number;
+  const parsedFltNum = (typeof rawFltNum === "string" || typeof rawFltNum === "number")
+    ? String(rawFltNum)
+    : activeBooking?.flight_number || "";
+  const airlinePrefix = (typeof ofpData?.general?.icao_airline === "string") ? ofpData.general.icao_airline : "";
+  const flightNum = parsedFltNum ? (airlinePrefix && !parsedFltNum.startsWith(airlinePrefix) ? `${airlinePrefix}${parsedFltNum}` : parsedFltNum) : "—";
 
   // Calculate checklist progress percentages
   const getTotalChecklistItems = () => {

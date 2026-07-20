@@ -364,8 +364,8 @@ export default function Layout() {
             )}
           </div>
 
-          {/* Admin section - Only visible to Admin or Executive */}
-          {user?.is_admin && (
+          {/* Admin section - Visible to Admin or Staff */}
+          {(user?.is_admin || user?.is_staff) && (
             <div className="pt-3 mt-3 border-t border-brand-border">
               <button
                 onClick={() => setAdminOpen(!adminOpen)}
