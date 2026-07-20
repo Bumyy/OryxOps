@@ -2,12 +2,29 @@
 <html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/png" href="/Logo2.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OryxOps - Qatari Virtual</title>
+    <script>
+      window.addEventListener('error', function(e) {
+        if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+          const storageKey = 'last_chunk_reload';
+          const now = Date.now();
+          const lastReload = localStorage.getItem(storageKey);
+          if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+            localStorage.setItem(storageKey, String(now));
+            window.location.reload();
+          }
+        }
+      }, true);
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
