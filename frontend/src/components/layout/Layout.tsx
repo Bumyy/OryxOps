@@ -232,7 +232,7 @@ export default function Layout() {
           }`}
         >
           {/* Main Navigation - Requires Award ID 9 or Admin */}
-          {(user?.has_pilot_access || user?.is_admin) ? (
+          {(user?.is_executive || user?.is_admin || user?.has_pilot_access) ? (
             navItems.map((item) => (
               <Link
                 key={item.path}
@@ -364,8 +364,8 @@ export default function Layout() {
             )}
           </div>
 
-          {/* Admin section - Visible to Admin or Staff */}
-          {(user?.is_admin || user?.is_staff) && (
+          {/* Admin section - Visible to Executive or Admin */}
+          {(user?.is_executive || user?.is_admin) && (
             <div className="pt-3 mt-3 border-t border-brand-border">
               <button
                 onClick={() => setAdminOpen(!adminOpen)}

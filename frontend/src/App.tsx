@@ -95,7 +95,7 @@ function PilotAccessRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   const isEfbRoute = location.pathname.startsWith("/efb");
-  const isAllowed = user?.has_pilot_access || user?.is_admin;
+  const isAllowed = user?.is_executive || user?.is_admin || user?.has_pilot_access;
 
   if (!isAllowed && !isEfbRoute) {
     return <Navigate to="/efb" replace />;
@@ -107,12 +107,13 @@ function PilotAccessRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAppSelector((state) => state.auth);
 
-  if (!user?.is_admin && !user?.is_staff) {
+  if (!user?.is_executive && !user?.is_admin) {
     return <Navigate to="/efb" replace />;
   }
 
   return <>{children}</>;
 }
+
 
 export default function App() {
   return (

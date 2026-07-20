@@ -35,35 +35,35 @@ async def get_me(
     pilot: Pilot = Depends(get_current_pilot),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.live_models import Permission, StaffRole, AwardGranted
+    from app.models.live_models import Permission, AwardGranted
 
     clean_callsign = pilot.callsign.strip().upper() if pilot.callsign else ""
     is_executive = clean_callsign in ["QRV001", "QRV002", "QRV003", "QRV004"]
 
-    perm_result = await db.execute(
-        select(Permission).where(
-            Permission.userid == pilot.id,
+    # Executive priority check: full access to everything automatically
+    if is_executive:
+        is_admin = True
+        has_award_9 = True
+        has_pilot_access = True
+    else:
+        # Check Admin permission in permissions table
+        perm_res = await db.execute(
+            select(Permission).where(
+                Permission.userid == pilot.id,
+                Permission.name == "admin",
+            ).limit(1)
         )
-    )
-    user_perms = [p.name for p in perm_result.scalars().all()]
-    is_admin = ("admin" in user_perms) or is_executive
-    is_staff = is_admin or ("opsmanage" in user_perms)
+        is_admin = perm_res.scalar_one_or_none() is not None
 
-    if not is_staff:
-        role_res = await db.execute(
-            select(StaffRole).where(StaffRole.user_id == pilot.id).limit(1)
+        # Check Award 9 in awards_granted table
+        award_res = await db.execute(
+            select(AwardGranted).where(
+                AwardGranted.pilotid == pilot.id,
+                AwardGranted.awardid == 9,
+            ).limit(1)
         )
-        if role_res.scalar_one_or_none() is not None:
-            is_staff = True
-
-    award_result = await db.execute(
-        select(AwardGranted).where(
-            AwardGranted.pilotid == pilot.id,
-            AwardGranted.awardid == 9,
-        ).limit(1)
-    )
-    has_award_9 = award_result.scalar_one_or_none() is not None
-    has_pilot_access = has_award_9 or is_admin
+        has_award_9 = award_res.scalar_one_or_none() is not None
+        has_pilot_access = has_award_9 or is_admin
 
     return {
         "id": pilot.id,
@@ -77,10 +77,10 @@ async def get_me(
         "status": pilot.status,
         "joined": str(pilot.joined) if pilot.joined else None,
         "avatar": get_pilot_avatar(pilot),
-        "is_staff": is_staff,
-        "is_admin": is_admin,
         "is_executive": is_executive,
+        "is_admin": is_admin,
         "has_award_9": has_award_9,
         "has_pilot_access": has_pilot_access,
         "simbrief_id": pilot.simbrief_id,
     }
+
