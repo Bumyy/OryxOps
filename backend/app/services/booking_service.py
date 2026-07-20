@@ -445,45 +445,33 @@ async def complete_booking(
     # Load dynamic rate/repu settings from database
     rates = await get_rate_settings(db)
 
-    # 1. Earnings (Pax ticket sales)
+    # 1. Earnings (Pax ticket sales: ticket_rate * pax * mins)
     pax = booking.pax_count or 100
-    ticket_price = rates["econ_ticket_base_price"] + (flight_time_minutes * rates["econ_ticket_duration_rate"])
-    total_earnings = pax * ticket_price
+    ticket_rate = rates["econ_ticket_base_price"]
+    total_earnings = pax * ticket_rate * flight_time_minutes
 
-    # 2. Expenses (Fuel + Airport fee + Landing penalty + Operating Cost + Diversion Charge)
+    # 2. Expenses (Fuel + Operating Cost [70% of revenue + 5% variance] + Landing penalty + Diversion Charge)
     fuel_expense = fuel_burned * rates["econ_fuel_price_rate"]
-    
-    # Landing fee for the actual airport landed at
-    _, landing_fee = await get_airport_class_and_fee(db, arrival_airport)
-    
-    # Load aircraft capacity from JSON
-    icao_model = "A320"
-    if booking.schedule and booking.schedule.aircraft and booking.schedule.aircraft.aircraft_type:
-        icao_model = (booking.schedule.aircraft.aircraft_type.icao or "A320").upper()
-    ac_data = get_aircraft_json_data(icao_model)
-    capacity = ac_data.get("capacity", 180)
-    
-    # Calculate operating cost using capacity and pax
-    operating_cost = (capacity * rates["econ_fixed_rate_per_seat"]) + (pax * rates["econ_service_rate_per_pax"])
+    operating_cost = round(total_earnings * 0.70 * 1.05)
 
     # Passenger-scaled Diversion Charge if applicable
     is_diverted = arrival_airport != scheduled_arrival
     diversion_charge = (pax * rates["econ_diversion_charge_per_pax"]) if is_diverted else 0.0
 
-    # Discrete landing penalty table
+    # Touchdown landing penalty table (0-150 FPM = 0 QAR penalty)
     fpm = landing_fpm
-    if fpm <= 100:
+    if fpm <= 150:
         landing_penalty = 0.0
-    elif fpm <= 200:
+    elif fpm <= 250:
         landing_penalty = 500.0
-    elif fpm <= 300:
+    elif fpm <= 350:
         landing_penalty = 2000.0
-    elif fpm <= 400:
+    elif fpm <= 450:
         landing_penalty = 6000.0
     else:
         landing_penalty = 15000.0
         
-    total_expenses = fuel_expense + landing_fee + landing_penalty + operating_cost + diversion_charge
+    total_expenses = fuel_expense + landing_penalty + operating_cost + diversion_charge
     
     # 3. Reputation
     expected_dur = 45 # Default
@@ -678,42 +666,32 @@ async def lazy_check_payouts(db: AsyncSession, pilot_id: int):
             
             # Recalculate final financials
             pax = booking.pax_count or 100
-            ticket_price = rates["econ_ticket_base_price"] + (approved_dur * rates["econ_ticket_duration_rate"])
-            final_earnings = pax * ticket_price
+            ticket_rate = rates["econ_ticket_base_price"]
+            final_earnings = pax * ticket_rate * approved_dur
             
             fuel_expense = approved_fuel * rates["econ_fuel_price_rate"]
-            
-            # Destination fee is based on the actual PIREP arrival airport (diversion airport if diverted)
-            arrival_airport = (pirep.arrival or (booking.schedule.arrival if booking.schedule else "OTHH")).upper()
-            _, landing_fee = await get_airport_class_and_fee(db, arrival_airport)
-            
-            # Aircraft capacity
-            icao_model = "A320"
-            if booking.schedule and booking.schedule.aircraft and booking.schedule.aircraft.aircraft_type:
-                icao_model = (booking.schedule.aircraft.aircraft_type.icao or "A320").upper()
-            ac_data = get_aircraft_json_data(icao_model)
-            capacity = ac_data.get("capacity", 180)
-            operating_cost = (capacity * rates["econ_fixed_rate_per_seat"]) + (pax * rates["econ_service_rate_per_pax"])
+            operating_cost = round(final_earnings * 0.70 * 1.05)
             
             # Diversion charge
+            arrival_airport = (pirep.arrival or (booking.schedule.arrival if booking.schedule else "OTHH")).upper()
             scheduled_arrival = (booking.schedule.arrival or "OTHH").upper() if booking.schedule else "OTHH"
             is_diverted = arrival_airport != scheduled_arrival
             diversion_charge = (pax * rates["econ_diversion_charge_per_pax"]) if is_diverted else 0.0
             
-            # Discrete landing penalty table
+            # Discrete landing penalty table (0-150 FPM = 0 QAR penalty)
             fpm = int(booking.landing_fpm or 120)
-            if fpm <= 100:
+            if fpm <= 150:
                 landing_penalty = 0.0
-            elif fpm <= 200:
+            elif fpm <= 250:
                 landing_penalty = 500.0
-            elif fpm <= 300:
+            elif fpm <= 350:
                 landing_penalty = 2000.0
-            elif fpm <= 400:
+            elif fpm <= 450:
                 landing_penalty = 6000.0
             else:
                 landing_penalty = 15000.0
                 
-            final_expenses = fuel_expense + landing_fee + landing_penalty + operating_cost + diversion_charge
+            final_expenses = fuel_expense + landing_penalty + operating_cost + diversion_charge
             final_profit = final_earnings - final_expenses
             
             # Save final approved details

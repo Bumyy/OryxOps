@@ -1,6 +1,6 @@
 // Trigger deployment update
 import { useState, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { fetchMe, logout } from "./store/slices/authSlice";
 import { fetchAircraftSpecs } from "./store/slices/aircraftSlice";
@@ -90,6 +90,30 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PilotAccessRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAppSelector((state) => state.auth);
+  const location = useLocation();
+
+  const isEfbRoute = location.pathname.startsWith("/efb");
+  const isAllowed = user?.has_pilot_access || user?.is_admin;
+
+  if (!isAllowed && !isEfbRoute) {
+    return <Navigate to="/efb" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAppSelector((state) => state.auth);
+
+  if (!user?.is_admin) {
+    return <Navigate to="/efb" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <AuthInitializer>
@@ -103,34 +127,36 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/careers" element={<CareerCenter />} />
-          <Route path="/groups" element={<Groups />} />
-          <Route path="/groups/:id" element={<GroupDetail />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/fleet" element={<Fleet />} />
-          <Route path="/fleet/:id" element={<AircraftDetail />} />
-          <Route path="/bookings" element={<Bookings />} />
-          <Route path="/operations" element={<Operations />} />
-          <Route path="/transfers" element={<Transfers />} />
-          <Route path="/admin" element={<Admin />} />
+          {/* Public EFB Tools for all authenticated users */}
           <Route path="/efb" element={<EFB />} />
           <Route path="/efb/checklist" element={<EFB />} />
           <Route path="/efb/weather" element={<EFB />} />
           <Route path="/efb/aircraft" element={<EFB />} />
           <Route path="/efb/charts" element={<EFB />} />
           <Route path="/efb/settings" element={<EFB />} />
-          <Route path="/admin/pilots" element={<AdminPilots />} />
-          <Route path="/admin/groups" element={<AdminGroups />} />
-          <Route path="/admin/aircraft" element={<AdminAircraft />} />
-          <Route path="/admin/careers" element={<AdminCareers />} />
-          <Route path="/admin/transfers" element={<AdminTransfers />} />
-          <Route path="/admin/waves" element={<AdminWaves />} />
-          <Route path="/admin/settings" element={<AdminSettings />} />
-          <Route
-            path="/admin/auto-scheduler"
-            element={<AdminAutoScheduler />}
-          />
+
+          {/* Full Pilot Routes - Requires Award ID 9 or Admin */}
+          <Route path="/" element={<PilotAccessRoute><Dashboard /></PilotAccessRoute>} />
+          <Route path="/careers" element={<PilotAccessRoute><CareerCenter /></PilotAccessRoute>} />
+          <Route path="/groups" element={<PilotAccessRoute><Groups /></PilotAccessRoute>} />
+          <Route path="/groups/:id" element={<PilotAccessRoute><GroupDetail /></PilotAccessRoute>} />
+          <Route path="/calendar" element={<PilotAccessRoute><Calendar /></PilotAccessRoute>} />
+          <Route path="/fleet" element={<PilotAccessRoute><Fleet /></PilotAccessRoute>} />
+          <Route path="/fleet/:id" element={<PilotAccessRoute><AircraftDetail /></PilotAccessRoute>} />
+          <Route path="/bookings" element={<PilotAccessRoute><Bookings /></PilotAccessRoute>} />
+          <Route path="/operations" element={<PilotAccessRoute><Operations /></PilotAccessRoute>} />
+          <Route path="/transfers" element={<PilotAccessRoute><Transfers /></PilotAccessRoute>} />
+
+          {/* Admin Routes - Requires Admin Permission or Executive Callsign */}
+          <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+          <Route path="/admin/pilots" element={<AdminRoute><AdminPilots /></AdminRoute>} />
+          <Route path="/admin/groups" element={<AdminRoute><AdminGroups /></AdminRoute>} />
+          <Route path="/admin/aircraft" element={<AdminRoute><AdminAircraft /></AdminRoute>} />
+          <Route path="/admin/careers" element={<AdminRoute><AdminCareers /></AdminRoute>} />
+          <Route path="/admin/transfers" element={<AdminRoute><AdminTransfers /></AdminRoute>} />
+          <Route path="/admin/waves" element={<AdminRoute><AdminWaves /></AdminRoute>} />
+          <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
+          <Route path="/admin/auto-scheduler" element={<AdminRoute><AdminAutoScheduler /></AdminRoute>} />
         </Route>
       </Routes>
     </AuthInitializer>

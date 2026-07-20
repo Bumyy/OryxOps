@@ -39,15 +39,15 @@ async def update_setting(
         if not (pilot.callsign and pilot.callsign.upper() in ["QRV001", "QRV002", "QRV003", "QRV004"]):
             raise HTTPException(status_code=403, detail="Only QRV001 to QRV004 can update rate settings")
     else:
-        # Check standard staff permission
+        # Check standard admin permission
         result = await db.execute(
             select(Permission).where(
                 Permission.userid == pilot.id,
-                Permission.name.in_(["admin", "opsmanage"]),
+                Permission.name == "admin",
             ).limit(1)
         )
         if result.scalar_one_or_none() is None:
-            raise HTTPException(status_code=403, detail="Staff access required")
+            raise HTTPException(status_code=403, detail="Admin access required")
 
     result = await db.execute(select(LiveSetting).where(LiveSetting.setting_key == key))
     setting = result.scalar_one_or_none()

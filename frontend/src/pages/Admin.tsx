@@ -53,6 +53,38 @@ type Tab =
   | "settings"
   | "rates";
 
+export const FUEL_BURN_RATES: Record<string, number> = {
+  "A319": 2200,
+  "A320": 2500,
+  "A321": 2800,
+  "A330": 6000,
+  "A332": 5700,
+  "A333": 6000,
+  "A340": 7000,
+  "A359": 5800,
+  "B772": 6800,
+  "B77W": 7200,
+  "B77L": 7000,
+  "B77F": 7600,
+  "A388": 10800,
+};
+
+export const MASTER_AIRCRAFT_LIST = [
+  { icao: "A319", name: "Airbus A319", rate: 2200 },
+  { icao: "A320", name: "Airbus A320-200", rate: 2500 },
+  { icao: "A321", name: "Airbus A321-200", rate: 2800 },
+  { icao: "A330", name: "Airbus A330", rate: 6000 },
+  { icao: "A332", name: "Airbus A330-200", rate: 5700 },
+  { icao: "A333", name: "Airbus A330-300", rate: 6000 },
+  { icao: "A340", name: "Airbus A340", rate: 7000 },
+  { icao: "A359", name: "Airbus A350-900", rate: 5800 },
+  { icao: "B772", name: "Boeing 777-200ER", rate: 6800 },
+  { icao: "B77W", name: "Boeing 777-300ER", rate: 7200 },
+  { icao: "B77L", name: "Boeing 777-200LR", rate: 7000 },
+  { icao: "B77F", name: "Boeing 777F (Freighter)", rate: 7600 },
+  { icao: "A388", name: "Airbus A380-800", rate: 10800 },
+];
+
 export default function Admin() {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((s) => s.admin);
@@ -1623,9 +1655,8 @@ export function LegSimulatorPanel() {
   const [flightTimeHours, setFlightTimeHours] = useState("2");
   const [flightTimeMinutes, setFlightTimeMinutes] = useState("0");
   const flightTime = (parseInt(flightTimeHours) || 0) * 60 + (parseInt(flightTimeMinutes) || 0);
-  const [fuelBurned, setFuelBurned] = useState(3000);
+  const [fuelBurned, setFuelBurned] = useState(5000);
   const [landingFpm, setLandingFpm] = useState(120);
-  const [airportClass, setAirportClass] = useState<"large" | "medium" | "small">("large");
   const [isDiverted, setIsDiverted] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
 
@@ -1635,9 +1666,15 @@ export function LegSimulatorPanel() {
     return s ? parseFloat(s.setting_value) : def;
   };
 
-  const aircraftKeys = Object.keys(specs);
   const currentSpec = specs[selectedAircraft] || {};
   const capacity = currentSpec.properties?.capacity || 180;
+
+  // Auto-calculate fuel burn based on selected aircraft and flight duration
+  useEffect(() => {
+    const rate = FUEL_BURN_RATES[selectedAircraft] || 2500;
+    const estBurn = Math.round((flightTime / 60) * rate);
+    setFuelBurned(estBurn);
+  }, [selectedAircraft, flightTimeHours, flightTimeMinutes]);
 
   // Auto-adjust pax count slider max if aircraft changes
   useEffect(() => {
@@ -1647,16 +1684,9 @@ export function LegSimulatorPanel() {
   }, [selectedAircraft, capacity]);
 
   // Read current live rates
-  const ticketBasePrice = getSetting("econ_ticket_base_price", 220);
-  const ticketDurationRate = getSetting("econ_ticket_duration_rate", 1.20);
+  const ticketBasePrice = getSetting("econ_ticket_base_price", 2.0); // ticket rate per pax per minute
   const fuelPriceRate = getSetting("econ_fuel_price_rate", 1.10);
-  const fixedRatePerSeat = getSetting("econ_fixed_rate_per_seat", 120);
-  const serviceRatePerPax = getSetting("econ_service_rate_per_pax", 60);
   const diversionRatePerPax = getSetting("econ_diversion_charge_per_pax", 100);
-
-  const feeLarge = getSetting("econ_airport_fee_large", 7000);
-  const feeMedium = getSetting("econ_airport_fee_medium", 3500);
-  const feeSmall = getSetting("econ_airport_fee_small", 1200);
 
   const payoutShareSolo = getSetting("econ_payout_share_solo", 0.10);
   const payoutShareSplit = getSetting("econ_payout_share_split", 0.05);
@@ -1664,30 +1694,28 @@ export function LegSimulatorPanel() {
   const minPayoutSplit = getSetting("econ_min_payout_split", 350);
 
   const grace = getSetting("repu_punctuality_grace", 30);
-  const smoothThreshold = getSetting("repu_smoothness_threshold", 100);
+  const smoothThreshold = getSetting("repu_smoothness_threshold", 150);
   const smoothDivisor = getSetting("repu_smoothness_divisor", 4.0);
 
-  // Calculations
-  const ticketPrice = ticketBasePrice + (flightTime * ticketDurationRate);
-  const grossRevenue = paxCount * ticketPrice;
+  // 1. New Gross Revenue = ticket_rate * pax * mins
+  const grossRevenue = Math.round(ticketBasePrice * paxCount * flightTime);
 
-  const fuelCost = fuelBurned * fuelPriceRate;
+  // 2. Fuel Cost
+  const fuelCost = Math.round(fuelBurned * fuelPriceRate);
   
-  let landingFee = feeSmall;
-  if (airportClass === "large") landingFee = feeLarge;
-  else if (airportClass === "medium") landingFee = feeMedium;
-
+  // 3. Landing Penalty (0 - 150 FPM = 0 QAR)
   let landingPenalty = 0;
-  if (landingFpm <= 100) landingPenalty = 0;
-  else if (landingFpm <= 200) landingPenalty = 500;
-  else if (landingFpm <= 300) landingPenalty = 2000;
-  else if (landingFpm <= 400) landingPenalty = 6000;
+  if (landingFpm <= 150) landingPenalty = 0;
+  else if (landingFpm <= 250) landingPenalty = 500;
+  else if (landingFpm <= 350) landingPenalty = 2000;
+  else if (landingFpm <= 450) landingPenalty = 6000;
   else landingPenalty = 15000;
 
-  const operatingCost = (capacity * fixedRatePerSeat) + (paxCount * serviceRatePerPax);
-  const diversionCharge = isDiverted ? (paxCount * diversionRatePerPax) : 0;
+  // 4. Operating Cost = 70% of Revenue (* 1.05 variance)
+  const operatingCost = Math.round(grossRevenue * 0.70 * 1.05);
+  const diversionCharge = isDiverted ? Math.round(paxCount * diversionRatePerPax) : 0;
 
-  const totalExpenses = fuelCost + landingFee + landingPenalty + operatingCost + diversionCharge;
+  const totalExpenses = fuelCost + landingPenalty + operatingCost + diversionCharge;
   const netProfit = grossRevenue - totalExpenses;
   const profitMargin = grossRevenue > 0 ? (netProfit / grossRevenue) * 100 : 0;
 
@@ -1708,44 +1736,27 @@ export function LegSimulatorPanel() {
     <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 space-y-6">
       <div>
         <h3 className="text-lg font-black text-brand-dark flex items-center gap-1.5 border-b border-brand-border/40 pb-2.5 uppercase tracking-wider">
-          📊 Leg Economics Simulator & Previewer
+          📊 Leg Economics & Integrated Fuel Simulator
         </h3>
-        <p className="text-gray-400 text-xs mt-1">Simulate flight scenarios with current live rates to preview operational profitability and payouts.</p>
+        <p className="text-gray-400 text-xs mt-1">Simulate flight leg revenue (Rate × Pax × Mins), 70% operating cost rule, fuel burn estimates, and touchdown penalty rates.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left Side - Inputs */}
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500">Aircraft Model</label>
+              <label className="text-xs font-bold text-gray-500">Aircraft Model (Auto Fuel Burn Rate)</label>
               <select
                 value={selectedAircraft}
                 onChange={(e) => setSelectedAircraft(e.target.value)}
-                className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none font-bold text-brand"
               >
-                {aircraftKeys.length > 0 ? (
-                  aircraftKeys.map((k) => (
-                    <option key={k} value={k}>
-                      {k} (Cap: {specs[k]?.properties?.capacity || 180} seats)
-                    </option>
-                  ))
-                ) : (
-                  <option value="A320">A320 (Cap: 180 seats)</option>
-                )}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500">Airport Category</label>
-              <select
-                value={airportClass}
-                onChange={(e) => setAirportClass(e.target.value as any)}
-                className="border border-brand-border rounded-xl px-3 py-2 text-xs focus:outline-none"
-              >
-                <option value="large">Large Hub ({feeLarge.toLocaleString()} QAR)</option>
-                <option value="medium">Medium Airport ({feeMedium.toLocaleString()} QAR)</option>
-                <option value="small">Small Airport ({feeSmall.toLocaleString()} QAR)</option>
+                {MASTER_AIRCRAFT_LIST.map((ac) => (
+                  <option key={ac.icao} value={ac.icao}>
+                    {ac.name} ({ac.icao}) — {ac.rate} kg/hr fuel burn
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -1796,8 +1807,9 @@ export function LegSimulatorPanel() {
                 type="number"
                 value={fuelBurned}
                 onChange={(e) => setFuelBurned(Math.max(0, parseInt(e.target.value) || 0))}
-                className="border border-brand-border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none"
+                className="border border-brand-border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none text-emerald-700 bg-emerald-50/30"
               />
+              <span className="text-[9px] text-gray-400">Auto-calc: {FUEL_BURN_RATES[selectedAircraft] || 2500} kg/h</span>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -1808,6 +1820,7 @@ export function LegSimulatorPanel() {
                 onChange={(e) => setLandingFpm(Math.max(0, parseInt(e.target.value) || 0))}
                 className="border border-brand-border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none"
               />
+              <span className="text-[9px] text-gray-400">0-150 FPM = 0 QAR</span>
             </div>
           </div>
 
@@ -1861,25 +1874,26 @@ export function LegSimulatorPanel() {
 
           <div className="border-t border-brand-border/30 pt-3 space-y-2 text-xs">
             <div className="flex justify-between">
-              <span className="text-gray-500 font-semibold">🎟️ Passenger Revenue:</span>
+              <span className="text-gray-500 font-semibold">🎟️ Passenger Revenue ({paxCount} pax × {flightTime} m):</span>
               <span className="font-black text-gray-700">{grossRevenue.toLocaleString()} QAR</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 font-semibold">✈️ Dynamic Operating Cost:</span>
+              <span className="text-gray-500 font-semibold">✈️ Operating Cost (70% + 5% var):</span>
               <span className="font-black text-rose-700">-{operatingCost.toLocaleString()} QAR</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 font-semibold">⛽ Fuel Cost:</span>
+              <span className="text-gray-500 font-semibold">⛽ Fuel Cost ({fuelBurned.toLocaleString()} kg):</span>
               <span className="font-black text-rose-700">-{fuelCost.toLocaleString()} QAR</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500 font-semibold">🏢 Landing Fee ({airportClass.toUpperCase()}):</span>
-              <span className="font-black text-rose-700">-{landingFee.toLocaleString()} QAR</span>
-            </div>
-            {landingPenalty > 0 && (
+            {landingPenalty > 0 ? (
               <div className="flex justify-between">
-                <span className="text-gray-500 font-semibold">💥 Hard Landing Penalty:</span>
+                <span className="text-gray-500 font-semibold">💥 Landing Penalty ({landingFpm} FPM):</span>
                 <span className="font-black text-rose-700">-{landingPenalty.toLocaleString()} QAR</span>
+              </div>
+            ) : (
+              <div className="flex justify-between">
+                <span className="text-gray-500 font-semibold">🧈 Touchdown ({landingFpm} FPM):</span>
+                <span className="font-black text-emerald-600">0 QAR (Smooth)</span>
               </div>
             )}
             {isDiverted && (

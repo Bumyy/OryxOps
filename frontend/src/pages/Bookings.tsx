@@ -445,12 +445,12 @@ export default function Bookings() {
                               </div>
                               <div className="flex justify-between">
                                 <span>🧈 Soft Touchdown Threshold:</span>
-                                <span className="font-bold">100 FPM (No Penalty)</span>
+                                <span className="font-bold">150 FPM (No Penalty)</span>
                               </div>
-                              {b.landing_fpm && b.landing_fpm > 100 && (
+                              {b.landing_fpm && b.landing_fpm > 150 && (
                                 <div className="flex justify-between text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded mt-1 text-[9.5px]">
                                   <span>📉 Rate Penalty:</span>
-                                  <span>-{((b.landing_fpm - 100) / 4).toFixed(1)}% (-1% per 4 FPM over threshold)</span>
+                                  <span>-{((b.landing_fpm - 150) / 4).toFixed(1)}% (-1% per 4 FPM over threshold)</span>
                                 </div>
                               )}
                             </div>
@@ -498,7 +498,7 @@ export default function Bookings() {
                                     {b.pax_count} passengers loaded
                                   </div>
                                   <div className="text-[8.5px] text-brand-dark italic mt-0.5">
-                                    Formula: Pax * ({rates.econ_ticket_base_price} Base + {b.flight_time_minutes ? b.flight_time_minutes : 0} min * {rates.econ_ticket_duration_rate} Duration)
+                                    Formula: Pax ({b.pax_count}) × Mins ({b.flight_time_minutes || 0}) × Rate ({rates.econ_ticket_base_price} QAR/pax·m)
                                   </div>
                                 </div>
                                 <div className="font-black text-emerald-700 text-right whitespace-nowrap">
@@ -525,21 +525,13 @@ export default function Bookings() {
                               {/* Aircraft Operating Cost */}
                               {(() => {
                                 const ac_icao = b.aircraft_icao || "A320";
-                                const mapped_key = ({
-                                  "A380": "A388", "B787": "B788", "B789": "B788",
-                                  "B777": "B77W", "B772": "B77L", "B77F": "B77L",
-                                  "A330": "A333", "A332": "A333", "A340": "A359"
-                                } as Record<string, string>)[ac_icao.toUpperCase()] || ac_icao.toUpperCase();
-                                const capacity = (aircraftData as any)?.[mapped_key]?.properties?.capacity || 180;
-                                const fixed_cost = capacity * rates.econ_fixed_rate_per_seat;
-                                const service_cost = (b.pax_count || 100) * rates.econ_service_rate_per_pax;
-                                const operating_cost = fixed_cost + service_cost;
+                                const operating_cost = Math.round((b.earnings || 0) * 0.70 * 1.05);
                                 return (
                                   <div className="flex justify-between items-start border-t border-gray-100 pt-3">
                                     <div>
                                       <div className="font-black text-gray-700">✈️ Aircraft Operating Cost ({ac_icao})</div>
                                       <div className="text-[9px] text-gray-400 mt-0.5">
-                                        Fixed: {capacity} seats × {rates.econ_fixed_rate_per_seat} QAR | Service: {b.pax_count} pax × {rates.econ_service_rate_per_pax} QAR
+                                        70% Gross Revenue (covers airport fees & route maintenance)
                                       </div>
                                     </div>
                                     <div className="font-black text-rose-700 text-right whitespace-nowrap">
@@ -553,7 +545,7 @@ export default function Bookings() {
                               {b.landing_fpm !== null && b.landing_fpm !== undefined && (
                                 <div className="flex justify-between items-start border-t border-gray-100 pt-3">
                                   <div>
-                                    <div className={`font-black ${b.landing_fpm > 100 ? "text-red-700" : "text-gray-700"}`}>
+                                    <div className={`font-black ${b.landing_fpm > 150 ? "text-red-700" : "text-gray-700"}`}>
                                       💥 Touchdown Landing Penalty
                                     </div>
                                     <div className="text-[9px] text-gray-400 mt-0.5">Landing rate: {b.landing_fpm} FPM</div>
@@ -561,10 +553,10 @@ export default function Bookings() {
                                   <div className="font-black text-rose-700 text-right whitespace-nowrap">
                                     -{(() => {
                                       const fpm = b.landing_fpm;
-                                      if (fpm <= 100) return 0;
-                                      if (fpm <= 200) return 500;
-                                      if (fpm <= 300) return 2000;
-                                      if (fpm <= 400) return 6000;
+                                      if (fpm <= 150) return 0;
+                                      if (fpm <= 250) return 500;
+                                      if (fpm <= 350) return 2000;
+                                      if (fpm <= 450) return 6000;
                                       return 15000;
                                     })().toLocaleString()} QAR
                                   </div>
@@ -585,44 +577,6 @@ export default function Bookings() {
                                   </div>
                                 </div>
                               )}
-
-                              {/* Airport Landing Fee */}
-                              {(() => {
-                                const fuel_exp = (b.fuel_burned || 0) * rates.econ_fuel_price_rate;
-                                const ac_icao = b.aircraft_icao || "A320";
-                                const mapped_key = ({
-                                  "A380": "A388", "B787": "B788", "B789": "B788",
-                                  "B777": "B77W", "B772": "B77L", "B77F": "B77L",
-                                  "A330": "A333", "A332": "A333", "A340": "A359"
-                                } as Record<string, string>)[ac_icao.toUpperCase()] || ac_icao.toUpperCase();
-                                const capacity = (aircraftData as any)?.[mapped_key]?.properties?.capacity || 180;
-                                const operating_cost = (capacity * rates.econ_fixed_rate_per_seat) + ((b.pax_count || 100) * rates.econ_service_rate_per_pax);
-                                const diversion_charge = b.diverted ? ((b.pax_count || 100) * rates.econ_diversion_charge_per_pax) : 0;
-                                const fpm = b.landing_fpm || 100;
-                                let landing_penalty = 0;
-                                if (fpm > 100) {
-                                  if (fpm <= 200) landing_penalty = 500;
-                                  else if (fpm <= 300) landing_penalty = 2000;
-                                  else if (fpm <= 400) landing_penalty = 6000;
-                                  else landing_penalty = 15000;
-                                }
-                                const total_exp = b.expenses || 0;
-                                const landing_fee = Math.max(0, Math.round(total_exp - fuel_exp - landing_penalty - operating_cost - diversion_charge));
-                                if (landing_fee <= 0) return null;
-                                return (
-                                  <div className="flex justify-between items-start border-t border-gray-100 pt-3">
-                                    <div>
-                                      <div className="font-black text-gray-700">
-                                        🏢 {b.diverted ? "Diverted" : "Dest."} Airport Landing Fee ({b.actual_arrival || b.flight_arrival})
-                                      </div>
-                                      <div className="text-[9px] text-gray-400 mt-0.5">Assessed landing dispatch fee</div>
-                                    </div>
-                                    <div className="font-black text-rose-700 text-right whitespace-nowrap">
-                                      -{landing_fee.toLocaleString()} QAR
-                                    </div>
-                                  </div>
-                                );
-                              })()}
 
                               {/* Net Totals */}
                               <div className="border-t-2 border-double border-brand-border/40 pt-3 mt-4 space-y-1 text-xs">

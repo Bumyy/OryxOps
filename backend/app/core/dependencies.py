@@ -48,12 +48,12 @@ async def get_current_staff(
     result = await db.execute(
         select(Permission).where(
             Permission.userid == pilot.id,
-            Permission.name.in_(["admin", "opsmanage"]),
+            Permission.name == "admin",
         ).limit(1)
     )
     perm = result.scalar_one_or_none()
     if perm is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return pilot
 
 

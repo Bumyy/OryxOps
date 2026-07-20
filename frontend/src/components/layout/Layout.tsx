@@ -231,40 +231,54 @@ export default function Layout() {
             sidebarCollapsed ? "px-1.5 no-scrollbar" : "px-3"
           }`}
         >
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              title={sidebarCollapsed ? item.label : undefined}
-              className={`flex items-center rounded-xl text-sm font-semibold transition-colors duration-200 ${
-                sidebarCollapsed ? "justify-center py-2" : "gap-3 px-3 py-2.5"
-              } ${
-                location.pathname === item.path ||
-                (item.path !== "/" && location.pathname.startsWith(item.path))
-                  ? "bg-brand text-white"
-                  : "text-gray-600 hover:bg-brand-hover-bg hover:text-brand"
-              }`}
-            >
-              <svg
-                className="w-5 h-5 flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
+          {/* Main Navigation - Requires Award ID 9 or Admin */}
+          {(user?.has_pilot_access || user?.is_admin) ? (
+            navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                title={sidebarCollapsed ? item.label : undefined}
+                className={`flex items-center rounded-xl text-sm font-semibold transition-colors duration-200 ${
+                  sidebarCollapsed ? "justify-center py-2" : "gap-3 px-3 py-2.5"
+                } ${
+                  location.pathname === item.path ||
+                  (item.path !== "/" && location.pathname.startsWith(item.path))
+                    ? "bg-brand text-white"
+                    : "text-gray-600 hover:bg-brand-hover-bg hover:text-brand"
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d={item.icon}
-                />
-              </svg>
-              {!sidebarCollapsed && (
-                <span className="truncate">{item.label}</span>
-              )}
-            </Link>
-          ))}
+                <svg
+                  className="w-5 h-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d={item.icon}
+                  />
+                </svg>
+                {!sidebarCollapsed && (
+                  <span className="truncate">{item.label}</span>
+                )}
+              </Link>
+            ))
+          ) : (
+            !sidebarCollapsed && (
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3 mb-2 text-center text-amber-800 space-y-1">
+                <div className="text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1">
+                  📱 EFB Standalone Mode
+                </div>
+                <p className="text-[10px] text-amber-700 font-medium leading-tight">
+                  SimBrief & Flight Tools active. Full airline portal requires Award ID 9.
+                </p>
+              </div>
+            )
+          )}
 
-          {/* EFB section */}
+          {/* EFB section - Always visible to all users */}
           <div className="pt-3 mt-3 border-t border-brand-border">
             <button
               onClick={() => setEfbOpen(!efbOpen)}
@@ -350,96 +364,98 @@ export default function Layout() {
             )}
           </div>
 
-          {/* Admin section */}
-          <div className="pt-3 mt-3 border-t border-brand-border">
-            <button
-              onClick={() => setAdminOpen(!adminOpen)}
-              title={sidebarCollapsed ? "Admin Panel" : undefined}
-              className={`flex items-center rounded-xl text-sm font-semibold text-gray-500 hover:bg-brand-hover-bg hover:text-brand w-full transition-colors duration-200 ${
-                sidebarCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
-              }`}
-            >
-              <svg
-                className="w-5 h-5 flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              {!sidebarCollapsed && (
-                <>
-                  <span>Admin</span>
-                  <svg
-                    className={`w-4 h-4 ml-auto transition-transform ${
-                      adminOpen ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </>
-              )}
-            </button>
-            {adminOpen && (
-              <div
-                className={`mt-0.5 space-y-0.5 ${
-                  sidebarCollapsed ? "" : "ml-2"
+          {/* Admin section - Only visible to Admin or Executive */}
+          {user?.is_admin && (
+            <div className="pt-3 mt-3 border-t border-brand-border">
+              <button
+                onClick={() => setAdminOpen(!adminOpen)}
+                title={sidebarCollapsed ? "Admin Panel" : undefined}
+                className={`flex items-center rounded-xl text-sm font-semibold text-gray-500 hover:bg-brand-hover-bg hover:text-brand w-full transition-colors duration-200 ${
+                  sidebarCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
                 }`}
               >
-                {adminItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    title={sidebarCollapsed ? item.label : undefined}
-                    className={`flex items-center rounded-xl text-sm font-semibold transition-colors duration-200 ${
-                      sidebarCollapsed
-                        ? "justify-center p-2"
-                        : "gap-3 px-3 py-2"
-                    } ${
-                      location.pathname === item.path
-                        ? "bg-brand text-white"
-                        : "text-gray-500 hover:bg-brand-hover-bg hover:text-brand"
-                    }`}
-                  >
+                <svg
+                  className="w-5 h-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                {!sidebarCollapsed && (
+                  <>
+                    <span>Admin</span>
                     <svg
-                      className="w-4 h-4 flex-shrink-0"
+                      className={`w-4 h-4 ml-auto transition-transform ${
+                        adminOpen ? "rotate-180" : ""
+                      }`}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
-                      strokeWidth={1.5}
+                      strokeWidth={2}
                     >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d={item.icon}
+                        d="M19 9l-7 7-7-7"
                       />
                     </svg>
-                    {!sidebarCollapsed && (
-                      <span className="truncate">{item.label}</span>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+                  </>
+                )}
+              </button>
+              {adminOpen && (
+                <div
+                  className={`mt-0.5 space-y-0.5 ${
+                    sidebarCollapsed ? "" : "ml-2"
+                  }`}
+                >
+                  {adminItems.map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      title={sidebarCollapsed ? item.label : undefined}
+                      className={`flex items-center rounded-xl text-sm font-semibold transition-colors duration-200 ${
+                        sidebarCollapsed
+                          ? "justify-center p-2"
+                          : "gap-3 px-3 py-2"
+                      } ${
+                        location.pathname === item.path
+                          ? "bg-brand text-white"
+                          : "text-gray-500 hover:bg-brand-hover-bg hover:text-brand"
+                      }`}
+                    >
+                      <svg
+                        className="w-4 h-4 flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d={item.icon}
+                        />
+                      </svg>
+                      {!sidebarCollapsed && (
+                        <span className="truncate">{item.label}</span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
 
         {/* Bottom user info */}

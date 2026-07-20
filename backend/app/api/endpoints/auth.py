@@ -35,22 +35,27 @@ async def get_me(
     pilot: Pilot = Depends(get_current_pilot),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.live_models import Permission, StaffRole
+    from app.models.live_models import Permission, AwardGranted
 
     perm_result = await db.execute(
         select(Permission).where(
             Permission.userid == pilot.id,
-            Permission.name.in_(["admin", "opsmanage"]),
+            Permission.name == "admin",
         ).limit(1)
     )
-    has_perm = perm_result.scalar_one_or_none() is not None
+    is_admin_perm = perm_result.scalar_one_or_none() is not None
+    is_executive = pilot.callsign and pilot.callsign.upper() in ["QRV001", "QRV002", "QRV003", "QRV004"]
+    is_admin = is_admin_perm or is_executive
 
-    role_result = await db.execute(
-        select(StaffRole).where(StaffRole.user_id == pilot.id).limit(1)
+    award_result = await db.execute(
+        select(AwardGranted).where(
+            AwardGranted.pilotid == pilot.id,
+            AwardGranted.awardid == 9,
+        ).limit(1)
     )
-    has_role = role_result.scalar_one_or_none() is not None
+    has_award_9 = award_result.scalar_one_or_none() is not None
 
-    is_staff = has_perm or has_role
+    has_pilot_access = has_award_9 or is_admin
 
     return {
         "id": pilot.id,
@@ -64,6 +69,9 @@ async def get_me(
         "status": pilot.status,
         "joined": str(pilot.joined) if pilot.joined else None,
         "avatar": get_pilot_avatar(pilot),
-        "is_staff": is_staff,
+        "is_staff": is_admin,
+        "is_admin": is_admin,
+        "has_award_9": has_award_9,
+        "has_pilot_access": has_pilot_access,
         "simbrief_id": pilot.simbrief_id,
     }
