@@ -1347,6 +1347,7 @@ export function WavesTab() {
 
 export function SettingsTab() {
   const dispatch = useAppDispatch();
+  const user = useAppSelector((s) => s.auth.user);
   const { settings } = useAppSelector((s) => s.admin);
   const [ifStatus, setIfStatus] = useState<{ connected: boolean; scopes?: string } | null>(null);
   const [ifMatches, setIfMatches] = useState<any>(null);
@@ -1420,37 +1421,61 @@ export function SettingsTab() {
 
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
         <div className="space-y-3">
-          {settings.map((s) => (
-            <div
-              key={s.setting_key}
-              className="flex items-center justify-between py-2 border-b border-brand-border last:border-0"
-            >
-              <div>
-                <p className="font-semibold text-sm">{s.setting_key}</p>
-                <p className="text-xs text-gray-400">{s.description}</p>
-              </div>
-              <input
-                defaultValue={s.setting_value}
-                onBlur={async (e) => {
-                  if (e.target.value !== s.setting_value) {
-                    const res = await dispatch(
-                      updateSetting({
-                        key: s.setting_key,
-                        value: e.target.value,
-                      })
-                    );
-                    if (!updateSetting.fulfilled.match(res)) {
-                      alert(
-                        "Failed to update setting: " +
-                          (res.error?.message || "Unknown error")
+          {settings.map((s) => {
+            const isRateSetting = s.setting_key.startsWith("econ_") || s.setting_key.startsWith("repu_");
+            const isDisabled = isRateSetting && !user?.is_executive;
+
+            return (
+              <div
+                key={s.setting_key}
+                className="flex items-center justify-between py-2 border-b border-brand-border last:border-0"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm">{s.setting_key}</p>
+                    {isRateSetting && (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          user?.is_executive
+                            ? "bg-amber-100 text-amber-800 border border-amber-200"
+                            : "bg-gray-100 text-gray-500 border border-gray-200"
+                        }`}
+                      >
+                        {user?.is_executive ? "👑 Executive Rate" : "🔒 Executive Only (QRV001-004)"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400">{s.description}</p>
+                </div>
+                <input
+                  defaultValue={s.setting_value}
+                  disabled={isDisabled}
+                  title={isDisabled ? "Rate settings can only be modified by QRV001 to QRV004" : undefined}
+                  onBlur={async (e) => {
+                    if (e.target.value !== s.setting_value) {
+                      const res = await dispatch(
+                        updateSetting({
+                          key: s.setting_key,
+                          value: e.target.value,
+                        })
                       );
+                      if (!updateSetting.fulfilled.match(res)) {
+                        alert(
+                          "Failed to update setting: " +
+                            (res.error?.message || "Unknown error")
+                        );
+                      }
                     }
-                  }
-                }}
-                className="border border-brand-border rounded-lg px-3 py-1.5 text-sm w-40"
-              />
-            </div>
-          ))}
+                  }}
+                  className={`border rounded-lg px-3 py-1.5 text-sm w-40 ${
+                    isDisabled
+                      ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                      : "border-brand-border bg-white"
+                  }`}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 

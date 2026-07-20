@@ -63,7 +63,7 @@ async def get_me(
         ).limit(1)
     )
     has_award_9 = award_result.scalar_one_or_none() is not None
-    has_pilot_access = True  # Registered pilots have access to pilot portal
+    has_pilot_access = has_award_9 or is_admin
 
     return {
         "id": pilot.id,

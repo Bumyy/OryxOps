@@ -34,20 +34,23 @@ async def update_setting(
     pilot: Pilot = Depends(get_current_pilot),
 ):
     # Security authorization check
+    clean_callsign = pilot.callsign.strip().upper() if pilot.callsign else ""
+    is_exec = clean_callsign in ["QRV001", "QRV002", "QRV003", "QRV004"]
     is_rate_setting = key.startswith("econ_") or key.startswith("repu_")
     if is_rate_setting:
-        if not (pilot.callsign and pilot.callsign.upper() in ["QRV001", "QRV002", "QRV003", "QRV004"]):
+        if not is_exec:
             raise HTTPException(status_code=403, detail="Only QRV001 to QRV004 can update rate settings")
     else:
-        # Check standard admin permission
-        result = await db.execute(
-            select(Permission).where(
-                Permission.userid == pilot.id,
-                Permission.name == "admin",
-            ).limit(1)
-        )
-        if result.scalar_one_or_none() is None:
-            raise HTTPException(status_code=403, detail="Admin access required")
+        if not is_exec:
+            # Check standard admin permission
+            result = await db.execute(
+                select(Permission).where(
+                    Permission.userid == pilot.id,
+                    Permission.name == "admin",
+                ).limit(1)
+            )
+            if result.scalar_one_or_none() is None:
+                raise HTTPException(status_code=403, detail="Admin access required")
 
     result = await db.execute(select(LiveSetting).where(LiveSetting.setting_key == key))
     setting = result.scalar_one_or_none()

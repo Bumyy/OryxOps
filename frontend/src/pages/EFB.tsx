@@ -299,17 +299,22 @@ export default function EFB() {
       engine_start_sequence: [1, 2],
       engine_stable_percentage: 20
     };
-    if (!aircraftInfo) return defaultData;
+    if (!aircraftInfo || !aircraftInfo.performance_data) return defaultData;
     const acData = aircraftInfo.performance_data;
+    if (!acData.takeoff_data || !acData.cruise_profile) return defaultData;
     
-    const takeoffPerf = acData.takeoff_data.find(
-      (p: any) => p.load_range[0] <= activeLoad && activeLoad <= p.load_range[1]
-    ) || acData.takeoff_data[acData.takeoff_data.length - 1];
+    const takeoffPerf = Array.isArray(acData.takeoff_data)
+      ? acData.takeoff_data.find(
+          (p: any) => p.load_range?.[0] <= activeLoad && activeLoad <= p.load_range?.[1]
+        ) || acData.takeoff_data[acData.takeoff_data.length - 1]
+      : null;
 
-    const cruiseProfile = acData.cruise_profile[activeDirection] || acData.cruise_profile["east"];
-    const cruisePerf = cruiseProfile.find(
-      (p: any) => p.load_range[0] <= activeLoad && activeLoad <= p.load_range[1]
-    ) || cruiseProfile[cruiseProfile.length - 1];
+    const cruiseProfile = acData.cruise_profile?.[activeDirection] || acData.cruise_profile?.["east"] || [];
+    const cruisePerf = Array.isArray(cruiseProfile)
+      ? cruiseProfile.find(
+          (p: any) => p.load_range?.[0] <= activeLoad && activeLoad <= p.load_range?.[1]
+        ) || cruiseProfile[cruiseProfile.length - 1]
+      : null;
 
     return {
       takeoff_flaps: takeoffPerf?.flaps || "1",
