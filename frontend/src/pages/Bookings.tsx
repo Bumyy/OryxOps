@@ -197,13 +197,13 @@ export default function Bookings() {
                       {isDispatched ? "Open Flight Ops → File PIREP" : "Open Flight Ops → Dispatch"}
                     </button>
 
-                    {/* Secondary: Cancel (only undispatched departure pilot) */}
-                    {!isDispatched && isDeparturePilot && (
+                    {/* Secondary: Cancel (assigned pilots) */}
+                    {(user?.id === b.departure_pilot_id || user?.id === b.arrival_pilot_id) && (
                       <button
                         onClick={() => handleCancel(b.id)}
-                        className="text-[10px] text-red-500 font-bold hover:underline text-center cursor-pointer"
+                        className="text-xs font-bold text-red-500 hover:text-red-700 hover:underline text-center cursor-pointer py-1"
                       >
-                        Cancel Booking
+                        ❌ Cancel Booking
                       </button>
                     )}
 

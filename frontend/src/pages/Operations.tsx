@@ -209,9 +209,19 @@ export default function Operations() {
                   {activeBooking.flight_departure} ➔ {activeBooking.flight_arrival}
                 </h3>
               </div>
-              <span className="text-xs font-black text-brand bg-brand-pale border border-brand-border/50 px-3 py-1.5 rounded-xl">
-                {activeBooking.flight_number || "QR-OPS"}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-black text-brand bg-brand-pale border border-brand-border/50 px-3 py-1.5 rounded-xl">
+                  {activeBooking.flight_number || "QR-OPS"}
+                </span>
+                {(isDeparturePilot || isArrivalPilot) && (
+                  <button
+                    onClick={handleCancelFlight}
+                    className="text-xs font-bold text-red-600 hover:text-white hover:bg-red-600 border border-red-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                  >
+                    Cancel Booking
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
@@ -265,7 +275,7 @@ export default function Operations() {
                     Waiting for takeoff pilot to dispatch
                   </div>
                 )}
-                {isDeparturePilot && (
+                {(isDeparturePilot || isArrivalPilot) && (
                   <button
                     onClick={handleCancelFlight}
                     className="text-[10px] text-red-500 font-bold hover:underline text-center cursor-pointer"
