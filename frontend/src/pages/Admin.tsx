@@ -1479,6 +1479,47 @@ export function SettingsTab() {
         </div>
       </div>
 
+      {/* Discord Fleet Logs Webhook Card */}
+      <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-brand-border/40 pb-3">
+          <div>
+            <h3 className="text-lg font-black text-brand-dark flex items-center gap-2">
+              <span>💬</span> Discord #fleet-logs Webhook
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Configure the Webhook URL for publishing live enroute status & parked flight movement logs with pilot mentions.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <input
+            type="text"
+            placeholder="https://discord.com/api/webhooks/..."
+            defaultValue={settings.find(s => s.setting_key === "discord_fleet_logs_webhook_url")?.setting_value || ""}
+            onBlur={async (e) => {
+              const val = e.target.value.trim();
+              const current = settings.find(s => s.setting_key === "discord_fleet_logs_webhook_url")?.setting_value;
+              if (val !== current) {
+                const res = await dispatch(
+                  updateSetting({
+                    key: "discord_fleet_logs_webhook_url",
+                    value: val,
+                  })
+                );
+                if (updateSetting.fulfilled.match(res)) {
+                  alert("Discord fleet logs webhook URL saved!");
+                  dispatch(fetchSettings());
+                } else {
+                  alert("Failed to save webhook URL: " + (res.error?.message || "Unknown error"));
+                }
+              }
+            }}
+            className="w-full border border-brand-border bg-gray-50/50 rounded-xl px-4 py-2.5 text-xs font-mono focus:bg-white focus:border-brand focus:outline-none"
+          />
+        </div>
+      </div>
+
       {/* Infinite Flight Integration */}
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">

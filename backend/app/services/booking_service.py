@@ -511,11 +511,12 @@ async def complete_booking(
     arr_callsign = booking.arrival_pilot.callsign if booking.arrival_pilot else None
     dep_pilot_id = booking.departure_pilot_id
     arr_pilot_id = booking.arrival_pilot_id
+    active_pilot = booking.departure_pilot if is_departure_only else (booking.arrival_pilot or booking.departure_pilot)
 
     await db.commit()
     await db.refresh(booking)
 
-    # Post to Discord Webhook
+    # Post to Discord Webhook (Embed)
     await post_completion_webhook(
         db=db,
         dep_icao=dep_icao,
@@ -534,7 +535,42 @@ async def complete_booking(
         expenses=total_expenses
     )
 
+    # Post Parked Fleet Log Message to Discord #fleet-logs
+    try:
+        from app.services.discord_service import build_parked_message, send_fleet_log_webhook
+        parked_msg = build_parked_message(active_pilot, ac_icao, ac_reg, arrival_airport)
+        await send_fleet_log_webhook(db, parked_msg)
+    except Exception as err:
+        pass
+
     return booking
+
+
+async def announce_enroute_status(db: AsyncSession, booking_id: int, pilot_id: int) -> bool:
+    """Sends the enroute fleet log message to Discord #fleet-logs for a dispatched booking."""
+    booking = await get_booking(db, booking_id)
+    if not booking or not booking.dispatched_at:
+        return False
+
+    # Verify pilot belongs to this booking
+    if booking.departure_pilot_id != pilot_id and booking.arrival_pilot_id != pilot_id:
+        return False
+
+    pilot = booking.departure_pilot if booking.departure_pilot_id == pilot_id else booking.arrival_pilot
+
+    ac_icao = "A320"
+    ac_reg = "A7-AAA"
+    if booking.schedule and booking.schedule.aircraft:
+        ac_reg = booking.schedule.aircraft.registration or "A7-AAA"
+        if booking.schedule.aircraft.aircraft_type:
+            ac_icao = booking.schedule.aircraft.aircraft_type.icao or "A320"
+
+    dest = (booking.schedule.arrival or "OTHH").upper() if booking.schedule else "OTHH"
+
+    from app.services.discord_service import build_enroute_message, send_fleet_log_webhook
+    msg = build_enroute_message(pilot, ac_icao, ac_reg, dest)
+    return await send_fleet_log_webhook(db, msg)
+
 
 
 async def post_completion_webhook(

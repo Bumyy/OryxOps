@@ -188,6 +188,20 @@ async def dispatch_booking_route(
     return map_booking_to_out(booking)
 
 
+@router.post("/{booking_id}/announce-status")
+async def announce_booking_status_route(
+    booking_id: int,
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_pilot),
+):
+    from app.services.booking_service import announce_enroute_status
+    ok = await announce_enroute_status(db, booking_id, pilot.id)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Could not send enroute webhook status. Check dispatch status or webhook configuration.")
+    return {"detail": "Status announced to Discord #fleet-logs"}
+
+
+
 @router.post("/{booking_id}/complete", response_model=BookingOut)
 async def complete_booking_route(
     booking_id: int,

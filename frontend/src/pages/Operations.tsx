@@ -38,8 +38,25 @@ export default function Operations() {
 
   // Operations state
   const [dispatching, setDispatching] = useState(false);
+  const [announcing, setAnnouncing] = useState(false);
+  const [announced, setAnnounced] = useState(false);
   const [paxModalOpen, setPaxModalOpen] = useState(false);
   const [paxModalCount, setPaxModalCount] = useState<number | null>(null);
+
+  const handleAnnounceStatus = async () => {
+    if (!activeBooking) return;
+    setAnnouncing(true);
+    try {
+      await api.post(`/bookings/${activeBooking.id}/announce-status`);
+      setAnnounced(true);
+      setTimeout(() => setAnnounced(false), 5000);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || "Failed to post webhook status.");
+    } finally {
+      setAnnouncing(false);
+    }
+  };
+
 
 
 
@@ -260,7 +277,29 @@ export default function Operations() {
             </div>
           ) : (
             /* 📝 ACTIVE OPERATIONS DASHBOARD */
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              {/* Broadcast Fleet Movement Webhook Card */}
+              <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 rounded-3xl p-5 text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4 border border-purple-700/40">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-xl shrink-0">
+                    📡
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white">Fleet Movement Broadcast</h4>
+                    <p className="text-xs text-purple-200/80 mt-0.5">Publish live enroute status & pilot ping to #fleet-logs</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleAnnounceStatus}
+                  disabled={announcing}
+                  className="w-full sm:w-auto shrink-0 bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white font-black px-5 py-3 rounded-2xl text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  {announcing ? "Broadcasting..." : announced ? "✓ Status Posted to #fleet-logs" : "📢 Send Webhook Status"}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
               {/* Left Column: Calculator & Links */}
               <div className="space-y-6">
                 {/* External Planning Card */}
@@ -451,6 +490,7 @@ export default function Operations() {
                 )}
               </div>
             </div>
+          </div>
           )}
         </div>
       ) : (
