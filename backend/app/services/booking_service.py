@@ -707,7 +707,7 @@ async def lazy_check_payouts(db: AsyncSession, pilot_id: int):
             LiveCurrencyTransaction.reference_id == booking.id,
             LiveCurrencyTransaction.transaction_type == "flight_completed"
         )
-        payout_exists = (await db.execute(payout_stmt)).scalar_one_or_none()
+        payout_exists = (await db.execute(payout_stmt)).scalars().first()
         if payout_exists:
             continue # Already paid
             
