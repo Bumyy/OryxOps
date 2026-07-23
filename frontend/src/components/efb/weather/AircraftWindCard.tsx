@@ -16,6 +16,7 @@ import {
 } from "./WindCalculations";
 import { COLORS } from "./constants";
 import type { DatabaseRunway, MetarReport } from "./types";
+import { useAppSelector } from "../../../store/hooks";
 
 interface AircraftWindCardProps {
   rwy:          string;
@@ -38,6 +39,13 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
   aircraftIcao,
   uid,
 }: AircraftWindCardProps) {
+  const aircraftsDb = useAppSelector((state) => state.aircraft.specs) || {};
+  const resolvedAircraftKey = aircraftIcao === "A35K" ? "A359" : aircraftIcao;
+  const aircraftSpec = aircraftsDb[resolvedAircraftKey as keyof typeof aircraftsDb] as any;
+  const minRunwayLength = aircraftSpec?.properties?.min_runway_length_ft || 0;
+
+  const isTooShort = dbRwyInfo && minRunwayLength > 0 && dbRwyInfo.length_ft < minRunwayLength;
+
   const vectors = getWindVectors(rwy, metar.wdir, metar.wspd);
   if (!vectors) return null;
 
@@ -96,6 +104,18 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
               </div>
             )}
           </div>
+
+          {isTooShort && (
+            <div className="absolute inset-0 bg-red-950/85 backdrop-blur-[2px] z-30 flex flex-col items-center justify-center p-4 text-center select-none">
+              <span className="text-4xl mb-2">❌</span>
+              <span className="text-white text-xs font-black tracking-widest uppercase mb-1">
+                RUNWAY INELIGIBLE
+              </span>
+              <span className="text-red-200 text-[10px] font-bold max-w-[200px] leading-relaxed">
+                Runway length of {dbRwyInfo.length_ft.toLocaleString()} ft is below {aircraftIcao} minimum requirement of {minRunwayLength.toLocaleString()} ft.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Arc Gauges */}
@@ -153,6 +173,19 @@ export const AircraftWindCard = React.memo(function AircraftWindCard({
               )}
             </div>
           </div>
+
+          {/* Runway Length Exceeded Alert */}
+          {isTooShort && (
+            <div className="bg-red-50/70 border border-red-200 rounded-xl p-3 mb-4 flex gap-2.5 items-start text-red-950">
+              <span className="text-sm shrink-0">⚠️</span>
+              <div className="text-[10px] leading-relaxed">
+                <p className="font-bold text-red-900">Runway Length Alert</p>
+                <p className="text-red-700 mt-0.5">
+                  Available length (<strong>{dbRwyInfo.length_ft.toLocaleString()} ft</strong>) is less than the aircraft minimum operational requirement of <strong>{minRunwayLength.toLocaleString()} ft</strong>.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Wind Summary Card */}
           <div

@@ -276,7 +276,8 @@ export default function EFB() {
 
   const aircraftCode = (efbDataSource === "simbrief" && ofpData?.aircraft?.icao_code?.toUpperCase()) || activeBooking?.aircraft_icao?.toUpperCase() || "";
   const activeAircraft = aircraftOverride || aircraftCode || "A320";
-  const aircraftInfo = aircraftsDb[activeAircraft as keyof typeof aircraftsDb] as any;
+  const resolvedAircraftKey = activeAircraft === "A35K" ? "A359" : activeAircraft;
+  const aircraftInfo = aircraftsDb[resolvedAircraftKey as keyof typeof aircraftsDb] as any;
 
   // Retrieve performance data
   const getPerformanceData = () => {
@@ -634,9 +635,17 @@ export default function EFB() {
         });
       }
 
+      let textSection = section.text_section || null;
+      if (section.title === "PRE-FLIGHT NOTAMS" && activeAircraft === "A35K") {
+        textSection = [
+          "⚠️ WARNING: The official Infinite Flight guide for the Airbus A350-1000 (A35K) is not released yet. The A350-900 (A359) profile is displayed as a temporary reference. Use with caution!",
+          ...(section.text_section || [])
+        ];
+      }
+
       return {
         title: section.title,
-        text_section: section.text_section || null,
+        text_section: textSection,
         items
       };
     });
@@ -709,6 +718,25 @@ export default function EFB() {
     const distance = d[m][n];
     const maxLength = Math.max(m, n);
     return 1.0 - (distance / maxLength);
+  };
+
+  // Helper to format section titles for clean audio announcements
+  const getCleanAudioTitle = (title: string): string => {
+    let t = title.toUpperCase().trim();
+    if (t.includes("NOTAM")) return "Notams";
+    if (t.includes("FLAP RETRACTION")) return "Flap retraction";
+    if (t.includes("PRE-FLIGHT")) return "Pre-flight";
+    if (t.includes("ENGINE START")) return "Engine start";
+    if (t.includes("BEFORE TAXI")) return "Before taxi";
+    if (t.includes("BEFORE TAKEOFF")) return "Before takeoff";
+    if (t.includes("TAKEOFF")) return "Takeoff";
+    if (t.includes("CLIMB")) return "Climb";
+    if (t.includes("CRUISE")) return "Cruise";
+    if (t.includes("DESCENT")) return "Descent";
+    if (t.includes("APPROACH")) return "Approach";
+    if (t.includes("AFTER LANDING")) return "After landing";
+    if (t.includes("SHUTDOWN")) return "Shutdown";
+    return title.charAt(0).toUpperCase() + title.slice(1).toLowerCase();
   };
 
   // Phonetic translation dictionary for natural pronunciation
@@ -907,18 +935,69 @@ export default function EFB() {
       }
     } else {
       const nextPhaseIdx = activePhaseIndex + 1;
-      if (nextPhaseIdx < compiledChecklist.length) {
-        if (autoCollapse) {
-          setActivePhaseIndex(nextPhaseIdx);
+      
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        const cleanTitle = getCleanAudioTitle(currentSection.title);
+        const completionText = `${cleanTitle} checklist completed.`;
+        
+        setCopilotState("SPEAKING_CHALLENGE");
+        
+        if (recognitionRef.current && isListeningRef.current) {
+          try { recognitionRef.current.stop(); } catch {}
+          setIsListening(false);
         }
-        triggerCoPilotForPhase(nextPhaseIdx, currentChecked);
+        
+        window.speechSynthesis.cancel();
+        playMicClick();
+        
+        const completionUtterance = new SpeechSynthesisUtterance(completionText);
+        if (selectedVoiceName) {
+          const voice = availableVoices.find(v => v.name === selectedVoiceName);
+          if (voice) completionUtterance.voice = voice;
+        }
+        completionUtterance.rate = speechRate;
+        completionUtterance.pitch = speechPitch;
+        
+        completionUtterance.onend = () => {
+          if (!coPilotRunningRef.current) return;
+          playMicClick();
+          
+          setTimeout(() => {
+            if (!coPilotRunningRef.current) return;
+            
+            if (nextPhaseIdx < compiledChecklist.length) {
+              setActivePhaseIndex(nextPhaseIdx);
+              triggerCoPilotForPhase(nextPhaseIdx, currentChecked);
+            } else {
+              const finalUtterance = new SpeechSynthesisUtterance("Checklist completed. Have a safe flight.");
+              if (selectedVoiceName) {
+                const voice = availableVoices.find(v => v.name === selectedVoiceName);
+                if (voice) finalUtterance.voice = voice;
+              }
+              finalUtterance.rate = speechRate;
+              finalUtterance.pitch = speechPitch;
+              finalUtterance.onend = () => {
+                playMicClick();
+              };
+              window.speechSynthesis.speak(finalUtterance);
+              
+              setCoPilotRunning(false);
+              setIsListening(false);
+              setCopilotState("IDLE");
+            }
+          }, 1000);
+        };
+        
+        window.speechSynthesis.speak(completionUtterance);
       } else {
-        if (typeof window !== "undefined" && window.speechSynthesis) {
-          window.speechSynthesis.speak(new SpeechSynthesisUtterance("Checklist completed. Have a safe flight."));
+        if (nextPhaseIdx < compiledChecklist.length) {
+          setActivePhaseIndex(nextPhaseIdx);
+          triggerCoPilotForPhase(nextPhaseIdx, currentChecked);
+        } else {
+          setCoPilotRunning(false);
+          setIsListening(false);
+          setCopilotState("IDLE");
         }
-        setCoPilotRunning(false);
-        setIsListening(false);
-        setCopilotState("IDLE");
       }
     }
   };
@@ -1039,6 +1118,10 @@ export default function EFB() {
       const next = { ...prev, [targetItemId]: true };
       playSuccessChime();
 
+      // Check if the active section is now fully completed
+      const currentSection = compiledChecklist[activePhaseIndex];
+      const hasMoreItems = currentSection && currentSection.items.some((it: any) => !next[it.id] && !it.isTable);
+
       if (coPilotRunning && autoAdvance) {
         setTimeout(() => {
           advanceCoPilotAfterCheck(next);
@@ -1053,6 +1136,14 @@ export default function EFB() {
             } catch {}
           }
         }, 500);
+      } else if (!coPilotRunning && !hasMoreItems) {
+        // If co-pilot is OFF and the section is complete, automatically transition to next page after 1 second
+        setTimeout(() => {
+          const nextPhaseIdx = activePhaseIndexRef.current + 1;
+          if (nextPhaseIdx < compiledChecklist.length) {
+            setActivePhaseIndex(nextPhaseIdx);
+          }
+        }, 1000);
       }
 
       return next;
@@ -1206,6 +1297,25 @@ export default function EFB() {
     }
   };
 
+  const handleResetPhase = (phaseIdx: number) => {
+    const section = compiledChecklist[phaseIdx];
+    if (!section || !section.items) return;
+    setCheckedItems(prev => {
+      const next = { ...prev };
+      section.items.forEach((item: any) => {
+        delete next[item.id];
+      });
+      return next;
+    });
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setCoPilotRunning(false);
+    setIsListening(false);
+    setTranscriptLog("");
+    setCopilotState("IDLE");
+  };
+
   const testSelectedVoice = () => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -1348,6 +1458,7 @@ export default function EFB() {
                 triggerKeyword={triggerKeyword}
                 toggleCoPilot={toggleCoPilot}
                 handleResetChecklist={handleResetChecklist}
+                handleResetPhase={handleResetPhase}
                 handleCheckActiveItem={handleCheckActiveItem}
                 announceChecklistItem={announceChecklistItem}
                 activePhaseIndex={activePhaseIndex}
@@ -1360,7 +1471,11 @@ export default function EFB() {
             )}
 
             {activeTab === "weather" && (
-              <EFBWeather ofpData={efbDataSource === "simbrief" ? ofpData : null} activeBooking={activeBooking} />
+              <EFBWeather
+                ofpData={efbDataSource === "simbrief" ? ofpData : null}
+                activeBooking={activeBooking}
+                activeAircraft={activeAircraft}
+              />
             )}
 
             {activeTab === "aircraft" && (

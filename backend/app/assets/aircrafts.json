@@ -1,4315 +1,746 @@
 {
     "A319": {
-        "properties": {
-            "full_name": "Airbus A319",
-            "manufacturer": "Airbus",
-            "engines": 2,
-            "capacity": 150
-        },
-        "engine_start_sequence": [
-            1,
-            2
-        ],
+        "properties": {"full_name":"Airbus A319","manufacturer":"Airbus","engines":2,"capacity":150,"min_runway_length_ft":6000},
+        "engine_start_sequence": [1,2],
         "flap_retraction_schedule": [
-            {
-                "speed": 200,
-                "setting": "1"
-            },
-            {
-                "speed": 230,
-                "setting": "0"
-            }
+            {"speed":200,"setting":"1"},
+            {"speed":230,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 230,
-                "2": 200,
-                "3": 185,
-                "F": 177
-            },
+            "flap_speeds": {"1":230,"2":200,"3":185,"F":177},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            81,
-                            100
-                        ],
-                        "altitude": "FL300"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            80
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            20
-                        ],
-                        "altitude": "FL380"
-                    }
+                    {"load_range":[81,100],"altitude":"FL300"},
+                    {"load_range":[61,80],"altitude":"FL320"},
+                    {"load_range":[41,60],"altitude":"FL340"},
+                    {"load_range":[21,40],"altitude":"FL360"},
+                    {"load_range":[0,20],"altitude":"FL380"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    }
+                    {"load_range":[71,100],"altitude":"FL310"},
+                    {"load_range":[61,70],"altitude":"FL330"},
+                    {"load_range":[41,60],"altitude":"FL350"},
+                    {"load_range":[0,40],"altitude":"FL370"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "1",
-                    "n1": "85% - 91%",
-                    "vr": 130,
-                    "va": 135
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "1",
-                    "n1": "85% - 91%",
-                    "vr": 132,
-                    "va": 137
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "1",
-                    "n1": "85% - 91%",
-                    "vr": 133,
-                    "va": 138
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "1",
-                    "n1": "85% - 91%",
-                    "vr": 135,
-                    "va": 140
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "1",
-                    "n1": "86% - 91%",
-                    "vr": 137,
-                    "va": 142
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "1",
-                    "n1": "87% - 93%",
-                    "vr": 139,
-                    "va": 144
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "1",
-                    "n1": "87% - 93%",
-                    "vr": 140,
-                    "va": 145
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "1",
-                    "n1": "89% - 95%",
-                    "vr": 143,
-                    "va": 148
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "1",
-                    "n1": "84% - 95%",
-                    "vr": 145,
-                    "va": 150
-                }
+                {"load_range":[0,27],"flaps":"1","n1":"85% - 91%","vr":130,"va":135},
+                {"load_range":[28,34],"flaps":"1","n1":"85% - 91%","vr":132,"va":137},
+                {"load_range":[35,44],"flaps":"1","n1":"85% - 91%","vr":133,"va":138},
+                {"load_range":[45,54],"flaps":"1","n1":"85% - 91%","vr":135,"va":140},
+                {"load_range":[55,64],"flaps":"1","n1":"86% - 91%","vr":137,"va":142},
+                {"load_range":[65,72],"flaps":"1","n1":"87% - 93%","vr":139,"va":144},
+                {"load_range":[73,84],"flaps":"1","n1":"87% - 93%","vr":140,"va":145},
+                {"load_range":[85,94],"flaps":"1","n1":"89% - 95%","vr":143,"va":148},
+                {"load_range":[95,100],"flaps":"1","n1":"84% - 95%","vr":145,"va":150}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "F",
-                    "vapp": 140,
-                    "vflare": 139
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "F",
-                    "vapp": 142,
-                    "vflare": 141
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "F",
-                    "vapp": 143,
-                    "vflare": 142
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "F",
-                    "vapp": 145,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "F",
-                    "vapp": 147,
-                    "vflare": 146
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "F",
-                    "vapp": 149,
-                    "vflare": 148
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "F",
-                    "vapp": 150,
-                    "vflare": 149
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "F",
-                    "vapp": 153,
-                    "vflare": 152
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "F",
-                    "vapp": 155,
-                    "vflare": 154
-                }
+                {"load_range":[0,27],"flaps":"F","vapp":140,"vflare":139},
+                {"load_range":[28,34],"flaps":"F","vapp":142,"vflare":141},
+                {"load_range":[35,44],"flaps":"F","vapp":143,"vflare":142},
+                {"load_range":[45,54],"flaps":"F","vapp":145,"vflare":144},
+                {"load_range":[55,64],"flaps":"F","vapp":147,"vflare":146},
+                {"load_range":[65,72],"flaps":"F","vapp":149,"vflare":148},
+                {"load_range":[73,84],"flaps":"F","vapp":150,"vflare":149},
+                {"load_range":[85,94],"flaps":"F","vapp":153,"vflare":152},
+                {"load_range":[95,100],"flaps":"F","vapp":155,"vflare":154}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "280",
-                "mach_transition_alt": "FL280",
-                "mach": "0.78"
-            },
-            "climb_vs_profile": {
-                "0_5000": "2500",
-                "5000_15000": "2000",
-                "15000_24000": "1400",
-                "24000_cruise": "1000"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.78",
-                "fl280_to_fl100": "280 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"280","mach_transition_alt":"FL280","mach":"0.78"},
+            "climb_vs_profile": {"0_5000":"2500","5000_15000":"2000","15000_24000":"1400","24000_cruise":"1000"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.78","fl280_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "A321": {
-        "properties": {
-            "full_name": "Airbus A321",
-            "manufacturer": "Airbus",
-            "engines": 2,
-            "capacity": 220
-        },
-        "engine_start_sequence": [
-            1,
-            2
-        ],
+        "properties": {"full_name":"Airbus A321","manufacturer":"Airbus","engines":2,"capacity":220,"min_runway_length_ft":7200},
+        "engine_start_sequence": [1,2],
         "flap_retraction_schedule": [
-            {
-                "speed": 215,
-                "setting": "1"
-            },
-            {
-                "speed": 238,
-                "setting": "0"
-            }
+            {"speed":215,"setting":"1"},
+            {"speed":238,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 238,
-                "2": 215,
-                "3": 195,
-                "F": 186
-            },
+            "flap_speeds": {"1":238,"2":215,"3":195,"F":186},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            81,
-                            100
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            80
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            40
-                        ],
-                        "altitude": "FL380"
-                    }
+                    {"load_range":[81,100],"altitude":"FL320"},
+                    {"load_range":[61,80],"altitude":"FL340"},
+                    {"load_range":[41,60],"altitude":"FL360"},
+                    {"load_range":[0,40],"altitude":"FL380"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            81,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            71,
-                            80
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            51,
-                            70
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            31,
-                            50
-                        ],
-                        "altitude": "FL370"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            30
-                        ],
-                        "altitude": "FL390"
-                    }
+                    {"load_range":[81,100],"altitude":"FL310"},
+                    {"load_range":[71,80],"altitude":"FL330"},
+                    {"load_range":[51,70],"altitude":"FL350"},
+                    {"load_range":[31,50],"altitude":"FL370"},
+                    {"load_range":[0,30],"altitude":"FL390"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "1",
-                    "n1": "80% - 87%",
-                    "vr": 135,
-                    "va": 140
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "1",
-                    "n1": "84% - 91%",
-                    "vr": 139,
-                    "va": 144
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "1",
-                    "n1": "84% - 91%",
-                    "vr": 145,
-                    "va": 150
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "1",
-                    "n1": "85% - 91%",
-                    "vr": 150,
-                    "va": 155
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "1",
-                    "n1": "86% - 91%",
-                    "vr": 155,
-                    "va": 160
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "1",
-                    "n1": "87% - 93%",
-                    "vr": 158,
-                    "va": 163
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "1",
-                    "n1": "87% - 93%",
-                    "vr": 160,
-                    "va": 165
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "1",
-                    "n1": "88% - 94%",
-                    "vr": 162,
-                    "va": 167
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "1",
-                    "n1": "84% - 95%",
-                    "vr": 165,
-                    "va": 170
-                }
+                {"load_range":[0,27],"flaps":"1","n1":"80% - 87%","vr":135,"va":140},
+                {"load_range":[28,34],"flaps":"1","n1":"84% - 91%","vr":139,"va":144},
+                {"load_range":[35,44],"flaps":"1","n1":"84% - 91%","vr":145,"va":150},
+                {"load_range":[45,54],"flaps":"1","n1":"85% - 91%","vr":150,"va":155},
+                {"load_range":[55,64],"flaps":"1","n1":"86% - 91%","vr":155,"va":160},
+                {"load_range":[65,72],"flaps":"1","n1":"87% - 93%","vr":158,"va":163},
+                {"load_range":[73,84],"flaps":"1","n1":"87% - 93%","vr":160,"va":165},
+                {"load_range":[85,94],"flaps":"1","n1":"88% - 94%","vr":162,"va":167},
+                {"load_range":[95,100],"flaps":"1","n1":"84% - 95%","vr":165,"va":170}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "Full",
-                    "vapp": 140,
-                    "vflare": 136
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "Full",
-                    "vapp": 144,
-                    "vflare": 140
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "Full",
-                    "vapp": 150,
-                    "vflare": 146
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "Full",
-                    "vapp": 155,
-                    "vflare": 151
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "Full",
-                    "vapp": 160,
-                    "vflare": 156
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "Full",
-                    "vapp": 163,
-                    "vflare": 159
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "Full",
-                    "vapp": 165,
-                    "vflare": 161
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "Full",
-                    "vapp": 167,
-                    "vflare": 163
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "Full",
-                    "vapp": 170,
-                    "vflare": 166
-                }
+                {"load_range":[0,27],"flaps":"Full","vapp":140,"vflare":136},
+                {"load_range":[28,34],"flaps":"Full","vapp":144,"vflare":140},
+                {"load_range":[35,44],"flaps":"Full","vapp":150,"vflare":146},
+                {"load_range":[45,54],"flaps":"Full","vapp":155,"vflare":151},
+                {"load_range":[55,64],"flaps":"Full","vapp":160,"vflare":156},
+                {"load_range":[65,72],"flaps":"Full","vapp":163,"vflare":159},
+                {"load_range":[73,84],"flaps":"Full","vapp":165,"vflare":161},
+                {"load_range":[85,94],"flaps":"Full","vapp":167,"vflare":163},
+                {"load_range":[95,100],"flaps":"Full","vapp":170,"vflare":166}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "280",
-                "mach_transition_alt": "FL280",
-                "mach": "0.78"
-            },
-            "climb_vs_profile": {
-                "0_5000": "2500",
-                "5000_15000": "2000",
-                "15000_24000": "1800",
-                "24000_cruise": "1000"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.78",
-                "fl280_to_fl100": "280 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"280","mach_transition_alt":"FL280","mach":"0.78"},
+            "climb_vs_profile": {"0_5000":"2500","5000_15000":"2000","15000_24000":"1800","24000_cruise":"1000"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.78","fl280_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "A320": {
-        "properties": {
-            "full_name": "Airbus A320",
-            "manufacturer": "Airbus",
-            "engines": 2,
-            "capacity": 180
-        },
-        "engine_start_sequence": [
-            1,
-            2
-        ],
+        "properties": {"full_name":"Airbus A320","manufacturer":"Airbus","engines":2,"capacity":180,"min_runway_length_ft":6500},
+        "engine_start_sequence": [1,2],
         "flap_retraction_schedule": [
-            {
-                "speed": 200,
-                "setting": "1"
-            },
-            {
-                "speed": 230,
-                "setting": "0"
-            }
+            {"speed":200,"setting":"1"},
+            {"speed":230,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 230,
-                "2": 200,
-                "3": 185,
-                "F": 177
-            },
+            "flap_speeds": {"1":230,"2":200,"3":185,"F":177},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            81,
-                            100
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            80
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL380"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            20
-                        ],
-                        "altitude": "FL400"
-                    }
+                    {"load_range":[81,100],"altitude":"FL320"},
+                    {"load_range":[61,80],"altitude":"FL340"},
+                    {"load_range":[41,60],"altitude":"FL360"},
+                    {"load_range":[21,40],"altitude":"FL380"},
+                    {"load_range":[0,20],"altitude":"FL400"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    }
+                    {"load_range":[71,100],"altitude":"FL310"},
+                    {"load_range":[61,70],"altitude":"FL330"},
+                    {"load_range":[41,60],"altitude":"FL350"},
+                    {"load_range":[0,40],"altitude":"FL370"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "1",
-                    "n1": "85% - 91%",
-                    "vr": 130,
-                    "va": 135
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "1",
-                    "n1": "85% - 91%",
-                    "vr": 132,
-                    "va": 137
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "1",
-                    "n1": "85% - 91%",
-                    "vr": 133,
-                    "va": 138
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "1",
-                    "n1": "85% - 91%",
-                    "vr": 135,
-                    "va": 140
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "1",
-                    "n1": "86% - 91%",
-                    "vr": 137,
-                    "va": 142
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "1",
-                    "n1": "87% - 93%",
-                    "vr": 139,
-                    "va": 144
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "1",
-                    "n1": "87% - 93%",
-                    "vr": 140,
-                    "va": 145
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "1",
-                    "n1": "89% - 95%",
-                    "vr": 143,
-                    "va": 148
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "2",
-                    "n1": "84% - 95%",
-                    "vr": 145,
-                    "va": 150
-                }
+                {"load_range":[0,27],"flaps":"1","n1":"85% - 91%","vr":130,"va":135},
+                {"load_range":[28,34],"flaps":"1","n1":"85% - 91%","vr":132,"va":137},
+                {"load_range":[35,44],"flaps":"1","n1":"85% - 91%","vr":133,"va":138},
+                {"load_range":[45,54],"flaps":"1","n1":"85% - 91%","vr":135,"va":140},
+                {"load_range":[55,64],"flaps":"1","n1":"86% - 91%","vr":137,"va":142},
+                {"load_range":[65,72],"flaps":"1","n1":"87% - 93%","vr":139,"va":144},
+                {"load_range":[73,84],"flaps":"1","n1":"87% - 93%","vr":140,"va":145},
+                {"load_range":[85,94],"flaps":"1","n1":"89% - 95%","vr":143,"va":148},
+                {"load_range":[95,100],"flaps":"2","n1":"84% - 95%","vr":145,"va":150}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "F",
-                    "vapp": 142,
-                    "vflare": 139
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "F",
-                    "vapp": 142,
-                    "vflare": 139
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "F",
-                    "vapp": 143,
-                    "vflare": 140
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "F",
-                    "vapp": 145,
-                    "vflare": 142
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "F",
-                    "vapp": 147,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "F",
-                    "vapp": 149,
-                    "vflare": 146
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "F",
-                    "vapp": 150,
-                    "vflare": 147
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "F",
-                    "vapp": 153,
-                    "vflare": 150
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "F",
-                    "vapp": 155,
-                    "vflare": 152
-                }
+                {"load_range":[0,27],"flaps":"F","vapp":142,"vflare":139},
+                {"load_range":[28,34],"flaps":"F","vapp":142,"vflare":139},
+                {"load_range":[35,44],"flaps":"F","vapp":143,"vflare":140},
+                {"load_range":[45,54],"flaps":"F","vapp":145,"vflare":142},
+                {"load_range":[55,64],"flaps":"F","vapp":147,"vflare":144},
+                {"load_range":[65,72],"flaps":"F","vapp":149,"vflare":146},
+                {"load_range":[73,84],"flaps":"F","vapp":150,"vflare":147},
+                {"load_range":[85,94],"flaps":"F","vapp":153,"vflare":150},
+                {"load_range":[95,100],"flaps":"F","vapp":155,"vflare":152}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "280",
-                "mach_transition_alt": "FL280",
-                "mach": "0.78"
-            },
-            "climb_vs_profile": {
-                "0_5000": "2500",
-                "5000_15000": "2000",
-                "15000_24000": "1400",
-                "24000_cruise": "1000"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.78",
-                "fl280_to_fl100": "280 knots",
-                "fl100_to_ground": "&lt;250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"280","mach_transition_alt":"FL280","mach":"0.78"},
+            "climb_vs_profile": {"0_5000":"2500","5000_15000":"2000","15000_24000":"1400","24000_cruise":"1000"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.78","fl280_to_fl100":"280 knots","fl100_to_ground":"&lt;250 knots"}
         }
     },
     "B77W": {
-        "properties": {
-            "full_name": "Boeing 777-300ER",
-            "manufacturer": "Boeing",
-            "engines": 2,
-            "capacity": 396
-        },
-        "engine_start_sequence": [
-            2,
-            1
-        ],
+        "properties": {"full_name":"Boeing 777-300ER","manufacturer":"Boeing","engines":2,"capacity":396,"min_runway_length_ft":9500},
+        "engine_start_sequence": [2,1],
         "flap_retraction_schedule": [
-            {
-                "speed": 230,
-                "setting": "5",
-                "condition": "if flaps 15 selected during takeoff"
-            },
-            {
-                "speed": 245,
-                "setting": "1",
-                "condition": "if flaps 5 selected during takeoff"
-            },
-            {
-                "speed": 265,
-                "setting": "0"
-            }
+            {"speed":230,"setting":"5","condition":"if flaps 15 selected during takeoff"},
+            {"speed":245,"setting":"1","condition":"if flaps 5 selected during takeoff"},
+            {"speed":265,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 265,
-                "5": 245,
-                "15": 230,
-                "20": 225,
-                "25": 200,
-                "30": 180
-            },
+            "flap_speeds": {"1":265,"5":245,"15":230,"20":225,"25":200,"30":180},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            51,
-                            100
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            50
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            20
-                        ],
-                        "altitude": "FL380"
-                    }
+                    {"load_range":[51,100],"altitude":"FL320"},
+                    {"load_range":[41,50],"altitude":"FL340"},
+                    {"load_range":[21,40],"altitude":"FL360"},
+                    {"load_range":[0,20],"altitude":"FL380"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            91,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            90
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    }
+                    {"load_range":[91,100],"altitude":"FL310"},
+                    {"load_range":[61,90],"altitude":"FL330"},
+                    {"load_range":[41,60],"altitude":"FL350"},
+                    {"load_range":[0,40],"altitude":"FL370"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "5",
-                    "n1": "74% - 86%",
-                    "vr": 132,
-                    "va": 150
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "5",
-                    "n1": "75% - 87%",
-                    "vr": 136,
-                    "va": 154
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "5/15",
-                    "n1": "76% - 88%",
-                    "vr": 142,
-                    "va": 161
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "5/15",
-                    "n1": "78% - 89%",
-                    "vr": 148,
-                    "va": 165
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "5/15",
-                    "n1": "79% - 89%",
-                    "vr": 154,
-                    "va": 168
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "5/15",
-                    "n1": "80% - 91%",
-                    "vr": 161,
-                    "va": 170
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "5/15",
-                    "n1": "81% - 92%",
-                    "vr": 163,
-                    "va": 175
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "15",
-                    "n1": "83% - 94%",
-                    "vr": 165,
-                    "va": 175
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "15",
-                    "n1": "84% - 95%",
-                    "vr": 165,
-                    "va": 175
-                }
+                {"load_range":[0,27],"flaps":"5","n1":"74% - 86%","vr":132,"va":150},
+                {"load_range":[28,34],"flaps":"5","n1":"75% - 87%","vr":136,"va":154},
+                {"load_range":[35,44],"flaps":"5/15","n1":"76% - 88%","vr":142,"va":161},
+                {"load_range":[45,54],"flaps":"5/15","n1":"78% - 89%","vr":148,"va":165},
+                {"load_range":[55,64],"flaps":"5/15","n1":"79% - 89%","vr":154,"va":168},
+                {"load_range":[65,72],"flaps":"5/15","n1":"80% - 91%","vr":161,"va":170},
+                {"load_range":[73,84],"flaps":"5/15","n1":"81% - 92%","vr":163,"va":175},
+                {"load_range":[85,94],"flaps":"15","n1":"83% - 94%","vr":165,"va":175},
+                {"load_range":[95,100],"flaps":"15","n1":"84% - 95%","vr":165,"va":175}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "30",
-                    "vapp": 137,
-                    "vflare": 131
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "30",
-                    "vapp": 140,
-                    "vflare": 135
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "30",
-                    "vapp": 145,
-                    "vflare": 141
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "30",
-                    "vapp": 151,
-                    "vflare": 148
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "30",
-                    "vapp": 157,
-                    "vflare": 153
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "30",
-                    "vapp": 164,
-                    "vflare": 159
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "30",
-                    "vapp": 166,
-                    "vflare": 160
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "30",
-                    "vapp": 170,
-                    "vflare": 164
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "30",
-                    "vapp": 172,
-                    "vflare": 166
-                }
+                {"load_range":[0,27],"flaps":"30","vapp":137,"vflare":131},
+                {"load_range":[28,34],"flaps":"30","vapp":140,"vflare":135},
+                {"load_range":[35,44],"flaps":"30","vapp":145,"vflare":141},
+                {"load_range":[45,54],"flaps":"30","vapp":151,"vflare":148},
+                {"load_range":[55,64],"flaps":"30","vapp":157,"vflare":153},
+                {"load_range":[65,72],"flaps":"30","vapp":164,"vflare":159},
+                {"load_range":[73,84],"flaps":"30","vapp":166,"vflare":160},
+                {"load_range":[85,94],"flaps":"30","vapp":170,"vflare":164},
+                {"load_range":[95,100],"flaps":"30","vapp":172,"vflare":166}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "310",
-                "mach_transition_alt": "FL280",
-                "mach": "0.84"
-            },
-            "climb_vs_profile": {
-                "0_5000": "3000",
-                "5000_15000": "2500",
-                "15000_24000": "2000",
-                "24000_cruise": "1500"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.84",
-                "fl280_to_fl150": "310 knots",
-                "fl150_to_fl100": "280 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"310","mach_transition_alt":"FL280","mach":"0.84"},
+            "climb_vs_profile": {"0_5000":"3000","5000_15000":"2500","15000_24000":"2000","24000_cruise":"1500"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.84","fl280_to_fl150":"310 knots","fl150_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "A359": {
-        "properties": {
-            "full_name": "Airbus A350",
-            "manufacturer": "Airbus",
-            "engines": 2,
-            "capacity": 325
-        },
-        "engine_start_sequence": [
-            1,
-            2
-        ],
+        "properties": {"full_name":"Airbus A350","manufacturer":"Airbus","engines":2,"capacity":325,"min_runway_length_ft":8800},
+        "engine_start_sequence": [1,2],
         "flap_retraction_schedule": [
-            {
-                "speed": 212,
-                "setting": "1+F"
-            },
-            {
-                "speed": 220,
-                "setting": "1"
-            },
-            {
-                "speed": 255,
-                "setting": "0"
-            }
+            {"speed":212,"setting":"1+F"},
+            {"speed":220,"setting":"1"},
+            {"speed":255,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 255,
-                "1+F": 220,
-                "2": 212,
-                "3": 196,
-                "F": 186
-            },
+            "flap_speeds": {"1":255,"2":212,"3":196,"1+F":220,"F":186},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            51,
-                            70
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            31,
-                            50
-                        ],
-                        "altitude": "FL380"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            30
-                        ],
-                        "altitude": "FL400"
-                    }
+                    {"load_range":[71,100],"altitude":"FL340"},
+                    {"load_range":[51,70],"altitude":"FL360"},
+                    {"load_range":[31,50],"altitude":"FL380"},
+                    {"load_range":[0,30],"altitude":"FL400"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            51,
-                            70
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            31,
-                            50
-                        ],
-                        "altitude": "FL370"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            30
-                        ],
-                        "altitude": "FL390"
-                    }
+                    {"load_range":[71,100],"altitude":"FL330"},
+                    {"load_range":[51,70],"altitude":"FL350"},
+                    {"load_range":[31,50],"altitude":"FL370"},
+                    {"load_range":[0,30],"altitude":"FL390"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "2",
-                    "n1": "85% - 88%",
-                    "vr": 130,
-                    "va": 135
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "2",
-                    "n1": "85% - 88%",
-                    "vr": 132,
-                    "va": 137
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "2",
-                    "n1": "86% - 89%",
-                    "vr": 136,
-                    "va": 141
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "2",
-                    "n1": "86% - 89%",
-                    "vr": 140,
-                    "va": 145
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "2",
-                    "n1": "86% - 89%",
-                    "vr": 144,
-                    "va": 149
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "2",
-                    "n1": "87% - 90%",
-                    "vr": 148,
-                    "va": 153
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "2",
-                    "n1": "88% - 91%",
-                    "vr": 150,
-                    "va": 155
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "2",
-                    "n1": "88% - 91%",
-                    "vr": 154,
-                    "va": 159
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "2",
-                    "n1": "89% - 92%",
-                    "vr": 155,
-                    "va": 160
-                }
+                {"load_range":[0,27],"flaps":"2","n1":"85% - 88%","vr":130,"va":135},
+                {"load_range":[28,34],"flaps":"2","n1":"85% - 88%","vr":132,"va":137},
+                {"load_range":[35,44],"flaps":"2","n1":"86% - 89%","vr":136,"va":141},
+                {"load_range":[45,54],"flaps":"2","n1":"86% - 89%","vr":140,"va":145},
+                {"load_range":[55,64],"flaps":"2","n1":"86% - 89%","vr":144,"va":149},
+                {"load_range":[65,72],"flaps":"2","n1":"87% - 90%","vr":148,"va":153},
+                {"load_range":[73,84],"flaps":"2","n1":"88% - 91%","vr":150,"va":155},
+                {"load_range":[85,94],"flaps":"2","n1":"88% - 91%","vr":154,"va":159},
+                {"load_range":[95,100],"flaps":"2","n1":"89% - 92%","vr":155,"va":160}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "Full",
-                    "vapp": 135,
-                    "vflare": 130
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "Full",
-                    "vapp": 137,
-                    "vflare": 132
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "Full",
-                    "vapp": 141,
-                    "vflare": 136
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "Full",
-                    "vapp": 145,
-                    "vflare": 140
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "Full",
-                    "vapp": 149,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "Full",
-                    "vapp": 153,
-                    "vflare": 148
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "Full",
-                    "vapp": 155,
-                    "vflare": 150
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "Full",
-                    "vapp": 159,
-                    "vflare": 154
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "Full",
-                    "vapp": 160,
-                    "vflare": 155
-                }
+                {"load_range":[0,27],"flaps":"Full","vapp":135,"vflare":130},
+                {"load_range":[28,34],"flaps":"Full","vapp":137,"vflare":132},
+                {"load_range":[35,44],"flaps":"Full","vapp":141,"vflare":136},
+                {"load_range":[45,54],"flaps":"Full","vapp":145,"vflare":140},
+                {"load_range":[55,64],"flaps":"Full","vapp":149,"vflare":144},
+                {"load_range":[65,72],"flaps":"Full","vapp":153,"vflare":148},
+                {"load_range":[73,84],"flaps":"Full","vapp":155,"vflare":150},
+                {"load_range":[85,94],"flaps":"Full","vapp":159,"vflare":154},
+                {"load_range":[95,100],"flaps":"Full","vapp":160,"vflare":155}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "320",
-                "mach_transition_alt": "FL280",
-                "mach": "0.85"
-            },
-            "climb_vs_profile": {
-                "0_5000": "3000",
-                "5000_15000": "2300",
-                "15000_24000": "1600",
-                "24000_cruise": "1400"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.85",
-                "fl280_to_fl150": "320 knots",
-                "fl150_to_fl100": "280 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"320","mach_transition_alt":"FL280","mach":"0.85"},
+            "climb_vs_profile": {"0_5000":"3000","5000_15000":"2300","15000_24000":"1600","24000_cruise":"1400"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.85","fl280_to_fl150":"320 knots","fl150_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "B788": {
-        "properties": {
-            "full_name": "Boeing 787-8",
-            "manufacturer": "Boeing",
-            "engines": 2,
-            "capacity": 242
-        },
-        "engine_start_sequence": [
-            2,
-            1
-        ],
+        "properties": {"full_name":"Boeing 787-8","manufacturer":"Boeing","engines":2,"capacity":242,"min_runway_length_ft":8500},
+        "engine_start_sequence": [2,1],
         "flap_retraction_schedule": [
-            {
-                "speed": 230,
-                "setting": "1"
-            },
-            {
-                "speed": 250,
-                "setting": "0"
-            }
+            {"speed":230,"setting":"1"},
+            {"speed":250,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 250,
-                "5": 230,
-                "15": 215,
-                "20": 210,
-                "25": 180,
-                "30": 170
-            },
+            "flap_speeds": {"1":250,"5":230,"15":215,"20":210,"25":180,"30":170},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            61,
-                            100
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            31,
-                            60
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            30
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL380"
-                    }
+                    {"load_range":[61,100],"altitude":"FL320"},
+                    {"load_range":[31,60],"altitude":"FL340"},
+                    {"load_range":[11,30],"altitude":"FL360"},
+                    {"load_range":[0,10],"altitude":"FL380"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            51,
-                            70
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            50
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL370"
-                    }
+                    {"load_range":[71,100],"altitude":"FL310"},
+                    {"load_range":[51,70],"altitude":"FL330"},
+                    {"load_range":[11,50],"altitude":"FL350"},
+                    {"load_range":[0,10],"altitude":"FL370"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "5",
-                    "n1": "75% - 94%",
-                    "vr": 140,
-                    "va": 145
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "5",
-                    "n1": "75% - 94%",
-                    "vr": 142,
-                    "va": 147
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "5",
-                    "n1": "75% - 94%",
-                    "vr": 146,
-                    "va": 151
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "5",
-                    "n1": "75% - 94%",
-                    "vr": 150,
-                    "va": 155
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "5",
-                    "n1": "76% - 94%",
-                    "vr": 154,
-                    "va": 159
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "5",
-                    "n1": "76% - 94%",
-                    "vr": 158,
-                    "va": 163
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "5",
-                    "n1": "77% - 95%",
-                    "vr": 160,
-                    "va": 165
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "5",
-                    "n1": "79% - 97%",
-                    "vr": 164,
-                    "va": 169
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "5",
-                    "n1": "80% - 98%",
-                    "vr": 165,
-                    "va": 170
-                }
+                {"load_range":[0,27],"flaps":"5","n1":"75% - 94%","vr":140,"va":145},
+                {"load_range":[28,34],"flaps":"5","n1":"75% - 94%","vr":142,"va":147},
+                {"load_range":[35,44],"flaps":"5","n1":"75% - 94%","vr":146,"va":151},
+                {"load_range":[45,54],"flaps":"5","n1":"75% - 94%","vr":150,"va":155},
+                {"load_range":[55,64],"flaps":"5","n1":"76% - 94%","vr":154,"va":159},
+                {"load_range":[65,72],"flaps":"5","n1":"76% - 94%","vr":158,"va":163},
+                {"load_range":[73,84],"flaps":"5","n1":"77% - 95%","vr":160,"va":165},
+                {"load_range":[85,94],"flaps":"5","n1":"79% - 97%","vr":164,"va":169},
+                {"load_range":[95,100],"flaps":"5","n1":"80% - 98%","vr":165,"va":170}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "F",
-                    "vapp": 130,
-                    "vflare": 125
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "F",
-                    "vapp": 132,
-                    "vflare": 127
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "F",
-                    "vapp": 136,
-                    "vflare": 131
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "F",
-                    "vapp": 140,
-                    "vflare": 135
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "F",
-                    "vapp": 144,
-                    "vflare": 139
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "F",
-                    "vapp": 148,
-                    "vflare": 143
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "F",
-                    "vapp": 150,
-                    "vflare": 145
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "F",
-                    "vapp": 154,
-                    "vflare": 149
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "F",
-                    "vapp": 155,
-                    "vflare": 150
-                }
+                {"load_range":[0,27],"flaps":"F","vapp":130,"vflare":125},
+                {"load_range":[28,34],"flaps":"F","vapp":132,"vflare":127},
+                {"load_range":[35,44],"flaps":"F","vapp":136,"vflare":131},
+                {"load_range":[45,54],"flaps":"F","vapp":140,"vflare":135},
+                {"load_range":[55,64],"flaps":"F","vapp":144,"vflare":139},
+                {"load_range":[65,72],"flaps":"F","vapp":148,"vflare":143},
+                {"load_range":[73,84],"flaps":"F","vapp":150,"vflare":145},
+                {"load_range":[85,94],"flaps":"F","vapp":154,"vflare":149},
+                {"load_range":[95,100],"flaps":"F","vapp":155,"vflare":150}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "310",
-                "mach_transition_alt": "FL280",
-                "mach": "0.85"
-            },
-            "climb_vs_profile": {
-                "0_5000": "2700",
-                "5000_15000": "2000",
-                "15000_24000": "1500",
-                "24000_cruise": "1000"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.85",
-                "fl280_to_fl100": "310 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"310","mach_transition_alt":"FL280","mach":"0.85"},
+            "climb_vs_profile": {"0_5000":"2700","5000_15000":"2000","15000_24000":"1500","24000_cruise":"1000"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.85","fl280_to_fl100":"310 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "B77L": {
-        "properties": {
-            "full_name": "Boeing 777-200LR",
-            "manufacturer": "Boeing",
-            "engines": 2,
-            "capacity": 317
-        },
-        "engine_start_sequence": [
-            2,
-            1
-        ],
+        "properties": {"full_name":"Boeing 777-200LR","manufacturer":"Boeing","engines":2,"capacity":317,"min_runway_length_ft":9000},
+        "engine_start_sequence": [2,1],
         "flap_retraction_schedule": [
-            {
-                "speed": 215,
-                "setting": "5",
-                "condition": "if flaps 15 selected during takeoff"
-            },
-            {
-                "speed": 235,
-                "setting": "1",
-                "condition": "if flaps 5 selected during takeoff"
-            },
-            {
-                "speed": 255,
-                "setting": "0"
-            }
+            {"speed":215,"setting":"5","condition":"if flaps 15 selected during takeoff"},
+            {"speed":235,"setting":"1","condition":"if flaps 5 selected during takeoff"},
+            {"speed":255,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 255,
-                "5": 235,
-                "15": 215,
-                "20": 195,
-                "25": 185,
-                "30": 170
-            },
+            "flap_speeds": {"1":255,"5":235,"15":215,"20":195,"25":185,"30":170},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            51,
-                            100
-                        ],
-                        "altitude": "FL300"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            50
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            20
-                        ],
-                        "altitude": "FL380"
-                    }
+                    {"load_range":[51,100],"altitude":"FL300"},
+                    {"load_range":[41,50],"altitude":"FL320"},
+                    {"load_range":[21,40],"altitude":"FL360"},
+                    {"load_range":[0,20],"altitude":"FL380"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            91,
-                            100
-                        ],
-                        "altitude": "FL290"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            90
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    }
+                    {"load_range":[91,100],"altitude":"FL290"},
+                    {"load_range":[61,90],"altitude":"FL310"},
+                    {"load_range":[41,60],"altitude":"FL330"},
+                    {"load_range":[0,40],"altitude":"FL370"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "5",
-                    "n1": "75% - 87%",
-                    "vr": 135,
-                    "va": 155
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "5",
-                    "n1": "76% - 88%",
-                    "vr": 137,
-                    "va": 159
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "5/15",
-                    "n1": "77% - 89%",
-                    "vr": 141,
-                    "va": 166
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "5/15",
-                    "n1": "78% - 90%",
-                    "vr": 145,
-                    "va": 170
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "5/15",
-                    "n1": "79% - 91%",
-                    "vr": 150,
-                    "va": 173
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "15",
-                    "n1": "80% - 91%",
-                    "vr": 153,
-                    "va": 174
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "15",
-                    "n1": "81% - 92%",
-                    "vr": 155,
-                    "va": 175
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "15",
-                    "n1": "83% - 93%",
-                    "vr": 159,
-                    "va": 175
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "15",
-                    "n1": "84% - 95%",
-                    "vr": 160,
-                    "va": 175
-                }
+                {"load_range":[0,27],"flaps":"5","n1":"75% - 87%","vr":135,"va":155},
+                {"load_range":[28,34],"flaps":"5","n1":"76% - 88%","vr":137,"va":159},
+                {"load_range":[35,44],"flaps":"5/15","n1":"77% - 89%","vr":141,"va":166},
+                {"load_range":[45,54],"flaps":"5/15","n1":"78% - 90%","vr":145,"va":170},
+                {"load_range":[55,64],"flaps":"5/15","n1":"79% - 91%","vr":150,"va":173},
+                {"load_range":[65,72],"flaps":"15","n1":"80% - 91%","vr":153,"va":174},
+                {"load_range":[73,84],"flaps":"15","n1":"81% - 92%","vr":155,"va":175},
+                {"load_range":[85,94],"flaps":"15","n1":"83% - 93%","vr":159,"va":175},
+                {"load_range":[95,100],"flaps":"15","n1":"84% - 95%","vr":160,"va":175}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "30",
-                    "vapp": 135,
-                    "vflare": 130
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "30",
-                    "vapp": 137,
-                    "vflare": 133
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "30",
-                    "vapp": 140,
-                    "vflare": 137
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "30",
-                    "vapp": 145,
-                    "vflare": 140
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "30",
-                    "vapp": 152,
-                    "vflare": 147
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "30",
-                    "vapp": 152,
-                    "vflare": 147
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "30",
-                    "vapp": 152,
-                    "vflare": 147
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "30",
-                    "vapp": 152,
-                    "vflare": 147
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "30",
-                    "vapp": 152,
-                    "vflare": 147
-                }
+                {"load_range":[0,27],"flaps":"30","vapp":135,"vflare":130},
+                {"load_range":[28,34],"flaps":"30","vapp":137,"vflare":133},
+                {"load_range":[35,44],"flaps":"30","vapp":140,"vflare":137},
+                {"load_range":[45,54],"flaps":"30","vapp":145,"vflare":140},
+                {"load_range":[55,64],"flaps":"30","vapp":152,"vflare":147},
+                {"load_range":[65,72],"flaps":"30","vapp":152,"vflare":147},
+                {"load_range":[73,84],"flaps":"30","vapp":152,"vflare":147},
+                {"load_range":[85,94],"flaps":"30","vapp":152,"vflare":147},
+                {"load_range":[95,100],"flaps":"30","vapp":152,"vflare":147}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "310",
-                "mach_transition_alt": "FL280",
-                "mach": "0.84"
-            },
-            "climb_vs_profile": {
-                "0_5000": "3000",
-                "5000_15000": "2500",
-                "15000_24000": "2000",
-                "24000_cruise": "1500"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.84",
-                "fl280_to_fl150": "310 knots",
-                "fl150_to_fl100": "280 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"310","mach_transition_alt":"FL280","mach":"0.84"},
+            "climb_vs_profile": {"0_5000":"3000","5000_15000":"2500","15000_24000":"2000","24000_cruise":"1500"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.84","fl280_to_fl150":"310 knots","fl150_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "A388": {
-        "properties": {
-            "full_name": "Airbus A380-800",
-            "manufacturer": "Airbus",
-            "engines": 4,
-            "capacity": 517
-        },
-        "engine_start_sequence": [
-            1,
-            4,
-            2,
-            3
-        ],
+        "properties": {"full_name":"Airbus A380-800","manufacturer":"Airbus","engines":4,"capacity":517,"min_runway_length_ft":9800},
+        "engine_start_sequence": [1,4,2,3],
         "flap_retraction_schedule": [
-            {
-                "speed": 220,
-                "setting": "2"
-            },
-            {
-                "speed": 222,
-                "setting": "1+F"
-            },
-            {
-                "speed": 263,
-                "setting": "0"
-            }
+            {"speed":220,"setting":"2"},
+            {"speed":222,"setting":"1+F"},
+            {"speed":263,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 263,
-                "1+F": 222,
-                "2": 220,
-                "3": 196,
-                "F": 182
-            },
+            "flap_speeds": {"1":263,"2":220,"3":196,"1+F":222,"F":182},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            88,
-                            100
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            87
-                        ],
-                        "altitude": "FL380"
-                    },
-                    {
-                        "load_range": [
-                            28,
-                            40
-                        ],
-                        "altitude": "FL400"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            27
-                        ],
-                        "altitude": "FL420"
-                    }
+                    {"load_range":[88,100],"altitude":"FL360"},
+                    {"load_range":[41,87],"altitude":"FL380"},
+                    {"load_range":[28,40],"altitude":"FL400"},
+                    {"load_range":[0,27],"altitude":"FL420"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            88,
-                            100
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            87
-                        ],
-                        "altitude": "FL370"
-                    },
-                    {
-                        "load_range": [
-                            28,
-                            40
-                        ],
-                        "altitude": "FL390"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            27
-                        ],
-                        "altitude": "FL410"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL430"
-                    }
+                    {"load_range":[88,100],"altitude":"FL350"},
+                    {"load_range":[41,87],"altitude":"FL370"},
+                    {"load_range":[28,40],"altitude":"FL390"},
+                    {"load_range":[11,27],"altitude":"FL410"},
+                    {"load_range":[0,10],"altitude":"FL430"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        8
-                    ],
-                    "flaps": "1+F",
-                    "n1": "63% - 77%",
-                    "vr": 152,
-                    "va": 155
-                },
-                {
-                    "load_range": [
-                        9,
-                        15
-                    ],
-                    "flaps": "1+F",
-                    "n1": "68% - 81%",
-                    "vr": 154,
-                    "va": 156
-                },
-                {
-                    "load_range": [
-                        16,
-                        21
-                    ],
-                    "flaps": "1+F",
-                    "n1": "72% - 84%",
-                    "vr": 156,
-                    "va": 158
-                },
-                {
-                    "load_range": [
-                        22,
-                        28
-                    ],
-                    "flaps": "1+F",
-                    "n1": "76% - 87%",
-                    "vr": 157,
-                    "va": 160
-                },
-                {
-                    "load_range": [
-                        29,
-                        35
-                    ],
-                    "flaps": "1+F",
-                    "n1": "81% - 93%",
-                    "vr": 158,
-                    "va": 162
-                },
-                {
-                    "load_range": [
-                        36,
-                        41
-                    ],
-                    "flaps": "1+F",
-                    "n1": "86% - 98%",
-                    "vr": 156,
-                    "va": 163
-                },
-                {
-                    "load_range": [
-                        42,
-                        48
-                    ],
-                    "flaps": "1+F",
-                    "n1": "91% - 102%",
-                    "vr": 157,
-                    "va": 165
-                },
-                {
-                    "load_range": [
-                        49,
-                        55
-                    ],
-                    "flaps": "1+F",
-                    "n1": "95% - 106%",
-                    "vr": 158,
-                    "va": 167
-                },
-                {
-                    "load_range": [
-                        56,
-                        68
-                    ],
-                    "flaps": "1+F",
-                    "n1": "98% - 109%",
-                    "vr": 156,
-                    "va": 172
-                },
-                {
-                    "load_range": [
-                        69,
-                        75
-                    ],
-                    "flaps": "2",
-                    "n1": "98% - 109%",
-                    "vr": 157,
-                    "va": 175
-                },
-                {
-                    "load_range": [
-                        76,
-                        82
-                    ],
-                    "flaps": "2",
-                    "n1": "98% - 109%",
-                    "vr": 158,
-                    "va": 177
-                },
-                {
-                    "load_range": [
-                        83,
-                        88
-                    ],
-                    "flaps": "2",
-                    "n1": "98% - 109%",
-                    "vr": 160,
-                    "va": 178
-                },
-                {
-                    "load_range": [
-                        89,
-                        100
-                    ],
-                    "flaps": "2",
-                    "n1": "98% - 109%",
-                    "vr": 162,
-                    "va": 180
-                }
+                {"load_range":[0,8],"flaps":"1+F","n1":"63% - 77%","vr":152,"va":155},
+                {"load_range":[9,15],"flaps":"1+F","n1":"68% - 81%","vr":154,"va":156},
+                {"load_range":[16,21],"flaps":"1+F","n1":"72% - 84%","vr":156,"va":158},
+                {"load_range":[22,28],"flaps":"1+F","n1":"76% - 87%","vr":157,"va":160},
+                {"load_range":[29,35],"flaps":"1+F","n1":"81% - 93%","vr":158,"va":162},
+                {"load_range":[36,41],"flaps":"1+F","n1":"86% - 98%","vr":156,"va":163},
+                {"load_range":[42,48],"flaps":"1+F","n1":"91% - 102%","vr":157,"va":165},
+                {"load_range":[49,55],"flaps":"1+F","n1":"95% - 106%","vr":158,"va":167},
+                {"load_range":[56,68],"flaps":"1+F","n1":"98% - 109%","vr":156,"va":172},
+                {"load_range":[69,75],"flaps":"2","n1":"98% - 109%","vr":157,"va":175},
+                {"load_range":[76,82],"flaps":"2","n1":"98% - 109%","vr":158,"va":177},
+                {"load_range":[83,88],"flaps":"2","n1":"98% - 109%","vr":160,"va":178},
+                {"load_range":[89,100],"flaps":"2","n1":"98% - 109%","vr":162,"va":180}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        8
-                    ],
-                    "flaps": "F",
-                    "vapp": 127,
-                    "vflare": 125
-                },
-                {
-                    "load_range": [
-                        9,
-                        15
-                    ],
-                    "flaps": "F",
-                    "vapp": 135,
-                    "vflare": 133
-                },
-                {
-                    "load_range": [
-                        16,
-                        21
-                    ],
-                    "flaps": "F",
-                    "vapp": 135,
-                    "vflare": 133
-                },
-                {
-                    "load_range": [
-                        22,
-                        28
-                    ],
-                    "flaps": "F",
-                    "vapp": 139,
-                    "vflare": 137
-                },
-                {
-                    "load_range": [
-                        29,
-                        35
-                    ],
-                    "flaps": "F",
-                    "vapp": 146,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        36,
-                        41
-                    ],
-                    "flaps": "F",
-                    "vapp": 146,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        42,
-                        48
-                    ],
-                    "flaps": "F",
-                    "vapp": 146,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        49,
-                        55
-                    ],
-                    "flaps": "F",
-                    "vapp": 146,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        56,
-                        68
-                    ],
-                    "flaps": "F",
-                    "vapp": 146,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        69,
-                        75
-                    ],
-                    "flaps": "F",
-                    "vapp": 146,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        76,
-                        82
-                    ],
-                    "flaps": "F",
-                    "vapp": 146,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        83,
-                        88
-                    ],
-                    "flaps": "F",
-                    "vapp": 146,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        89,
-                        100
-                    ],
-                    "flaps": "F",
-                    "vapp": 146,
-                    "vflare": 144
-                }
+                {"load_range":[0,8],"flaps":"F","vapp":127,"vflare":125},
+                {"load_range":[9,15],"flaps":"F","vapp":135,"vflare":133},
+                {"load_range":[16,21],"flaps":"F","vapp":135,"vflare":133},
+                {"load_range":[22,28],"flaps":"F","vapp":139,"vflare":137},
+                {"load_range":[29,35],"flaps":"F","vapp":146,"vflare":144},
+                {"load_range":[36,41],"flaps":"F","vapp":146,"vflare":144},
+                {"load_range":[42,48],"flaps":"F","vapp":146,"vflare":144},
+                {"load_range":[49,55],"flaps":"F","vapp":146,"vflare":144},
+                {"load_range":[56,68],"flaps":"F","vapp":146,"vflare":144},
+                {"load_range":[69,75],"flaps":"F","vapp":146,"vflare":144},
+                {"load_range":[76,82],"flaps":"F","vapp":146,"vflare":144},
+                {"load_range":[83,88],"flaps":"F","vapp":146,"vflare":144},
+                {"load_range":[89,100],"flaps":"F","vapp":146,"vflare":144}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "320",
-                "mach_transition_alt": "FL280",
-                "mach": "0.85"
-            },
-            "climb_vs_profile": {
-                "0_5000": "1500",
-                "5000_15000": "2500",
-                "15000_24000": "1300",
-                "24000_cruise": "1000"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.85",
-                "fl280_to_fl150": "320 knots",
-                "fl150_to_fl100": "280 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"320","mach_transition_alt":"FL280","mach":"0.85"},
+            "climb_vs_profile": {"0_5000":"1500","5000_15000":"2500","15000_24000":"1300","24000_cruise":"1000"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.85","fl280_to_fl150":"320 knots","fl150_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "A333": {
-        "properties": {
-            "full_name": "Airbus A330-300",
-            "manufacturer": "Airbus",
-            "engines": 2,
-            "capacity": 300
-        },
-        "engine_start_sequence": [
-            1,
-            2
-        ],
+        "properties": {"full_name":"Airbus A330-300","manufacturer":"Airbus","engines":2,"capacity":300,"min_runway_length_ft":8000},
+        "engine_start_sequence": [1,2],
         "flap_retraction_schedule": [
-            {
-                "speed": 196,
-                "setting": "1+F"
-            },
-            {
-                "speed": 215,
-                "setting": "1"
-            },
-            {
-                "speed": 240,
-                "setting": "0"
-            }
+            {"speed":196,"setting":"1+F"},
+            {"speed":215,"setting":"1"},
+            {"speed":240,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 240,
-                "1+F": 215,
-                "2": 196,
-                "3": 186,
-                "F": 180
-            },
+            "flap_speeds": {"1":240,"2":196,"3":186,"1+F":215,"F":180},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            91,
-                            100
-                        ],
-                        "altitude": "FL300"
-                    },
-                    {
-                        "load_range": [
-                            81,
-                            90
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            71,
-                            80
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            51,
-                            70
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            31,
-                            50
-                        ],
-                        "altitude": "FL380"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            30
-                        ],
-                        "altitude": "FL400"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            20
-                        ],
-                        "altitude": "FL420"
-                    }
+                    {"load_range":[91,100],"altitude":"FL300"},
+                    {"load_range":[81,90],"altitude":"FL320"},
+                    {"load_range":[71,80],"altitude":"FL340"},
+                    {"load_range":[51,70],"altitude":"FL360"},
+                    {"load_range":[31,50],"altitude":"FL380"},
+                    {"load_range":[21,30],"altitude":"FL400"},
+                    {"load_range":[0,20],"altitude":"FL420"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            81,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            80
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            20
-                        ],
-                        "altitude": "FL390"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL410"
-                    }
+                    {"load_range":[81,100],"altitude":"FL310"},
+                    {"load_range":[61,80],"altitude":"FL330"},
+                    {"load_range":[41,60],"altitude":"FL350"},
+                    {"load_range":[21,40],"altitude":"FL370"},
+                    {"load_range":[11,20],"altitude":"FL390"},
+                    {"load_range":[0,10],"altitude":"FL410"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "1+F",
-                    "n1": "85% - 89%",
-                    "vr": 125,
-                    "va": 130
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "1+F",
-                    "n1": "86% - 89%",
-                    "vr": 131,
-                    "va": 136
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "1+F",
-                    "n1": "87% - 90%",
-                    "vr": 138,
-                    "va": 143
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "2",
-                    "n1": "88% - 91%",
-                    "vr": 145,
-                    "va": 150
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "2",
-                    "n1": "90% - 92%",
-                    "vr": 148,
-                    "va": 153
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "2",
-                    "n1": "91% - 94%",
-                    "vr": 149,
-                    "va": 154
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "2",
-                    "n1": "92% - 94%",
-                    "vr": 150,
-                    "va": 155
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "2",
-                    "n1": "94% - 96%",
-                    "vr": 151,
-                    "va": 156
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "2",
-                    "n1": "96% - 97%",
-                    "vr": 151,
-                    "va": 156
-                }
+                {"load_range":[0,27],"flaps":"1+F","n1":"85% - 89%","vr":125,"va":130},
+                {"load_range":[28,34],"flaps":"1+F","n1":"86% - 89%","vr":131,"va":136},
+                {"load_range":[35,44],"flaps":"1+F","n1":"87% - 90%","vr":138,"va":143},
+                {"load_range":[45,54],"flaps":"2","n1":"88% - 91%","vr":145,"va":150},
+                {"load_range":[55,64],"flaps":"2","n1":"90% - 92%","vr":148,"va":153},
+                {"load_range":[65,72],"flaps":"2","n1":"91% - 94%","vr":149,"va":154},
+                {"load_range":[73,84],"flaps":"2","n1":"92% - 94%","vr":150,"va":155},
+                {"load_range":[85,94],"flaps":"2","n1":"94% - 96%","vr":151,"va":156},
+                {"load_range":[95,100],"flaps":"2","n1":"96% - 97%","vr":151,"va":156}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "Full",
-                    "vapp": 140,
-                    "vflare": 135
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "Full",
-                    "vapp": 141,
-                    "vflare": 136
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "Full",
-                    "vapp": 143,
-                    "vflare": 137
-                },
-                {
-                    "load_range": [
-                        45,
-                        49
-                    ],
-                    "flaps": "Full",
-                    "vapp": 145,
-                    "vflare": 140
-                }
+                {"load_range":[0,27],"flaps":"Full","vapp":140,"vflare":135},
+                {"load_range":[28,34],"flaps":"Full","vapp":141,"vflare":136},
+                {"load_range":[35,44],"flaps":"Full","vapp":143,"vflare":137},
+                {"load_range":[45,49],"flaps":"Full","vapp":145,"vflare":140}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "300",
-                "mach_transition_alt": "FL280",
-                "mach": "0.82"
-            },
-            "climb_vs_profile": {
-                "0_5000": "2000",
-                "5000_15000": "2000",
-                "15000_24000": "1300",
-                "24000_cruise": "1000"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.82",
-                "fl280_to_fl100": "300 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"300","mach_transition_alt":"FL280","mach":"0.82"},
+            "climb_vs_profile": {"0_5000":"2000","5000_15000":"2000","15000_24000":"1300","24000_cruise":"1000"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.82","fl280_to_fl100":"300 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "A339": {
-        "properties": {
-            "full_name": "Airbus A330-900neo",
-            "manufacturer": "Airbus",
-            "engines": 2,
-            "capacity": 310
-        },
-        "engine_start_sequence": [
-            1,
-            2
-        ],
+        "properties": {"full_name":"Airbus A330-900neo","manufacturer":"Airbus","engines":2,"capacity":310,"min_runway_length_ft":8000},
+        "engine_start_sequence": [1,2],
         "flap_retraction_schedule": [
-            {
-                "speed": 196,
-                "setting": "1+F"
-            },
-            {
-                "speed": 215,
-                "setting": "1"
-            },
-            {
-                "speed": 240,
-                "setting": "0"
-            }
+            {"speed":196,"setting":"1+F"},
+            {"speed":215,"setting":"1"},
+            {"speed":240,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 240,
-                "1+F": 215,
-                "2": 196,
-                "3": 186,
-                "F": 180
-            },
+            "flap_speeds": {"1":240,"2":196,"3":186,"1+F":215,"F":180},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            91,
-                            100
-                        ],
-                        "altitude": "FL280"
-                    },
-                    {
-                        "load_range": [
-                            81,
-                            90
-                        ],
-                        "altitude": "FL300"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            80
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            51,
-                            60
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            31,
-                            50
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            30
-                        ],
-                        "altitude": "FL380"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            20
-                        ],
-                        "altitude": "FL400"
-                    }
+                    {"load_range":[91,100],"altitude":"FL280"},
+                    {"load_range":[81,90],"altitude":"FL300"},
+                    {"load_range":[61,80],"altitude":"FL320"},
+                    {"load_range":[51,60],"altitude":"FL340"},
+                    {"load_range":[31,50],"altitude":"FL360"},
+                    {"load_range":[21,30],"altitude":"FL380"},
+                    {"load_range":[0,20],"altitude":"FL400"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            81,
-                            100
-                        ],
-                        "altitude": "FL290"
-                    },
-                    {
-                        "load_range": [
-                            71,
-                            80
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            31,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            30
-                        ],
-                        "altitude": "FL390"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL410"
-                    }
+                    {"load_range":[81,100],"altitude":"FL290"},
+                    {"load_range":[71,80],"altitude":"FL310"},
+                    {"load_range":[61,70],"altitude":"FL330"},
+                    {"load_range":[41,60],"altitude":"FL350"},
+                    {"load_range":[31,40],"altitude":"FL370"},
+                    {"load_range":[11,30],"altitude":"FL390"},
+                    {"load_range":[0,10],"altitude":"FL410"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "1+F",
-                    "n1": "85% - 89%",
-                    "vr": 125,
-                    "va": 130
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "1+F",
-                    "n1": "86% - 89%",
-                    "vr": 131,
-                    "va": 136
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "1+F",
-                    "n1": "87% - 90%",
-                    "vr": 138,
-                    "va": 143
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "2",
-                    "n1": "88% - 91%",
-                    "vr": 145,
-                    "va": 150
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "2",
-                    "n1": "90% - 92%",
-                    "vr": 148,
-                    "va": 153
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "2",
-                    "n1": "91% - 94%",
-                    "vr": 149,
-                    "va": 154
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "2",
-                    "n1": "92% - 94%",
-                    "vr": 150,
-                    "va": 155
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "2",
-                    "n1": "94% - 96%",
-                    "vr": 151,
-                    "va": 156
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "2",
-                    "n1": "96% - 97%",
-                    "vr": 151,
-                    "va": 156
-                }
+                {"load_range":[0,27],"flaps":"1+F","n1":"85% - 89%","vr":125,"va":130},
+                {"load_range":[28,34],"flaps":"1+F","n1":"86% - 89%","vr":131,"va":136},
+                {"load_range":[35,44],"flaps":"1+F","n1":"87% - 90%","vr":138,"va":143},
+                {"load_range":[45,54],"flaps":"2","n1":"88% - 91%","vr":145,"va":150},
+                {"load_range":[55,64],"flaps":"2","n1":"90% - 92%","vr":148,"va":153},
+                {"load_range":[65,72],"flaps":"2","n1":"91% - 94%","vr":149,"va":154},
+                {"load_range":[73,84],"flaps":"2","n1":"92% - 94%","vr":150,"va":155},
+                {"load_range":[85,94],"flaps":"2","n1":"94% - 96%","vr":151,"va":156},
+                {"load_range":[95,100],"flaps":"2","n1":"96% - 97%","vr":151,"va":156}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "Full",
-                    "vapp": 140,
-                    "vflare": 135
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "Full",
-                    "vapp": 141,
-                    "vflare": 136
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "Full",
-                    "vapp": 143,
-                    "vflare": 137
-                },
-                {
-                    "load_range": [
-                        45,
-                        49
-                    ],
-                    "flaps": "Full",
-                    "vapp": 145,
-                    "vflare": 140
-                }
+                {"load_range":[0,27],"flaps":"Full","vapp":140,"vflare":135},
+                {"load_range":[28,34],"flaps":"Full","vapp":141,"vflare":136},
+                {"load_range":[35,44],"flaps":"Full","vapp":143,"vflare":137},
+                {"load_range":[45,49],"flaps":"Full","vapp":145,"vflare":140}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "300",
-                "mach_transition_alt": "FL280",
-                "mach": "0.82"
-            },
-            "climb_vs_profile": {
-                "0_5000": "2000",
-                "5000_15000": "1500",
-                "15000_24000": "1200",
-                "24000_cruise": "1000"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.82",
-                "fl280_to_fl100": "300 knots",
-                "fl100_to_ground": "&lt;250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"300","mach_transition_alt":"FL280","mach":"0.82"},
+            "climb_vs_profile": {"0_5000":"2000","5000_15000":"1500","15000_24000":"1200","24000_cruise":"1000"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.82","fl280_to_fl100":"300 knots","fl100_to_ground":"&lt;250 knots"}
         }
     },
     "B737": {
-        "properties": {
-            "full_name": "Boeing 737-700",
-            "manufacturer": "Boeing",
-            "engines": 2,
-            "capacity": 149
-        },
-        "engine_start_sequence": [
-            2,
-            1
-        ],
+        "properties": {"full_name":"Boeing 737-700","manufacturer":"Boeing","engines":2,"capacity":149,"min_runway_length_ft":6000},
+        "engine_start_sequence": [2,1],
         "flap_retraction_schedule": [
-            {
-                "speed": 210,
-                "setting": "5"
-            },
-            {
-                "speed": 225,
-                "setting": "1"
-            },
-            {
-                "speed": 230,
-                "setting": "0"
-            }
+            {"speed":210,"setting":"5"},
+            {"speed":225,"setting":"1"},
+            {"speed":230,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 230,
-                "2": 230,
-                "5": 225,
-                "10": 210,
-                "15": 195,
-                "25": 190,
-                "30": 185,
-                "40": 170
-            },
+            "flap_speeds": {"1":230,"2":230,"5":225,"10":210,"15":195,"25":190,"30":185,"40":170},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL300"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            20
-                        ],
-                        "altitude": "FL380"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL400"
-                    }
+                    {"load_range":[71,100],"altitude":"FL300"},
+                    {"load_range":[61,70],"altitude":"FL320"},
+                    {"load_range":[41,60],"altitude":"FL340"},
+                    {"load_range":[21,40],"altitude":"FL360"},
+                    {"load_range":[11,20],"altitude":"FL380"},
+                    {"load_range":[0,10],"altitude":"FL400"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            20
-                        ],
-                        "altitude": "FL390"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL410"
-                    }
+                    {"load_range":[71,100],"altitude":"FL310"},
+                    {"load_range":[61,70],"altitude":"FL330"},
+                    {"load_range":[41,60],"altitude":"FL350"},
+                    {"load_range":[21,40],"altitude":"FL370"},
+                    {"load_range":[11,20],"altitude":"FL390"},
+                    {"load_range":[0,10],"altitude":"FL410"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "5",
-                    "n1": "87%",
-                    "vr": 130,
-                    "va": 135
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "5",
-                    "n1": "89%",
-                    "vr": 132,
-                    "va": 137
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "10",
-                    "n1": "91%",
-                    "vr": 137,
-                    "va": 142
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "10",
-                    "n1": "91%",
-                    "vr": 140,
-                    "va": 145
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "10",
-                    "n1": "91%",
-                    "vr": 143,
-                    "va": 148
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "10",
-                    "n1": "91%",
-                    "vr": 144,
-                    "va": 149
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "10",
-                    "n1": "91%",
-                    "vr": 145,
-                    "va": 150
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "10",
-                    "n1": "93%",
-                    "vr": 148,
-                    "va": 153
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "10",
-                    "n1": "95%",
-                    "vr": 150,
-                    "va": 155
-                }
+                {"load_range":[0,27],"flaps":"5","n1":"87%","vr":130,"va":135},
+                {"load_range":[28,34],"flaps":"5","n1":"89%","vr":132,"va":137},
+                {"load_range":[35,44],"flaps":"10","n1":"91%","vr":137,"va":142},
+                {"load_range":[45,54],"flaps":"10","n1":"91%","vr":140,"va":145},
+                {"load_range":[55,64],"flaps":"10","n1":"91%","vr":143,"va":148},
+                {"load_range":[65,72],"flaps":"10","n1":"91%","vr":144,"va":149},
+                {"load_range":[73,84],"flaps":"10","n1":"91%","vr":145,"va":150},
+                {"load_range":[85,94],"flaps":"10","n1":"93%","vr":148,"va":153},
+                {"load_range":[95,100],"flaps":"10","n1":"95%","vr":150,"va":155}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "40",
-                    "vapp": 127,
-                    "vflare": 120
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "40",
-                    "vapp": 125,
-                    "vflare": 122
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "40",
-                    "vapp": 130,
-                    "vflare": 127
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "40",
-                    "vapp": 133,
-                    "vflare": 130
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "40",
-                    "vapp": 136,
-                    "vflare": 133
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "30",
-                    "vapp": 137,
-                    "vflare": 134
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "30",
-                    "vapp": 138,
-                    "vflare": 135
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "30",
-                    "vapp": 141,
-                    "vflare": 138
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "30",
-                    "vapp": 143,
-                    "vflare": 140
-                }
+                {"load_range":[0,27],"flaps":"40","vapp":127,"vflare":120},
+                {"load_range":[28,34],"flaps":"40","vapp":125,"vflare":122},
+                {"load_range":[35,44],"flaps":"40","vapp":130,"vflare":127},
+                {"load_range":[45,54],"flaps":"40","vapp":133,"vflare":130},
+                {"load_range":[55,64],"flaps":"40","vapp":136,"vflare":133},
+                {"load_range":[65,72],"flaps":"30","vapp":137,"vflare":134},
+                {"load_range":[73,84],"flaps":"30","vapp":138,"vflare":135},
+                {"load_range":[85,94],"flaps":"30","vapp":141,"vflare":138},
+                {"load_range":[95,100],"flaps":"30","vapp":143,"vflare":140}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "280",
-                "mach_transition_alt": "FL280",
-                "mach": "0.78"
-            },
-            "climb_vs_profile": {
-                "0_5000": "3000",
-                "5000_15000": "2500",
-                "15000_24000": "2500",
-                "24000_cruise": "1500"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.78",
-                "fl280_to_fl100": "280 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"280","mach_transition_alt":"FL280","mach":"0.78"},
+            "climb_vs_profile": {"0_5000":"3000","5000_15000":"2500","15000_24000":"2500","24000_cruise":"1500"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.78","fl280_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "B738": {
-        "properties": {
-            "full_name": "Boeing 737-800",
-            "manufacturer": "Boeing",
-            "engines": 2,
-            "capacity": 189
-        },
-        "engine_start_sequence": [
-            2,
-            1
-        ],
+        "properties": {"full_name":"Boeing 737-800","manufacturer":"Boeing","engines":2,"capacity":189,"min_runway_length_ft":6500},
+        "engine_start_sequence": [2,1],
         "flap_retraction_schedule": [
-            {
-                "speed": 210,
-                "setting": "5"
-            },
-            {
-                "speed": 225,
-                "setting": "1"
-            },
-            {
-                "speed": 230,
-                "setting": "0"
-            }
+            {"speed":210,"setting":"5"},
+            {"speed":225,"setting":"1"},
+            {"speed":230,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 230,
-                "2": 230,
-                "5": 225,
-                "10": 210,
-                "15": 195,
-                "25": 190,
-                "30": 185,
-                "40": 170
-            },
+            "flap_speeds": {"1":230,"2":230,"5":225,"10":210,"15":195,"25":190,"30":185,"40":170},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL300"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            20
-                        ],
-                        "altitude": "FL380"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL400"
-                    }
+                    {"load_range":[71,100],"altitude":"FL300"},
+                    {"load_range":[61,70],"altitude":"FL320"},
+                    {"load_range":[41,60],"altitude":"FL340"},
+                    {"load_range":[21,40],"altitude":"FL360"},
+                    {"load_range":[11,20],"altitude":"FL380"},
+                    {"load_range":[0,10],"altitude":"FL400"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            20
-                        ],
-                        "altitude": "FL390"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL410"
-                    }
+                    {"load_range":[71,100],"altitude":"FL310"},
+                    {"load_range":[61,70],"altitude":"FL330"},
+                    {"load_range":[41,60],"altitude":"FL350"},
+                    {"load_range":[21,40],"altitude":"FL370"},
+                    {"load_range":[11,20],"altitude":"FL390"},
+                    {"load_range":[0,10],"altitude":"FL410"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "5",
-                    "n1": "87%",
-                    "vr": 130,
-                    "va": 135
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "5",
-                    "n1": "89%",
-                    "vr": 132,
-                    "va": 137
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "10",
-                    "n1": "90%",
-                    "vr": 137,
-                    "va": 142
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "10",
-                    "n1": "91%",
-                    "vr": 140,
-                    "va": 145
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "10",
-                    "n1": "91%",
-                    "vr": 143,
-                    "va": 148
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "10",
-                    "n1": "91%",
-                    "vr": 144,
-                    "va": 149
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "10",
-                    "n1": "91%",
-                    "vr": 145,
-                    "va": 150
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "10",
-                    "n1": "93%",
-                    "vr": 148,
-                    "va": 153
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "10",
-                    "n1": "95%",
-                    "vr": 150,
-                    "va": 155
-                }
+                {"load_range":[0,27],"flaps":"5","n1":"87%","vr":130,"va":135},
+                {"load_range":[28,34],"flaps":"5","n1":"89%","vr":132,"va":137},
+                {"load_range":[35,44],"flaps":"10","n1":"90%","vr":137,"va":142},
+                {"load_range":[45,54],"flaps":"10","n1":"91%","vr":140,"va":145},
+                {"load_range":[55,64],"flaps":"10","n1":"91%","vr":143,"va":148},
+                {"load_range":[65,72],"flaps":"10","n1":"91%","vr":144,"va":149},
+                {"load_range":[73,84],"flaps":"10","n1":"91%","vr":145,"va":150},
+                {"load_range":[85,94],"flaps":"10","n1":"93%","vr":148,"va":153},
+                {"load_range":[95,100],"flaps":"10","n1":"95%","vr":150,"va":155}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "40",
-                    "vapp": 123,
-                    "vflare": 120
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "40",
-                    "vapp": 125,
-                    "vflare": 122
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "40",
-                    "vapp": 130,
-                    "vflare": 127
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "40",
-                    "vapp": 133,
-                    "vflare": 130
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "40",
-                    "vapp": 136,
-                    "vflare": 133
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "30",
-                    "vapp": 137,
-                    "vflare": 134
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "30",
-                    "vapp": 138,
-                    "vflare": 135
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "30",
-                    "vapp": 141,
-                    "vflare": 138
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "30",
-                    "vapp": 143,
-                    "vflare": 140
-                }
+                {"load_range":[0,27],"flaps":"40","vapp":123,"vflare":120},
+                {"load_range":[28,34],"flaps":"40","vapp":125,"vflare":122},
+                {"load_range":[35,44],"flaps":"40","vapp":130,"vflare":127},
+                {"load_range":[45,54],"flaps":"40","vapp":133,"vflare":130},
+                {"load_range":[55,64],"flaps":"40","vapp":136,"vflare":133},
+                {"load_range":[65,72],"flaps":"30","vapp":137,"vflare":134},
+                {"load_range":[73,84],"flaps":"30","vapp":138,"vflare":135},
+                {"load_range":[85,94],"flaps":"30","vapp":141,"vflare":138},
+                {"load_range":[95,100],"flaps":"30","vapp":143,"vflare":140}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "280",
-                "mach_transition_alt": "FL280",
-                "mach": "0.78"
-            },
-            "climb_vs_profile": {
-                "0_5000": "3000",
-                "5000_15000": "2000",
-                "15000_24000": "2000",
-                "24000_cruise": "1500"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.78",
-                "fl280_to_fl100": "280 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"280","mach_transition_alt":"FL280","mach":"0.78"},
+            "climb_vs_profile": {"0_5000":"3000","5000_15000":"2000","15000_24000":"2000","24000_cruise":"1500"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.78","fl280_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "B739": {
-        "properties": {
-            "full_name": "Boeing 737-900",
-            "manufacturer": "Boeing",
-            "engines": 2,
-            "capacity": 215
-        },
-        "engine_start_sequence": [
-            2,
-            1
-        ],
+        "properties": {"full_name":"Boeing 737-900","manufacturer":"Boeing","engines":2,"capacity":215,"min_runway_length_ft":7000},
+        "engine_start_sequence": [2,1],
         "flap_retraction_schedule": [
-            {
-                "speed": 210,
-                "setting": "5"
-            },
-            {
-                "speed": 225,
-                "setting": "1"
-            },
-            {
-                "speed": 230,
-                "setting": "0"
-            }
+            {"speed":210,"setting":"5"},
+            {"speed":225,"setting":"1"},
+            {"speed":230,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 230,
-                "2": 230,
-                "5": 225,
-                "10": 210,
-                "15": 195,
-                "25": 190,
-                "30": 185,
-                "40": 170
-            },
+            "flap_speeds": {"1":230,"2":230,"5":225,"10":210,"15":195,"25":190,"30":185,"40":170},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL300"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            20
-                        ],
-                        "altitude": "FL380"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL400"
-                    }
+                    {"load_range":[71,100],"altitude":"FL300"},
+                    {"load_range":[61,70],"altitude":"FL320"},
+                    {"load_range":[41,60],"altitude":"FL340"},
+                    {"load_range":[21,40],"altitude":"FL360"},
+                    {"load_range":[11,20],"altitude":"FL380"},
+                    {"load_range":[0,10],"altitude":"FL400"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    },
-                    {
-                        "load_range": [
-                            11,
-                            20
-                        ],
-                        "altitude": "FL390"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            10
-                        ],
-                        "altitude": "FL410"
-                    }
+                    {"load_range":[71,100],"altitude":"FL310"},
+                    {"load_range":[61,70],"altitude":"FL330"},
+                    {"load_range":[41,60],"altitude":"FL350"},
+                    {"load_range":[21,40],"altitude":"FL370"},
+                    {"load_range":[11,20],"altitude":"FL390"},
+                    {"load_range":[0,10],"altitude":"FL410"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "5",
-                    "n1": "87%",
-                    "vr": 135,
-                    "va": 141
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "5",
-                    "n1": "88%",
-                    "vr": 137,
-                    "va": 143
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "10",
-                    "n1": "90%",
-                    "vr": 141,
-                    "va": 147
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "10",
-                    "n1": "92%",
-                    "vr": 145,
-                    "va": 151
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "10",
-                    "n1": "92%",
-                    "vr": 149,
-                    "va": 155
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "10",
-                    "n1": "92%",
-                    "vr": 153,
-                    "va": 159
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "10",
-                    "n1": "92%",
-                    "vr": 155,
-                    "va": 161
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "15",
-                    "n1": "93%",
-                    "vr": 159,
-                    "va": 165
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "15",
-                    "n1": "96%",
-                    "vr": 160,
-                    "va": 166
-                }
+                {"load_range":[0,27],"flaps":"5","n1":"87%","vr":135,"va":141},
+                {"load_range":[28,34],"flaps":"5","n1":"88%","vr":137,"va":143},
+                {"load_range":[35,44],"flaps":"10","n1":"90%","vr":141,"va":147},
+                {"load_range":[45,54],"flaps":"10","n1":"92%","vr":145,"va":151},
+                {"load_range":[55,64],"flaps":"10","n1":"92%","vr":149,"va":155},
+                {"load_range":[65,72],"flaps":"10","n1":"92%","vr":153,"va":159},
+                {"load_range":[73,84],"flaps":"10","n1":"92%","vr":155,"va":161},
+                {"load_range":[85,94],"flaps":"15","n1":"93%","vr":159,"va":165},
+                {"load_range":[95,100],"flaps":"15","n1":"96%","vr":160,"va":166}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        27
-                    ],
-                    "flaps": "40",
-                    "vapp": 125,
-                    "vflare": 120
-                },
-                {
-                    "load_range": [
-                        28,
-                        34
-                    ],
-                    "flaps": "40",
-                    "vapp": 127,
-                    "vflare": 122
-                },
-                {
-                    "load_range": [
-                        35,
-                        44
-                    ],
-                    "flaps": "40",
-                    "vapp": 131,
-                    "vflare": 126
-                },
-                {
-                    "load_range": [
-                        45,
-                        54
-                    ],
-                    "flaps": "40",
-                    "vapp": 135,
-                    "vflare": 130
-                },
-                {
-                    "load_range": [
-                        55,
-                        64
-                    ],
-                    "flaps": "40",
-                    "vapp": 139,
-                    "vflare": 134
-                },
-                {
-                    "load_range": [
-                        65,
-                        72
-                    ],
-                    "flaps": "40",
-                    "vapp": 143,
-                    "vflare": 138
-                },
-                {
-                    "load_range": [
-                        73,
-                        84
-                    ],
-                    "flaps": "40",
-                    "vapp": 145,
-                    "vflare": 140
-                },
-                {
-                    "load_range": [
-                        85,
-                        94
-                    ],
-                    "flaps": "40",
-                    "vapp": 149,
-                    "vflare": 144
-                },
-                {
-                    "load_range": [
-                        95,
-                        100
-                    ],
-                    "flaps": "40",
-                    "vapp": 150,
-                    "vflare": 145
-                }
+                {"load_range":[0,27],"flaps":"40","vapp":125,"vflare":120},
+                {"load_range":[28,34],"flaps":"40","vapp":127,"vflare":122},
+                {"load_range":[35,44],"flaps":"40","vapp":131,"vflare":126},
+                {"load_range":[45,54],"flaps":"40","vapp":135,"vflare":130},
+                {"load_range":[55,64],"flaps":"40","vapp":139,"vflare":134},
+                {"load_range":[65,72],"flaps":"40","vapp":143,"vflare":138},
+                {"load_range":[73,84],"flaps":"40","vapp":145,"vflare":140},
+                {"load_range":[85,94],"flaps":"40","vapp":149,"vflare":144},
+                {"load_range":[95,100],"flaps":"40","vapp":150,"vflare":145}
             ],
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "280",
-                "mach_transition_alt": "FL280",
-                "mach": "0.78"
-            },
-            "climb_vs_profile": {
-                "0_5000": "3000",
-                "5000_15000": "2000",
-                "15000_24000": "2000",
-                "24000_cruise": "1500"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.78",
-                "fl280_to_fl100": "280 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"280","mach_transition_alt":"FL280","mach":"0.78"},
+            "climb_vs_profile": {"0_5000":"3000","5000_15000":"2000","15000_24000":"2000","24000_cruise":"1500"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.78","fl280_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
     "B38M": {
-        "properties": {
-            "full_name": "Boeing 737-8 MAX",
-            "manufacturer": "Boeing",
-            "engines": 2,
-            "capacity": 200
-        },
-        "engine_start_sequence": [
-            2,
-            1
-        ],
+        "properties": {"full_name":"Boeing 737-8 MAX","manufacturer":"Boeing","engines":2,"capacity":200,"min_runway_length_ft":6800},
+        "engine_start_sequence": [2,1],
         "flap_retraction_schedule": [
-            {
-                "speed": 210,
-                "setting": "5"
-            },
-            {
-                "speed": 230,
-                "setting": "1"
-            },
-            {
-                "speed": 250,
-                "setting": "0"
-            }
+            {"speed":210,"setting":"5"},
+            {"speed":230,"setting":"1"},
+            {"speed":250,"setting":"0"}
         ],
         "performance_data": {
-            "flap_speeds": {
-                "1": 250,
-                "2": 240,
-                "5": 230,
-                "10": 210,
-                "15": 200,
-                "25": 190,
-                "30": 175,
-                "40": 166
-            },
+            "flap_speeds": {"1":250,"2":240,"5":230,"10":210,"15":200,"25":190,"30":175,"40":166},
             "cruise_profile": {
                 "west": [
-                    {
-                        "load_range": [
-                            81,
-                            100
-                        ],
-                        "altitude": "FL300"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            80
-                        ],
-                        "altitude": "FL320"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL340"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL360"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            20
-                        ],
-                        "altitude": "FL380"
-                    }
+                    {"load_range":[81,100],"altitude":"FL300"},
+                    {"load_range":[61,80],"altitude":"FL320"},
+                    {"load_range":[41,60],"altitude":"FL340"},
+                    {"load_range":[21,40],"altitude":"FL360"},
+                    {"load_range":[0,20],"altitude":"FL380"}
                 ],
                 "east": [
-                    {
-                        "load_range": [
-                            71,
-                            100
-                        ],
-                        "altitude": "FL310"
-                    },
-                    {
-                        "load_range": [
-                            61,
-                            70
-                        ],
-                        "altitude": "FL330"
-                    },
-                    {
-                        "load_range": [
-                            41,
-                            60
-                        ],
-                        "altitude": "FL350"
-                    },
-                    {
-                        "load_range": [
-                            21,
-                            40
-                        ],
-                        "altitude": "FL370"
-                    },
-                    {
-                        "load_range": [
-                            0,
-                            20
-                        ],
-                        "altitude": "FL390"
-                    }
+                    {"load_range":[71,100],"altitude":"FL310"},
+                    {"load_range":[61,70],"altitude":"FL330"},
+                    {"load_range":[41,60],"altitude":"FL350"},
+                    {"load_range":[21,40],"altitude":"FL370"},
+                    {"load_range":[0,20],"altitude":"FL390"}
                 ]
             },
             "takeoff_data": [
-                {
-                    "load_range": [
-                        0,
-                        13
-                    ],
-                    "flaps": "1",
-                    "n1": "91%",
-                    "vr": 117,
-                    "va": 127
-                },
-                {
-                    "load_range": [
-                        14,
-                        26
-                    ],
-                    "flaps": "1",
-                    "n1": "91%",
-                    "vr": 124,
-                    "va": 133
-                },
-                {
-                    "load_range": [
-                        27,
-                        40
-                    ],
-                    "flaps": "1",
-                    "n1": "91%",
-                    "vr": 131,
-                    "va": 138
-                },
-                {
-                    "load_range": [
-                        41,
-                        49
-                    ],
-                    "flaps": "1",
-                    "n1": "91%",
-                    "vr": 135,
-                    "va": 142
-                },
-                {
-                    "load_range": [
-                        50,
-                        53
-                    ],
-                    "flaps": "1",
-                    "n1": "91%",
-                    "vr": 137,
-                    "va": 142
-                },
-                {
-                    "load_range": [
-                        54,
-                        61
-                    ],
-                    "flaps": "1",
-                    "n1": "92%",
-                    "vr": 139,
-                    "va": 144
-                },
-                {
-                    "load_range": [
-                        62,
-                        67
-                    ],
-                    "flaps": "1",
-                    "n1": "92%",
-                    "vr": 140,
-                    "va": 145
-                },
-                {
-                    "load_range": [
-                        68,
-                        73
-                    ],
-                    "flaps": "1",
-                    "n1": "92%",
-                    "vr": 143,
-                    "va": 148
-                },
-                {
-                    "load_range": [
-                        74,
-                        80
-                    ],
-                    "flaps": "1",
-                    "n1": "92%",
-                    "vr": 146,
-                    "va": 154
-                },
-                {
-                    "load_range": [
-                        81,
-                        85
-                    ],
-                    "flaps": "1",
-                    "n1": "92%",
-                    "vr": 147,
-                    "va": 156
-                },
-                {
-                    "load_range": [
-                        86,
-                        93
-                    ],
-                    "flaps": "5",
-                    "n1": "92%",
-                    "vr": 151,
-                    "va": 158
-                },
-                {
-                    "load_range": [
-                        94,
-                        100
-                    ],
-                    "flaps": "5",
-                    "n1": "92%",
-                    "vr": 160,
-                    "va": 165
-                }
+                {"load_range":[0,13],"flaps":"1","n1":"91%","vr":117,"va":127},
+                {"load_range":[14,26],"flaps":"1","n1":"91%","vr":124,"va":133},
+                {"load_range":[27,40],"flaps":"1","n1":"91%","vr":131,"va":138},
+                {"load_range":[41,49],"flaps":"1","n1":"91%","vr":135,"va":142},
+                {"load_range":[50,53],"flaps":"1","n1":"91%","vr":137,"va":142},
+                {"load_range":[54,61],"flaps":"1","n1":"92%","vr":139,"va":144},
+                {"load_range":[62,67],"flaps":"1","n1":"92%","vr":140,"va":145},
+                {"load_range":[68,73],"flaps":"1","n1":"92%","vr":143,"va":148},
+                {"load_range":[74,80],"flaps":"1","n1":"92%","vr":146,"va":154},
+                {"load_range":[81,85],"flaps":"1","n1":"92%","vr":147,"va":156},
+                {"load_range":[86,93],"flaps":"5","n1":"92%","vr":151,"va":158},
+                {"load_range":[94,100],"flaps":"5","n1":"92%","vr":160,"va":165}
             ],
             "landing_data": [
-                {
-                    "load_range": [
-                        0,
-                        13
-                    ],
-                    "flaps": "30",
-                    "vapp": 124,
-                    "vflare": 119
-                },
-                {
-                    "load_range": [
-                        14,
-                        26
-                    ],
-                    "flaps": "30",
-                    "vapp": 131,
-                    "vflare": 126
-                },
-                {
-                    "load_range": [
-                        27,
-                        40
-                    ],
-                    "flaps": "30",
-                    "vapp": 144,
-                    "vflare": 139
-                },
-                {
-                    "load_range": [
-                        41,
-                        49
-                    ],
-                    "flaps": "30",
-                    "vapp": 147,
-                    "vflare": 142
-                },
-                {
-                    "load_range": [
-                        50,
-                        53
-                    ],
-                    "flaps": "30",
-                    "vapp": 150,
-                    "vflare": 145
-                },
-                {
-                    "load_range": [
-                        54,
-                        61
-                    ],
-                    "flaps": "30",
-                    "vapp": 153,
-                    "vflare": 148
-                },
-                {
-                    "load_range": [
-                        62,
-                        67
-                    ],
-                    "flaps": "30",
-                    "vapp": 154,
-                    "vflare": 149
-                },
-                {
-                    "load_range": [
-                        68,
-                        73
-                    ],
-                    "flaps": "30",
-                    "vapp": 156,
-                    "vflare": 151
-                },
-                {
-                    "load_range": [
-                        74,
-                        80
-                    ],
-                    "flaps": "30",
-                    "vapp": 159,
-                    "vflare": 154
-                },
-                {
-                    "load_range": [
-                        81,
-                        85
-                    ],
-                    "flaps": "30",
-                    "vapp": 161,
-                    "vflare": 156
-                },
-                {
-                    "load_range": [
-                        86,
-                        93
-                    ],
-                    "flaps": "30",
-                    "vapp": 165,
-                    "vflare": 160
-                },
-                {
-                    "load_range": [
-                        94,
-                        100
-                    ],
-                    "flaps": "30",
-                    "vapp": 165,
-                    "vflare": 160
-                }
+                {"load_range":[0,13],"flaps":"30","vapp":124,"vflare":119},
+                {"load_range":[14,26],"flaps":"30","vapp":131,"vflare":126},
+                {"load_range":[27,40],"flaps":"30","vapp":144,"vflare":139},
+                {"load_range":[41,49],"flaps":"30","vapp":147,"vflare":142},
+                {"load_range":[50,53],"flaps":"30","vapp":150,"vflare":145},
+                {"load_range":[54,61],"flaps":"30","vapp":153,"vflare":148},
+                {"load_range":[62,67],"flaps":"30","vapp":154,"vflare":149},
+                {"load_range":[68,73],"flaps":"30","vapp":156,"vflare":151},
+                {"load_range":[74,80],"flaps":"30","vapp":159,"vflare":154},
+                {"load_range":[81,85],"flaps":"30","vapp":161,"vflare":156},
+                {"load_range":[86,93],"flaps":"30","vapp":165,"vflare":160},
+                {"load_range":[94,100],"flaps":"30","vapp":165,"vflare":160}
             ],
             "landing_notam": "NOTAM: Flaps 40 is recommended for short runways. Subtract 5 knots from both Vapp and Vflare when Flaps 40 is used.",
-            "speed_profile": {
-                "initial_speed": "250",
-                "below_10k": "250",
-                "above_10k": "290",
-                "mach_transition_alt": "FL280",
-                "mach": "0.79"
-            },
-            "climb_vs_profile": {
-                "0_5000": "2500",
-                "5000_15000": "2300",
-                "15000_24000": "1400",
-                "24000_cruise": "1000"
-            },
-            "descent_speed_profile": {
-                "cruise_to_fl280": "M 0.79",
-                "fl280_to_fl100": "290 knots",
-                "fl100_to_ground": "<250 knots"
-            }
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"290","mach_transition_alt":"FL280","mach":"0.79"},
+            "climb_vs_profile": {"0_5000":"2500","5000_15000":"2300","15000_24000":"1400","24000_cruise":"1000"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.79","fl280_to_fl100":"290 knots","fl100_to_ground":"<250 knots"}
         }
     }
 }

@@ -17,6 +17,7 @@ from app.services.aircraft_service import (
     get_aircraft_types,
     get_airframe,
     get_airframe_group_name,
+    get_all_airframe_group_map,
     get_airframe_history,
     get_all_airframes,
     update_airframe,
@@ -38,6 +39,7 @@ async def list_airframes(
     db: AsyncSession = Depends(get_db),
 ):
     airframes = await get_all_airframes(db, status, group_id, airport)
+    group_map = await get_all_airframe_group_map(db)
     return [
         LiveAircraftOut(
             id=a.id,
@@ -59,6 +61,8 @@ async def list_airframes(
             total_flights=a.total_flights,
             delivered_at=str(a.delivered_at) if a.delivered_at else None,
             home_base=a.home_base,
+            group_id=group_map.get(a.id, (None, None))[0],
+            group_name=group_map.get(a.id, (None, None))[1],
         )
         for a in airframes
     ]

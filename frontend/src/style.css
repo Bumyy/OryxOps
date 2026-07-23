@@ -64,10 +64,11 @@
 
 @layer base {
   :root {
-    /* Semantic Light Theme */
+    /* ── Semantic Light Theme ────────────────────────────────── */
     --bg-layout: #fdf8f9;
     --bg-card: #ffffff;
     --bg-slate: #f8fafc;
+    --bg-muted: #f1f5f9;
     --border-main: #ead9df;
     --text-main: #1f2937;
     --text-sub: #4b5563;
@@ -80,17 +81,54 @@
     --brand-border: #ead9df;
     --brand-hover-bg: #f8f1f4;
     --scrollbar-thumb: #ead9df;
+
+    /* ── Status Tokens (Light) ───────────────────────────────── */
+    --status-approved-bg:      #d1fae5;
+    --status-approved-text:    #065f46;
+    --status-approved-border:  #6ee7b7;
+
+    --status-proposed-bg:      #fef3c7;
+    --status-proposed-text:    #78350f;
+    --status-proposed-border:  #fcd34d;
+
+    --status-draft-bg:         #f0f9ff;
+    --status-draft-text:       #0c4a6e;
+    --status-draft-border:     #7dd3fc;
+
+    --status-error-bg:         #ffe4e6;
+    --status-error-text:       #881337;
+    --status-error-border:     #fda4af;
+
+    --status-warn-bg:          #fffbeb;
+    --status-warn-text:        #92400e;
+    --status-warn-border:      #fde68a;
+
+    --status-cancelled-bg:     #f3f4f6;
+    --status-cancelled-text:   #6b7280;
+    --status-cancelled-border: #d1d5db;
+
+    --status-ground-ok-bg:     #ecfeff;
+    --status-ground-ok-text:   #164e63;
+    --status-ground-ok-border: #67e8f9;
+
+    --status-ground-err-bg:    #fff7ed;
+    --status-ground-err-text:  #7c2d12;
+    --status-ground-err-border:#fdba74;
+
+    --code-bg:   #f8fafc;
+    --code-text: #334155;
   }
 
   .dark {
-    /* Semantic Dark Theme */
+    /* ── Semantic Dark Theme ─────────────────────────────────── */
     --bg-layout: #0d0e12;
     --bg-card: #161920;
     --bg-slate: #0f1115;
+    --bg-muted: #1e2028;
     --border-main: #272a35;
     --text-main: #f3f4f6;
-    --text-sub: #9ca4b8;
-    --text-muted: #64748b;
+    --text-sub: #cbd5e1;
+    --text-muted: #94a3b8;
 
     --brand: #a8244e;
     --brand-dark: #6A0C2C;
@@ -99,6 +137,42 @@
     --brand-border: #3f1e29;
     --brand-hover-bg: #2b141c;
     --scrollbar-thumb: #3f1e29;
+
+    /* ── Status Tokens (Dark) ────────────────────────────────── */
+    --status-approved-bg:      rgba(16, 185, 129, 0.13);
+    --status-approved-text:    #86efac;
+    --status-approved-border:  #166534;
+
+    --status-proposed-bg:      rgba(245, 158, 11, 0.13);
+    --status-proposed-text:    #fcd34d;
+    --status-proposed-border:  #92400e;
+
+    --status-draft-bg:         rgba(14, 165, 233, 0.13);
+    --status-draft-text:       #7dd3fc;
+    --status-draft-border:     #075985;
+
+    --status-error-bg:         rgba(244, 63, 94, 0.13);
+    --status-error-text:       #fca5a5;
+    --status-error-border:     #7f1d1d;
+
+    --status-warn-bg:          rgba(245, 158, 11, 0.08);
+    --status-warn-text:        #fcd34d;
+    --status-warn-border:      #78350f;
+
+    --status-cancelled-bg:     #18191f;
+    --status-cancelled-text:   #64748b;
+    --status-cancelled-border: #272a35;
+
+    --status-ground-ok-bg:     rgba(6, 182, 212, 0.12);
+    --status-ground-ok-text:   #67e8f9;
+    --status-ground-ok-border: #164e63;
+
+    --status-ground-err-bg:    rgba(249, 115, 22, 0.13);
+    --status-ground-err-text:  #fdba74;
+    --status-ground-err-border:#7c2d12;
+
+    --code-bg:   #0f1115;
+    --code-text: #94a3b8;
   }
 }
 
@@ -121,7 +195,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Layout overrides */
+/* ── Layout overrides ──────────────────────────────────────────── */
 .bg-white {
   background-color: var(--bg-card) !important;
 }
@@ -130,12 +204,25 @@ body {
   background-color: var(--bg-slate) !important;
 }
 
+/* gray-100 / gray-200 — previously not overridden, now theme-aware */
+.bg-gray-100, .bg-gray-100\/50, .bg-gray-100\/40 {
+  background-color: var(--bg-muted) !important;
+}
+.bg-gray-200 {
+  background-color: var(--bg-muted) !important;
+}
+
+/* white opacity variants — bypass .bg-white, must be explicitly overridden */
+.bg-white\/80, .bg-white\/70, .bg-white\/60, .bg-white\/50 {
+  background-color: var(--bg-card) !important;
+}
+
 aside, header {
   background-color: var(--bg-card) !important;
   border-color: var(--border-main) !important;
 }
 
-/* Borders */
+/* ── Borders ───────────────────────────────────────────────────── */
 .border-brand-border, .border-brand-border\/60, .border-brand-border\/40, .border-brand-border\/80 {
   border-color: var(--brand-border) !important;
 }
@@ -143,18 +230,18 @@ aside, header {
   border-color: var(--border-main) !important;
 }
 
-/* Text */
-.text-gray-800, .text-gray-700, .text-brand-dark {
+/* ── Text ──────────────────────────────────────────────────────── */
+.text-gray-900, .text-gray-800, .text-gray-700, .text-brand-dark {
   color: var(--text-main) !important;
 }
 .text-gray-600, .text-gray-500 {
   color: var(--text-sub) !important;
 }
-.text-gray-400 {
+.text-gray-400, .text-gray-300 {
   color: var(--text-muted) !important;
 }
 
-/* Global inputs dark support */
+/* ── Global inputs dark support ────────────────────────────────── */
 input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), 
 select, 
 textarea {
@@ -162,6 +249,7 @@ textarea {
   color: var(--text-main) !important;
   border-color: var(--border-main) !important;
 }
+
 
 /* Specific calendar style fixes */
 .fc-theme-standard td, .fc-theme-standard th {

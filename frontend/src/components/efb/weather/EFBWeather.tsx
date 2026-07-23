@@ -24,6 +24,7 @@ export interface EFBWeatherProps {
   ofpData:        any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   activeBooking?: any;
+  activeAircraft?: string;
 }
 
 // ─── Helpers ──────────────────────────────────
@@ -32,7 +33,7 @@ type TabId = "departure" | "arrival" | "alternate" | "search";
 
 // ─── Component ───────────────────────────────
 
-export default function EFBWeather({ ofpData, activeBooking }: EFBWeatherProps) {
+export default function EFBWeather({ ofpData, activeBooking, activeAircraft }: EFBWeatherProps) {
   // ── Derived ICAO codes from props ────────────
   const depIcao = (ofpData as any)?.origin?.icao_code      || (activeBooking as any)?.flight_departure || "";
   const arrIcao = (ofpData as any)?.destination?.icao_code || (activeBooking as any)?.flight_arrival   || "";
@@ -40,9 +41,10 @@ export default function EFBWeather({ ofpData, activeBooking }: EFBWeatherProps) 
 
   // ── Derived Aircraft ICAO code from props ────
   const aircraftIcao = (
+    activeAircraft ||
     (ofpData as any)?.aircraft?.icao_code ||
     (activeBooking as any)?.aircraft_icao ||
-    "generic"
+    "A320"
   ).toUpperCase();
 
   // ── UI state ─────────────────────────────────

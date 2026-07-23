@@ -103,7 +103,6 @@ export default function Dashboard() {
           <p className="text-2xl font-bold text-brand mt-1">
             {Array.isArray(summary) ? summary.reduce((a, b) => a + b.discovered_routes, 0) : 0}
           </p>
-          <Link to="/careers" className="text-xs text-brand hover:underline mt-1.5 inline-block font-semibold">View progress</Link>
         </div>
       </div>
 
@@ -147,9 +146,9 @@ export default function Dashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Link to="/careers" className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-all duration-300 p-6 block group">
-          <h3 className="text-lg font-bold text-brand group-hover:text-brand-light transition-colors">Career Center</h3>
-          <p className="text-sm text-gray-500 mt-2">Check your Airbus &amp; Boeing career progress and rank requirements.</p>
+        <Link to="/fleet" className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-all duration-300 p-6 block group">
+          <h3 className="text-lg font-bold text-brand group-hover:text-brand-light transition-colors">Fleet Registry</h3>
+          <p className="text-sm text-gray-500 mt-2">Explore airframes, registrations, and aircraft specifications.</p>
         </Link>
 
         <Link to="/groups" className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-all duration-300 p-6 block group">

@@ -21,6 +21,7 @@ interface LiveAircraft {
   total_flight_hours: number;
   total_flights: number;
   home_base: string;
+  group_id?: number;
   group_name?: string;
   last_flight_at?: string;
 }

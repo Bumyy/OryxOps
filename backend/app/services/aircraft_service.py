@@ -112,3 +112,12 @@ async def get_airframe_group_name(db: AsyncSession, airframe_id: int) -> str | N
         )
     )
     return result.scalar_one_or_none()
+
+
+async def get_all_airframe_group_map(db: AsyncSession) -> dict[int, tuple[int, str]]:
+    result = await db.execute(
+        select(LiveGroupAircraft.aircraft_id, LiveFlyingGroup.id, LiveFlyingGroup.name)
+        .join(LiveFlyingGroup, LiveGroupAircraft.group_id == LiveFlyingGroup.id)
+        .where(LiveGroupAircraft.removed_at.is_(None))
+    )
+    return {row[0]: (row[1], row[2]) for row in result.all()}

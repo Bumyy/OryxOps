@@ -254,10 +254,16 @@ export default function Operations() {
 
           {!isDispatched ? (
             /* 🚀 DISPATCH CARD */
-            <div className="bg-amber-50/40 border border-amber-200 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+            <div
+              className="rounded-3xl p-6 shadow-xs flex flex-col md:flex-row gap-6 justify-between items-start md:items-center"
+              style={{
+                background: "var(--status-warn-bg)",
+                border: "1px solid var(--status-warn-border)",
+              }}
+            >
               <div className="space-y-1">
-                <h4 className="font-black text-amber-950 text-lg">Departure Dispatch Deck</h4>
-                <p className="text-xs text-amber-800/80 max-w-md leading-relaxed">
+                <h4 className="font-black text-lg" style={{ color: "var(--status-warn-text)" }}>Departure Dispatch Deck</h4>
+                <p className="text-xs max-w-md leading-relaxed opacity-90" style={{ color: "var(--status-warn-text)" }}>
                   Dispatching the flight generates the dynamic passenger manifest layout and activates planning telemetry links.
                 </p>
               </div>
@@ -271,7 +277,7 @@ export default function Operations() {
                     {dispatching ? "Dispatching..." : "🚀 Dispatch Flight"}
                   </button>
                 ) : (
-                  <div className="text-xs text-gray-500 bg-white/80 border border-gray-200 px-4 py-3 rounded-2xl text-center italic">
+                  <div className="text-xs text-gray-500 bg-[var(--bg-card)] border border-[var(--border-main)] px-4 py-3 rounded-2xl text-center italic">
                     Waiting for takeoff pilot to dispatch
                   </div>
                 )}

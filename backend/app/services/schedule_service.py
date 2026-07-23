@@ -33,7 +33,10 @@ async def get_schedules(
     if week_start:
         query = query.where(LiveFlightSchedule.week_start == week_start)
     if status:
-        query = query.where(LiveFlightSchedule.status == status)
+        if status == "all":
+            pass
+        else:
+            query = query.where(LiveFlightSchedule.status == status)
     else:
         # Exclude draft unless explicitly requested
         query = query.where(LiveFlightSchedule.status != "draft")

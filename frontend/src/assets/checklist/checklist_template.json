@@ -11,7 +11,7 @@
       ]
     },
     {
-      "title": "SPAWN IN",
+      "title": "PRE-FLIGHT",
       "items": [
         { "text": "GROUND SERVICES", "value": "CONNECTED" },
         { "text": "MASTER SWITCH", "value": "ON" },
@@ -40,12 +40,13 @@
         { "text": "GROUND SERVICES", "value": "DISCONNECTED" },
         { "text": "PUSHBACK TUG", "value": "ON" },
         { "text": "BEACON LIGHT", "value": "ON" },
+        { "text": "TAXI LIGHT", "value": "ON" },
         { "text": "SEATBELT SIGNS", "value": "ON" },
         { "text": "PUSHBACK COMPLETED", "value": "DONE" }
       ]
     },
     {
-      "title": "ENGINE STARTUP",
+      "title": "ENGINE START",
       "special_section": "engine_start"
     },
     {
@@ -63,7 +64,7 @@
         " while Taxi , Always maintain 25 knots or below in Straight Line and 10 knots or below during Taxi Turns"]
     },
     {
-      "title": "BEFORE ENTERING RUNWAY",
+      "title": "BEFORE TAKEOFF",
       "items": [
         { "text": "TAKEOFF TRIM", "value": "CHECKED" },
         { "text": "CABIN", "value": "READY" },
@@ -73,7 +74,7 @@
       ]
     },
     {
-      "title": "TAKE OFF INFO",
+      "title": "TAKEOFF",
       "items": [
         { "text": "TAKEOFF N1 TARGET", "value": "{n1_target}", "is_dynamic": true },
         { "text": "TAKEOFF SPEEDS", "value": "VR: {vr_speed} | V-LIFT: {va_speed}", "is_dynamic": true },
@@ -83,7 +84,7 @@
       ]
     },
     {
-      "title": "FLAP RETRACTION SCHEDULE",
+      "title": "FLAP RETRACTION",
       "special_section": "flap_retraction_below_10k"
     },
     {
@@ -110,7 +111,7 @@
       "special_section": "step_climb"
     },
     {
-      "title": "DESCENDING (Cruise to FL100)",
+      "title": "DESCENT",
       "items": [
         { "text": "FUEL QUANTITY", "value": "CHECKED" },
         { "text": "FUEL DUMP (if Required)", "value": "DONE" },
@@ -126,7 +127,7 @@
       "special_section_2": "flap_deploy_above_10k"
     },
     {
-      "title": "DESCENDING (FL100 to LANDING)",
+      "title": "APPROACH",
       "items": [
         { "text": "LANDING LIGHTS", "value": "ON (below 10,000ft)" }
       ],
@@ -141,7 +142,7 @@
       "special_section_2": "landing_data_table"
     },
     {
-      "title": "AFTER LANDING (or during exiting of runway)",
+      "title": "AFTER LANDING",
       "items": [
         { "text": "STROBE LIGHTS", "value": "OFF" },
         { "text": "LANDING LIGHTS", "value": "OFF" },

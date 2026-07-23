@@ -30,6 +30,8 @@ class LiveAircraftOut(BaseModel):
     total_flights: int
     delivered_at: str | None = None
     home_base: str
+    group_id: int | None = None
+    group_name: str | None = None
 
     model_config = {"from_attributes": True}
 

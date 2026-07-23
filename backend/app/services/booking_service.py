@@ -412,7 +412,7 @@ async def complete_booking(
         return None
 
     is_departure_only = booking.departure_pilot_id is not None and booking.arrival_pilot_id is None
-    pilot_id = booking.departure_pilot_id if is_departure_only else booking.arrival_pilot_id
+    is_dual_pilot = booking.departure_pilot_id is not None and booking.arrival_pilot_id is not None and booking.departure_pilot_id != booking.arrival_pilot_id
 
     # Detect diversion
     scheduled_arrival = (booking.schedule.arrival or "OTHH").upper() if booking.schedule else "OTHH"
@@ -420,26 +420,60 @@ async def complete_booking(
     if actual_arrival and len(actual_arrival.strip()) == 4:
         arrival_airport = actual_arrival.strip().upper()
 
-    # Create new legacy PIREP
-    new_pirep = Pirep(
-        pilotid=pilot_id,
-        departure=(booking.schedule.departure or "OTHH").upper() if booking.schedule else "OTHH",
-        arrival=arrival_airport,
-        aircraftid=booking.schedule.aircraft_id if booking.schedule else None,
-        flighttime=int(flight_time_minutes * 60),  # seconds as integer
-        date=datetime.utcnow().date(),
-        status=0,  # Pending review
-        fuelused=int(fuel_burned),
-        flightnum="CM",
-        multi=""
-    )
-    db.add(new_pirep)
-    await db.flush()  # Populate ID
+    # Determine flight time and multiplier for PIREP
+    pirep_flight_time = flight_time_minutes
+    if is_dual_pilot:
+        pirep_flight_time = flight_time_minutes / 2.0
 
-    if is_departure_only:
-        booking.departure_pirep_id = new_pirep.id
+    # Determine flightnum (frame name)
+    frame_name = "CM"
+    if booking.schedule and booking.schedule.aircraft and booking.schedule.aircraft.registration:
+        frame_name = booking.schedule.aircraft.registration
+
+    # Create legacy PIREP(s)
+    pilots_to_file = []
+    if is_dual_pilot:
+        pilots_to_file = [booking.departure_pilot_id, booking.arrival_pilot_id]
+    elif is_departure_only:
+        pilots_to_file = [booking.departure_pilot_id]
     else:
-        booking.arrival_pirep_id = new_pirep.id
+        pilots_to_file = [booking.arrival_pilot_id]
+        
+    # Extract proper aircraft type ID and frame ID for legacy system
+    ac_type_id = None
+    ac_frame_id = None
+    if booking.schedule and booking.schedule.aircraft:
+        ac_frame_id = booking.schedule.aircraft.id
+        ac_type_id = booking.schedule.aircraft.aircraft_type_id
+
+    new_pireps = []
+    for p_id in pilots_to_file:
+        new_pirep = Pirep(
+            pilotid=p_id,
+            departure=(booking.schedule.departure or "OTHH").upper() if booking.schedule else "OTHH",
+            arrival=arrival_airport,
+            aircraftid=ac_type_id,
+            trackedaircraftid=ac_frame_id if ac_frame_id else 0,
+            flighttime=int(pirep_flight_time * 60),  # seconds as integer
+            date=datetime.utcnow().date(),
+            status=0,  # Pending review
+            fuelused=int(fuel_burned),
+            flightnum=frame_name,
+            multi="1.5"
+        )
+        db.add(new_pirep)
+        new_pireps.append(new_pirep)
+
+    await db.flush()  # Populate IDs
+
+    if is_dual_pilot:
+        booking.departure_pirep_id = new_pireps[0].id
+        booking.arrival_pirep_id = new_pireps[1].id
+        booking.landing_fpm = landing_fpm
+    elif is_departure_only:
+        booking.departure_pirep_id = new_pireps[0].id
+    else:
+        booking.arrival_pirep_id = new_pireps[0].id
         booking.landing_fpm = landing_fpm
 
     # Load dynamic rate/repu settings from database
