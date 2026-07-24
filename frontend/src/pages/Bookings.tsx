@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchBookings, cancelBooking } from "../store/slices/bookingSlice";
 import { api } from "../api/client";
+import { useCurrency } from "../hooks/useCurrency";
 
 export default function Bookings() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { currency, formatAmount, convertAmount } = useCurrency();
   const { bookings, loading } = useAppSelector((s) => s.booking);
   const aircraftData = useAppSelector((s) => s.aircraft.specs);
   const user = useAppSelector((s) => s.auth.user);
@@ -498,11 +500,11 @@ export default function Bookings() {
                                     {b.pax_count} passengers loaded
                                   </div>
                                   <div className="text-[8.5px] text-brand-dark italic mt-0.5">
-                                    Formula: Pax ({b.pax_count}) × Mins ({b.flight_time_minutes || 0}) × Rate ({rates.econ_ticket_base_price} QAR/pax·m)
+                                    Formula: Pax ({b.pax_count}) × Mins ({b.flight_time_minutes || 0}) × Rate ({convertAmount(rates.econ_ticket_base_price).toFixed(2)} {currency === "USD" ? "USD" : "QAR"}/pax·m)
                                   </div>
                                 </div>
                                 <div className="font-black text-emerald-700 text-right whitespace-nowrap">
-                                  +{Math.round(b.earnings || 0).toLocaleString()} QAR
+                                  +{formatAmount(b.earnings || 0)}
                                 </div>
                               </div>
 
@@ -514,11 +516,11 @@ export default function Bookings() {
                                     {(b.fuel_burned || 0).toLocaleString()} kg fuel burned
                                   </div>
                                   <div className="text-[8.5px] text-brand-dark italic mt-0.5">
-                                    Formula: kg * {rates.econ_fuel_price_rate.toFixed(2)} QAR/kg
+                                    Formula: kg * {convertAmount(rates.econ_fuel_price_rate).toFixed(2)} {currency === "USD" ? "USD" : "QAR"}/kg
                                   </div>
                                 </div>
                                 <div className="font-black text-rose-700 text-right whitespace-nowrap">
-                                  -{Math.round((b.fuel_burned || 0) * rates.econ_fuel_price_rate).toLocaleString()} QAR
+                                  -{formatAmount((b.fuel_burned || 0) * rates.econ_fuel_price_rate)}
                                 </div>
                               </div>
 
@@ -535,7 +537,7 @@ export default function Bookings() {
                                       </div>
                                     </div>
                                     <div className="font-black text-rose-700 text-right whitespace-nowrap">
-                                      -{operating_cost.toLocaleString()} QAR
+                                      -{formatAmount(operating_cost)}
                                     </div>
                                   </div>
                                 );
@@ -551,14 +553,14 @@ export default function Bookings() {
                                     <div className="text-[9px] text-gray-400 mt-0.5">Landing rate: {b.landing_fpm} FPM</div>
                                   </div>
                                   <div className="font-black text-rose-700 text-right whitespace-nowrap">
-                                    -{(() => {
+                                    -{formatAmount((() => {
                                       const fpm = b.landing_fpm;
                                       if (fpm <= 150) return 0;
                                       if (fpm <= 250) return 500;
                                       if (fpm <= 350) return 2000;
                                       if (fpm <= 450) return 6000;
                                       return 15000;
-                                    })().toLocaleString()} QAR
+                                    })())}
                                   </div>
                                 </div>
                               )}
@@ -569,11 +571,11 @@ export default function Bookings() {
                                   <div>
                                     <div className="font-black text-red-800">🔀 Passenger Diversion Charge</div>
                                     <div className="text-[9px] text-red-600 mt-0.5">
-                                      Diverted to {b.actual_arrival} (Formula: {b.pax_count} pax × {rates.econ_diversion_charge_per_pax} QAR)
+                                      Diverted to {b.actual_arrival} (Formula: {b.pax_count} pax × {formatAmount(rates.econ_diversion_charge_per_pax)})
                                     </div>
                                   </div>
                                   <div className="font-black text-red-700 text-right whitespace-nowrap">
-                                    -{((b.pax_count || 100) * rates.econ_diversion_charge_per_pax).toLocaleString()} QAR
+                                    -{formatAmount((b.pax_count || 100) * rates.econ_diversion_charge_per_pax)}
                                   </div>
                                 </div>
                               )}
@@ -583,15 +585,15 @@ export default function Bookings() {
                                 <div className="flex justify-between items-center font-bold">
                                   <span className="text-gray-600">Net Flight Leg Profit:</span>
                                   <span className={((b.earnings || 0) - (b.expenses || 0)) > 0 ? "text-emerald-700 font-extrabold" : "text-red-700 font-extrabold"}>
-                                    {Math.round((b.earnings || 0) - (b.expenses || 0)).toLocaleString()} QAR
+                                    {formatAmount((b.earnings || 0) - (b.expenses || 0))}
                                   </span>
                                 </div>
                                 <div className="flex justify-between items-center text-[10px] text-gray-500 font-medium">
                                   <span>👤 Pilot Wallet Share:</span>
                                   <span>
                                     {isSolo 
-                                      ? `Solo Share (${(rates.econ_payout_share_solo * 100).toFixed(0)}% of profit, min ${rates.econ_min_payout_solo} QAR)` 
-                                      : `Split Crew Share (${(rates.econ_payout_share_split * 100).toFixed(0)}% of profit, min ${rates.econ_min_payout_split} QAR)`
+                                      ? `Solo Share (${(rates.econ_payout_share_solo * 100).toFixed(0)}% of profit, min ${formatAmount(rates.econ_min_payout_solo)})` 
+                                      : `Split Crew Share (${(rates.econ_payout_share_split * 100).toFixed(0)}% of profit, min ${formatAmount(rates.econ_min_payout_split)})`
                                     }
                                   </span>
                                 </div>
@@ -599,8 +601,8 @@ export default function Bookings() {
                                   <span>💰 Wallet Salary Payout:</span>
                                   <span>
                                     {isSolo
-                                      ? `${Math.round(Math.max(rates.econ_min_payout_solo, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_solo)).toLocaleString()} QAR`
-                                      : `${Math.round(Math.max(rates.econ_min_payout_split, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_split)).toLocaleString()} QAR`}
+                                      ? formatAmount(Math.max(rates.econ_min_payout_solo, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_solo))
+                                      : formatAmount(Math.max(rates.econ_min_payout_split, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_split))}
                                   </span>
                                 </div>
                               </div>
@@ -616,21 +618,21 @@ export default function Bookings() {
                 <div className="bg-white/80 border border-brand-border/60 rounded-2xl p-4 shadow-sm w-full md:w-auto md:min-w-[280px]">
                   <div className="text-[10px] font-black text-brand-dark flex justify-between items-center border-b border-brand-border/40 pb-2 mb-2">
                     <span>💳 {isPending ? "Estimated Ledger" : "Finalized Ledger"}</span>
-                    <span className="text-[8px] text-gray-400 tracking-wider font-mono">QAR LAYER</span>
+                    <span className="text-[8px] text-gray-400 tracking-wider font-mono">{currency} LAYER</span>
                   </div>
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Total Earnings:</span>
-                      <span className="font-bold text-emerald-600">+{Math.round(b.earnings || 0).toLocaleString()} QAR</span>
+                      <span className="font-bold text-emerald-600">+{formatAmount(b.earnings || 0)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Operational Expenses:</span>
-                      <span className="font-bold text-red-600">-{Math.round(b.expenses || 0).toLocaleString()} QAR</span>
+                      <span className="font-bold text-red-600">-{formatAmount(b.expenses || 0)}</span>
                     </div>
                     <div className="flex justify-between border-t border-dashed border-brand-border/50 pt-1.5 font-bold">
                       <span className="text-gray-600">Net Profit:</span>
                       <span className={((b.earnings || 0) - (b.expenses || 0)) > 0 ? "text-emerald-700" : "text-red-700"}>
-                        {Math.round((b.earnings || 0) - (b.expenses || 0))?.toLocaleString()} QAR
+                        {formatAmount((b.earnings || 0) - (b.expenses || 0))}
                       </span>
                     </div>
 
@@ -641,8 +643,8 @@ export default function Bookings() {
                       </div>
                       <div className={`text-base font-extrabold mt-0.5 ${isPending ? "text-amber-700" : "text-brand"}`}>
                         {isSolo
-                          ? `${Math.round(Math.max(rates.econ_min_payout_solo, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_solo))?.toLocaleString()} QAR`
-                          : `${Math.round(Math.max(rates.econ_min_payout_split, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_split))?.toLocaleString()} QAR`}
+                          ? formatAmount(Math.max(rates.econ_min_payout_solo, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_solo))
+                          : formatAmount(Math.max(rates.econ_min_payout_split, ((b.earnings || 0) - (b.expenses || 0)) * rates.econ_payout_share_split))}
                       </div>
                       <div className="text-[8px] text-gray-400 font-bold mt-0.5 uppercase">
                         {isSolo ? `${(rates.econ_payout_share_solo * 100).toFixed(0)}% Solo share` : `${(rates.econ_payout_share_split * 100).toFixed(0)}% Split share`}

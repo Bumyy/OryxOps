@@ -101,3 +101,17 @@ async def get_simbrief_ofp(userid: str):
         raise HTTPException(status_code=502, detail=f"Failed to communicate with SimBrief: {exc}")
 
 
+@router.get("/diversions")
+def get_eligible_diversions(icao: str, min_runway_ft: int):
+    from app.services.efb_service import find_eligible_diversion_airports
+    
+    clean_icao = icao.strip().upper()
+    if len(clean_icao) != 4:
+        raise HTTPException(status_code=400, detail="Invalid ICAO code. Must be 4 characters.")
+        
+    try:
+        return find_eligible_diversion_airports(clean_icao, min_runway_ft)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+

@@ -6,6 +6,7 @@ from app.api.endpoints import (
     auth,
     bookings,
     careers,
+    charts,
     discovery,
     efb,
     groups,
@@ -31,5 +32,6 @@ api_router.include_router(bookings.router)
 api_router.include_router(transfers.router)
 api_router.include_router(settings.router)
 api_router.include_router(efb.router)
+api_router.include_router(charts.router)
 api_router.include_router(admin.router)
 api_router.include_router(if_live.router)

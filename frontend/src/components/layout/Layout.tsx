@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../store/hooks";
 import { fetchMe, logout } from "../../store/slices/authSlice";
+import { useCurrency } from "../../hooks/useCurrency";
 
 const navItems = [
   {
@@ -101,6 +102,7 @@ const adminItems = [
 export default function Layout() {
   const dispatch = useAppDispatch();
   const location = useLocation();
+  const { currency, setCurrency } = useCurrency();
   const navigate = useNavigate();
   const { user } = useAppSelector((s) => s.auth);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -526,6 +528,13 @@ export default function Layout() {
 
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setCurrency(currency === "QAR" ? "USD" : "QAR")}
+              className="text-gray-500 hover:text-brand transition-colors px-2.5 py-1.5 rounded-xl hover:bg-brand-hover-bg flex items-center justify-center cursor-pointer font-mono text-xs font-bold border border-brand-border gap-1"
+              title="Switch Currency"
+            >
+              {currency === "QAR" ? "﷼ QAR" : "$ USD"}
+            </button>
             <button
               onClick={toggleTheme}
               className="text-gray-500 hover:text-brand transition-colors p-2 rounded-xl hover:bg-brand-hover-bg flex items-center justify-center cursor-pointer"

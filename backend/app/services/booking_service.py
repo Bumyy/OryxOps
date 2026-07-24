@@ -566,7 +566,8 @@ async def complete_booking(
         fuel=fuel_burned,
         fpm=landing_fpm,
         earnings=total_earnings,
-        expenses=total_expenses
+        expenses=total_expenses,
+        reputation=round(overall_rep / 20.0, 2)
     )
 
     # Post Parked Fleet Log Message to Discord #fleet-logs
@@ -622,7 +623,8 @@ async def post_completion_webhook(
     fuel: float,
     fpm: int,
     earnings: float,
-    expenses: float
+    expenses: float,
+    reputation: float
 ):
     """Posts a premium completed flight notification embed to Discord Webhook."""
     stmt = select(LiveSetting).where(LiveSetting.setting_key == "discord_webhook_url")
@@ -648,7 +650,21 @@ async def post_completion_webhook(
             f"🛫 **Takeoff Pilot:** {dep_callsign or 'Vacant'}\n"
             f"🛬 **Landing Pilot:** {arr_callsign or 'Vacant'}"
         )
-        
+
+    # Convert to USD using fixed peg rate 3.64
+    usd_earnings = int(round(earnings / 3.64))
+    usd_expenses = int(round(expenses / 3.64))
+    net_qar = int(round(earnings - expenses))
+    usd_net = int(round((earnings - expenses) / 3.64))
+
+    net_qar_sign = "+" if net_qar >= 0 else "-"
+    net_usd_sign = "+" if usd_net >= 0 else "-"
+
+    # Format Duration
+    hours = minutes // 60
+    rem_mins = minutes % 60
+    duration_str = f"{hours}h {rem_mins}m" if hours > 0 else f"{rem_mins}m"
+    
     payload = {
         "embeds": [
             {
@@ -659,9 +675,12 @@ async def post_completion_webhook(
                     {"name": "Flight & Route", "value": f"**{flt_num}** ({dep_icao} ➔ {arr_icao})", "inline": True},
                     {"name": "Aircraft", "value": f"**{ac_reg}** ({ac_icao})", "inline": True},
                     {"name": "Landing Rate", "value": f"{fpm_emoji} **{fpm} FPM**", "inline": True},
-                    {"name": "Duration", "value": f"⏱️ **{minutes} min**", "inline": True},
-                    {"name": "Estimated Revenue", "value": f"💵 **+{int(earnings):,} QAR**", "inline": True},
-                    {"name": "Estimated Expenses", "value": f"⛽ **-{int(expenses):,} QAR**", "inline": True}
+                    {"name": "Flight Hours", "value": f"⏱️ **{duration_str}** ({minutes} min)", "inline": True},
+                    {"name": "Fuel Used", "value": f"⛽ **{int(fuel):,} kg**", "inline": True},
+                    {"name": "Overall Rating", "value": f"⭐ **{reputation:.2f} / 5.00**", "inline": True},
+                    {"name": "Estimated Earnings", "value": f"💵 **+{int(earnings):,} QAR** / **${usd_earnings:,} USD**", "inline": False},
+                    {"name": "Estimated Expenses", "value": f"⛽ **-{int(expenses):,} QAR** / **${usd_expenses:,} USD**", "inline": False},
+                    {"name": "Net Payout Preview", "value": f"💰 **{net_qar_sign}{abs(net_qar):,} QAR** / **{net_usd_sign}${abs(usd_net):,} USD**", "inline": False}
                 ],
                 "footer": {"text": "Qatari Virtual EFB · Awaiting Staff Approval"},
                 "timestamp": datetime.utcnow().isoformat()

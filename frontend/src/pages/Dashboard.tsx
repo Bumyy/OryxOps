@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useCurrency } from "../hooks/useCurrency";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchMyProfile } from "../store/slices/pilotSlice";
 import { fetchMyDiscoverySummary } from "../store/slices/discoverySlice";
@@ -8,6 +9,7 @@ import useReveal from "../hooks/useReveal";
 
 export default function Dashboard() {
   const dispatch = useAppDispatch();
+  const { formatAmount } = useCurrency();
   const { user } = useAppSelector((s) => s.auth);
   const { currentPilot } = useAppSelector((s) => s.pilot);
   const { summary } = useAppSelector((s) => s.discovery);
@@ -63,7 +65,7 @@ export default function Dashboard() {
         <div className="bg-brand-pale border border-brand-border px-4 py-2 rounded-2xl flex items-center gap-3">
           <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Pilot Wallet Balance:</div>
           <div className="text-xl font-extrabold text-brand-dark">
-            {pilot?.token_balance ? `${pilot.token_balance.toLocaleString()} QAR` : "0 QAR"}
+            {pilot?.token_balance ? formatAmount(pilot.token_balance) : formatAmount(0)}
           </div>
         </div>
       </div>
@@ -119,7 +121,7 @@ export default function Dashboard() {
           <div className="flex flex-col">
             <span className="text-xs font-bold text-brand-pale/70 uppercase tracking-widest">Airline Treasury Balance</span>
             <span className="text-4xl font-extrabold mt-1">
-              {airlineBalance !== null ? `${airlineBalance.toLocaleString()} QAR` : "5,000,000 QAR"}
+              {airlineBalance !== null ? formatAmount(airlineBalance) : formatAmount(5000000)}
             </span>
             <span className="text-[10px] text-brand-pale/60 mt-1">Updated in real-time from active PIREPs</span>
           </div>

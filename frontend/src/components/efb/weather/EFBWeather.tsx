@@ -9,6 +9,7 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../../api/client";
 import { AircraftWindCard } from "./AircraftWindCard";
+import { useAppSelector } from "../../../store/hooks";
 import {
   getReciprocalRunway,
   getFltCatProps,
@@ -29,7 +30,7 @@ export interface EFBWeatherProps {
 
 // ─── Helpers ──────────────────────────────────
 
-type TabId = "departure" | "arrival" | "alternate" | "search";
+type TabId = "departure" | "arrival" | "alternate" | "search" | "diversion";
 
 // ─── Component ───────────────────────────────
 
@@ -51,6 +52,50 @@ export default function EFBWeather({ ofpData, activeBooking, activeAircraft }: E
   const [activeTab,        setActiveTab]        = useState<TabId>("departure");
   const [searchIcao,       setSearchIcao]       = useState("");
   const [loadedIcao,       setLoadedIcao]       = useState("");
+
+  // ── Diversion State ──────────────────────────
+  const [diversionBase,    setDiversionBase]    = useState("");
+  const [diversionsList,   setDiversionsList]   = useState<any[]>([]);
+  const [searchingDivs,    setSearchingDivs]    = useState(false);
+  const [diversionError,   setDiversionError]   = useState<string | null>(null);
+
+  // ── Redux Aircraft Selector ──────────────────
+  const aircraftsDb = useAppSelector((state) => state.aircraft.specs) || {};
+  const resolvedAircraftKey = aircraftIcao === "A35K" ? "A359" : aircraftIcao;
+  const aircraftSpec = aircraftsDb[resolvedAircraftKey as keyof typeof aircraftsDb] as any;
+  const minRunwayLength = aircraftSpec?.properties?.min_runway_length_ft || 0;
+
+  // Prefill base diversion airport ICAO from flight plan arrival on load
+  useEffect(() => {
+    if (arrIcao && !diversionBase) {
+      setDiversionBase(arrIcao);
+    }
+  }, [arrIcao]);
+
+  const handleSearchDiversions = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanBase = diversionBase.trim().toUpperCase();
+    if (cleanBase.length !== 4) {
+      setDiversionError("Please enter a valid 4-letter ICAO code.");
+      return;
+    }
+    
+    setSearchingDivs(true);
+    setDiversionError(null);
+    setDiversionsList([]);
+    
+    try {
+      const data = await api.get<any[]>(
+        `/efb/diversions?icao=${cleanBase}&min_runway_ft=${minRunwayLength || 6000}`
+      );
+      setDiversionsList(data);
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : "Failed to load eligible diversions.";
+      setDiversionError(msg);
+    } finally {
+      setSearchingDivs(false);
+    }
+  };
 
   // ── Weather data ─────────────────────────────
   const [metarList,        setMetarList]        = useState<MetarReport[]>([]);
@@ -74,6 +119,7 @@ export default function EFBWeather({ ofpData, activeBooking, activeAircraft }: E
       case "arrival":   return arrIcao;
       case "alternate": return altIcao;
       case "search":    return searchIcao;
+      case "diversion": return diversionBase;
     }
   };
 
@@ -121,7 +167,7 @@ export default function EFBWeather({ ofpData, activeBooking, activeAircraft }: E
 
   // Auto-fetch when tab / airport codes change
   useEffect(() => {
-    if (activeTab !== "search") {
+    if (activeTab !== "search" && activeTab !== "diversion") {
       const icao = getIcaoForTab(activeTab);
       if (icao) fetchWeather(icao);
     }
@@ -193,6 +239,7 @@ export default function EFBWeather({ ofpData, activeBooking, activeAircraft }: E
               ["arrival",   `Arrival (${arrIcao   || "—"})`],
               ["alternate", `Alternate (${altIcao || "—"})`],
               ["search",    "Search Custom ICAO"],
+              ["diversion", "✈️ Diversion Finder"],
             ] as [TabId, string][]
           ).map(([tab, label]) => (
             <button
@@ -236,7 +283,23 @@ export default function EFBWeather({ ofpData, activeBooking, activeAircraft }: E
       </div>
 
       {/* ── Body states ───────────────────────── */}
-      {loading ? (
+      {activeTab === "diversion" ? (
+        <DiversionFinderView
+          diversionBase={diversionBase}
+          onDiversionBaseChange={setDiversionBase}
+          searching={searchingDivs}
+          error={diversionError}
+          results={diversionsList}
+          aircraftIcao={aircraftIcao}
+          minRunwayLength={minRunwayLength}
+          onSearch={handleSearchDiversions}
+          onPreviewWeather={(icao) => {
+            setSearchIcao(icao);
+            setActiveTab("search");
+            fetchWeather(icao);
+          }}
+        />
+      ) : loading ? (
         <LoadingState icao={loadedIcao} />
       ) : error ? (
         <ErrorState
@@ -270,6 +333,189 @@ export default function EFBWeather({ ofpData, activeBooking, activeAircraft }: E
         <EmptyState />
       )}
 
+    </div>
+  );
+}
+
+// ─── Diversion Finder View Component ──────────
+
+interface DiversionFinderViewProps {
+  diversionBase: string;
+  onDiversionBaseChange: (val: string) => void;
+  searching: boolean;
+  error: string | null;
+  results: any[];
+  aircraftIcao: string;
+  minRunwayLength: number;
+  onSearch: (e?: React.FormEvent) => void;
+  onPreviewWeather: (icao: string) => void;
+}
+
+function DiversionFinderView({
+  diversionBase,
+  onDiversionBaseChange,
+  searching,
+  error,
+  results,
+  aircraftIcao,
+  minRunwayLength,
+  onSearch,
+  onPreviewWeather,
+}: DiversionFinderViewProps) {
+  return (
+    <div className="space-y-6">
+      {/* Search and Aircraft spec card */}
+      <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
+        <form onSubmit={onSearch} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-brand tracking-wider uppercase">
+              📍 Origin / Reference Airport ICAO
+            </label>
+            <input
+              type="text"
+              maxLength={4}
+              placeholder="e.g. YSSY"
+              value={diversionBase}
+              onChange={(e) => onDiversionBaseChange(e.target.value.toUpperCase())}
+              className="w-full bg-gray-50 border border-brand-border text-gray-800 font-mono font-bold text-sm uppercase px-4 py-3 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-gray-400 tracking-wider uppercase">
+              ✈️ Active Aircraft Profile
+            </label>
+            <div className="bg-gray-100 border border-gray-200 text-gray-700 font-bold text-xs px-4 py-3.5 rounded-xl flex items-center justify-between">
+              <span>{aircraftIcao}</span>
+              <span className="bg-brand/10 text-brand px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase">
+                Min Runway: {minRunwayLength ? `${minRunwayLength.toLocaleString()} ft` : "Not Configured"}
+              </span>
+            </div>
+          </div>
+          
+          <button
+            type="submit"
+            disabled={searching}
+            className="w-full bg-brand hover:bg-brand-dark text-white text-xs font-black uppercase tracking-wider py-4 rounded-xl shadow-md shadow-brand/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+          >
+            {searching ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Calculating Vicinity...
+              </>
+            ) : (
+              <>
+                🔍 Find Eligible Diversions
+              </>
+            )}
+          </button>
+        </form>
+        
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-3 rounded-xl">
+            ⚠️ {error}
+          </div>
+        )}
+      </div>
+
+      {/* Results grid */}
+      {!searching && results.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h4 className="text-xs font-black text-brand uppercase tracking-widest">
+              Suggested Diversion Airports (Top 3 Closest Eligible)
+            </h4>
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+              ✅ Runway Requirements Met
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {results.map((apt: any) => (
+              <div
+                key={apt.icao}
+                className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between"
+              >
+                {/* Card header */}
+                <div className="bg-brand-pale border-b border-brand-border/60 p-5 flex justify-between items-start">
+                  <div className="space-y-1">
+                    <span className="text-2xl font-black text-brand-dark tracking-tight uppercase block leading-none">
+                      {apt.icao}
+                    </span>
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block">
+                      {apt.city}, {apt.country}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-base font-extrabold text-brand block leading-none">
+                      {apt.distance_nm} <span className="text-xs font-bold text-gray-400">NM</span>
+                    </span>
+                    <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">
+                      Distance
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card body */}
+                <div className="p-5 flex-1 space-y-4">
+                  <div>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">
+                      Airport Name
+                    </span>
+                    <p className="text-xs font-bold text-gray-700 leading-normal mt-0.5">
+                      {apt.name}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block mb-1.5">
+                      Eligible Runways ({apt.runways.length})
+                    </span>
+                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
+                      {apt.runways.map((rwy: any, rIdx: number) => (
+                        <div
+                          key={rIdx}
+                          className="bg-emerald-50/50 border border-emerald-200/50 rounded-lg px-2.5 py-1.5 flex justify-between items-center text-[10px]"
+                        >
+                          <span className="font-extrabold text-emerald-800">
+                            Runway {rwy.designator || rwy.name}
+                          </span>
+                          <span className="font-bold text-emerald-700">
+                            {rwy.length_ft.toLocaleString()} ft × {rwy.width_ft} ft
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card footer */}
+                <div className="p-5 pt-0">
+                  <button
+                    onClick={() => onPreviewWeather(apt.icao)}
+                    className="w-full bg-white hover:bg-brand hover:text-white border border-brand text-brand text-xs font-black uppercase py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    🌦️ Preview Weather
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty states */}
+      {!searching && results.length === 0 && (
+        <div className="bg-white rounded-2xl border border-brand-border p-12 text-center text-gray-500 font-medium">
+          <p className="text-base font-bold text-gray-600">No diversion search performed yet.</p>
+          <p className="text-xs mt-1.5 max-w-md mx-auto leading-relaxed text-gray-400">
+            Enter a reference airport code above and click search. The system will locate all runway-eligible airports in your immediate vicinity (within 200 NM).
+          </p>
+        </div>
+      )}
     </div>
   );
 }

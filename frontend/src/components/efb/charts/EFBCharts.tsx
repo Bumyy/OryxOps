@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { api } from "../../../api/client";
 
 interface EFBChartsProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,10 +26,11 @@ export default function EFBCharts({ ofpData, activeBooking }: EFBChartsProps) {
   
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Sync default ICAO once ofpData or activeBooking loads
+  // Sync default ICAO and load charts once ofpData or activeBooking loads
   useEffect(() => {
-    if (defaultIcao && !icaoInput) {
+    if (defaultIcao && !loadedIcao) {
       setIcaoInput(defaultIcao);
+      loadChartsForIcao(defaultIcao);
     }
   }, [defaultIcao]);
 
@@ -39,29 +41,37 @@ export default function EFBCharts({ ofpData, activeBooking }: EFBChartsProps) {
     }
   };
 
-  const handleLoadCharts = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setErrorMsg(null);
-
-    // Validate ICAO is exactly 4 letters
-    if (icaoInput.length !== 4) {
+  const loadChartsForIcao = async (icao: string) => {
+    const cleanIcao = icao.trim().toUpperCase();
+    if (cleanIcao.length !== 4) {
       setErrorMsg("ICAO code must be exactly 4 letters.");
       setStatus("error");
       return;
     }
 
-    setLoadedIcao(icaoInput);
+    setLoadedIcao(cleanIcao);
     setStatus("loading");
-    setIframeUrl(`https://chartfox.org/${icaoInput}`);
+    setErrorMsg(null);
+
+    try {
+      const res = await api.get<{ url: string }>(`/charts/embed-config/${cleanIcao}`);
+      setIframeUrl(res.url);
+    } catch (err: any) {
+      console.error("Failed to load chart embed configuration:", err);
+      setStatus("error");
+      setErrorMsg(err?.message || "Failed to load ChartFox configuration from backend.");
+    }
+  };
+
+  const handleLoadCharts = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    loadChartsForIcao(icaoInput);
   };
 
   const handleIframeLoad = () => {
-    if (status !== "loading") return;
-
-    // ChartFox always blocks iframe embedding due to X-Frame-Options SAMEORIGIN headers.
-    // To gracefully handle this expected failure, we transition directly to the error state.
-    setStatus("error");
-    setErrorMsg("ChartFox does not allow embedding inside external websites. Open the chart in a new tab instead.");
+    if (status === "loading") {
+      setStatus("loaded");
+    }
   };
 
   // Open link in browser
@@ -119,10 +129,9 @@ export default function EFBCharts({ ofpData, activeBooking }: EFBChartsProps) {
               <button
                 type="button"
                 onClick={() => {
-                  setIcaoInput((ofpData as any).origin.icao_code);
-                  setLoadedIcao((ofpData as any).origin.icao_code);
-                  setStatus("loading");
-                  setIframeUrl(`https://chartfox.org/${(ofpData as any).origin.icao_code}`);
+                  const code = (ofpData as any).origin.icao_code;
+                  setIcaoInput(code);
+                  loadChartsForIcao(code);
                 }}
                 className="bg-brand-pale border border-brand-border rounded-lg px-2.5 py-1 font-mono font-bold text-brand hover:bg-brand/10 transition-colors"
               >
@@ -133,10 +142,9 @@ export default function EFBCharts({ ofpData, activeBooking }: EFBChartsProps) {
               <button
                 type="button"
                 onClick={() => {
-                  setIcaoInput((ofpData as any).destination.icao_code);
-                  setLoadedIcao((ofpData as any).destination.icao_code);
-                  setStatus("loading");
-                  setIframeUrl(`https://chartfox.org/${(ofpData as any).destination.icao_code}`);
+                  const code = (ofpData as any).destination.icao_code;
+                  setIcaoInput(code);
+                  loadChartsForIcao(code);
                 }}
                 className="bg-brand-pale border border-brand-border rounded-lg px-2.5 py-1 font-mono font-bold text-brand hover:bg-brand/10 transition-colors"
               >
@@ -147,10 +155,9 @@ export default function EFBCharts({ ofpData, activeBooking }: EFBChartsProps) {
               <button
                 type="button"
                 onClick={() => {
-                  setIcaoInput((ofpData as any).alternate.icao_code);
-                  setLoadedIcao((ofpData as any).alternate.icao_code);
-                  setStatus("loading");
-                  setIframeUrl(`https://chartfox.org/${(ofpData as any).alternate.icao_code}`);
+                  const code = (ofpData as any).alternate.icao_code;
+                  setIcaoInput(code);
+                  loadChartsForIcao(code);
                 }}
                 className="bg-brand-pale border border-brand-border rounded-lg px-2.5 py-1 font-mono font-bold text-brand hover:bg-brand/10 transition-colors"
               >
@@ -224,42 +231,11 @@ export default function EFBCharts({ ofpData, activeBooking }: EFBChartsProps) {
               ref={iframeRef}
               src={iframeUrl}
               onLoad={handleIframeLoad}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
               className={`w-full h-full border-none transition-opacity duration-300 ${
                 status === "loaded" ? "opacity-100" : "opacity-0 pointer-events-none"
               }`}
               title="ChartFox Airport Charts"
             />
-          )}
-
-          {/* Underlay / Overlap Glassmorphic Error/Notice Card */}
-          {status === "loaded" && (
-            <div className="absolute bottom-5 left-5 right-5 bg-white/85 backdrop-blur border border-brand-border shadow-lg rounded-2xl p-5 z-20 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center flex-shrink-0 text-amber-600 mt-0.5">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-brand uppercase tracking-wider">Embedding Verification Notice</h4>
-                  <p className="text-xs text-gray-500 mt-1 max-w-xl leading-relaxed">
-                    ChartFox sets browser security headers that block iframe embedding on external sites.
-                    If you see a blank page or a connection refused screen, please open the charts directly.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleOpenInBrowser}
-                className="bg-brand text-white text-xs font-bold px-5 py-2.5 rounded-xl hover:bg-brand-dark transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm"
-              >
-                <span>Open in Browser</span>
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </button>
-            </div>
           )}
 
           {status === "error" && (

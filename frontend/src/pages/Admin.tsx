@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { useCurrency } from "../hooks/useCurrency";
 import { api } from "../api/client";
 import { GroupsTab } from "./admin/GroupsPage";
 import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
@@ -1712,6 +1713,7 @@ export function RatesTab() {
 
 
 export function LegSimulatorPanel() {
+  const { currency, formatAmount } = useCurrency();
   const { settings } = useAppSelector((s) => s.admin);
   const specs = useAppSelector((s) => s.aircraft.specs) || {};
 
@@ -1886,7 +1888,7 @@ export function LegSimulatorPanel() {
                 onChange={(e) => setLandingFpm(Math.max(0, parseInt(e.target.value) || 0))}
                 className="border border-brand-border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none"
               />
-              <span className="text-[9px] text-gray-400">0-150 FPM = 0 QAR</span>
+              <span className="text-[9px] text-gray-400">0-150 FPM = {formatAmount(0)}</span>
             </div>
           </div>
 
@@ -1919,7 +1921,7 @@ export function LegSimulatorPanel() {
             <span className="text-[10px] uppercase font-bold text-gray-450">Net Profit</span>
             <div className="flex justify-between items-baseline mt-0.5">
               <span className={`text-2xl font-black ${netProfit >= 0 ? "text-green-700" : "text-rose-700"}`}>
-                {netProfit.toLocaleString()} QAR
+                {formatAmount(netProfit)}
               </span>
               <span className={`text-xs font-black px-2 py-0.5 rounded-full ${netProfit >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                 {profitMargin.toFixed(1)}% Margin
@@ -1930,42 +1932,42 @@ export function LegSimulatorPanel() {
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
               <span className="text-gray-400 font-bold block mb-1">Gross Revenue</span>
-              <span className="font-extrabold text-gray-700">{grossRevenue.toLocaleString()} QAR</span>
+              <span className="font-extrabold text-gray-700">{formatAmount(grossRevenue)}</span>
             </div>
             <div>
               <span className="text-gray-400 font-bold block mb-1">Total Expenses</span>
-              <span className="font-extrabold text-gray-700">{totalExpenses.toLocaleString()} QAR</span>
+              <span className="font-extrabold text-gray-700">{formatAmount(totalExpenses)}</span>
             </div>
           </div>
 
           <div className="border-t border-brand-border/30 pt-3 space-y-2 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-500 font-semibold">🎟️ Passenger Revenue ({paxCount} pax × {flightTime} m):</span>
-              <span className="font-black text-gray-700">{grossRevenue.toLocaleString()} QAR</span>
+              <span className="font-black text-gray-700">{formatAmount(grossRevenue)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500 font-semibold">✈️ Operating Cost (70% + 5% var):</span>
-              <span className="font-black text-rose-700">-{operatingCost.toLocaleString()} QAR</span>
+              <span className="font-black text-rose-700">-{formatAmount(operatingCost)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500 font-semibold">⛽ Fuel Cost ({fuelBurned.toLocaleString()} kg):</span>
-              <span className="font-black text-rose-700">-{fuelCost.toLocaleString()} QAR</span>
+              <span className="font-black text-rose-700">-{formatAmount(fuelCost)}</span>
             </div>
             {landingPenalty > 0 ? (
               <div className="flex justify-between">
                 <span className="text-gray-500 font-semibold">💥 Landing Penalty ({landingFpm} FPM):</span>
-                <span className="font-black text-rose-700">-{landingPenalty.toLocaleString()} QAR</span>
+                <span className="font-black text-rose-700">-{formatAmount(landingPenalty)}</span>
               </div>
             ) : (
               <div className="flex justify-between">
                 <span className="text-gray-500 font-semibold">🧈 Touchdown ({landingFpm} FPM):</span>
-                <span className="font-black text-emerald-600">0 QAR (Smooth)</span>
+                <span className="font-black text-emerald-600">{formatAmount(0)} (Smooth)</span>
               </div>
             )}
             {isDiverted && (
               <div className="flex justify-between">
                 <span className="text-gray-500 font-semibold">🔀 Diversion Care Surcharge:</span>
-                <span className="font-black text-rose-700">-{diversionCharge.toLocaleString()} QAR</span>
+                <span className="font-black text-rose-700">-{formatAmount(diversionCharge)}</span>
               </div>
             )}
           </div>
@@ -1984,12 +1986,12 @@ export function LegSimulatorPanel() {
                 <span className="text-gray-700 font-black block">Pilot Payout Preview:</span>
                 <span className="text-[9px] text-gray-400">
                   {isSplit 
-                    ? `Split Payout (Share: ${(payoutShareSplit*100).toFixed(0)}% | Floor: ${minPayoutSplit} QAR)` 
-                    : `Solo Payout (Share: ${(payoutShareSolo*100).toFixed(0)}% | Floor: ${minPayoutSolo} QAR)`}
+                    ? `Split Payout (Share: ${(payoutShareSplit*100).toFixed(0)}% | Floor: ${formatAmount(minPayoutSplit)})` 
+                    : `Solo Payout (Share: ${(payoutShareSolo*100).toFixed(0)}% | Floor: ${formatAmount(minPayoutSolo)})`}
                 </span>
               </div>
               <span className="text-sm font-black text-green-700 font-mono">
-                {isSplit ? `${splitSalary.toLocaleString()} QAR` : `${soloSalary.toLocaleString()} QAR`}
+                {isSplit ? formatAmount(splitSalary) : formatAmount(soloSalary)}
               </span>
             </div>
           </div>
