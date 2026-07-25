@@ -115,8 +115,15 @@ const scheduleSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
+      .addCase(fetchSchedules.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(fetchSchedules.fulfilled, (state, action) => {
         state.schedules = action.payload;
+        state.loading = false;
+      })
+      .addCase(fetchSchedules.rejected, (state) => {
+        state.loading = false;
       })
       .addCase(fetchWaves.fulfilled, (state, action) => {
         state.waves = action.payload;

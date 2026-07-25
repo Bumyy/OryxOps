@@ -29,7 +29,7 @@ function getISOWeek(dateString: string) {
 
 export default function Calendar() {
   const dispatch = useAppDispatch();
-  const { schedules, waves } = useAppSelector((s) => s.schedule);
+  const { schedules, waves, loading } = useAppSelector((s) => s.schedule);
   const { groups } = useAppSelector((s) => s.group);
   const { airframes, types } = useAppSelector((s) => s.aircraft);
   const { currentPilot } = useAppSelector((s) => s.pilot);
@@ -57,6 +57,14 @@ export default function Calendar() {
   const [myBookingsFilter, setMyBookingsFilter] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("dismissed_warnings");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
   const isExecutiveOrAdmin = Boolean(user?.is_executive || user?.is_admin);
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -297,8 +305,14 @@ export default function Calendar() {
     return errors;
   }, [schedules, airframes]);
 
-  const errorSet = useMemo(() => new Set(positionErrors.filter(e => e.status === "mismatch").map(e => e.scheduleId)), [positionErrors]);
-  const groundSet = useMemo(() => new Set(positionErrors.filter(e => e.status === "ground_short").map(e => e.scheduleId)), [positionErrors]);
+  const getWarningKey = (e: PositionError) => `${e.scheduleId}-${e.status}-${e.expectedDep}-${e.actualDep}`;
+
+  const activeErrors = useMemo(() => {
+    return positionErrors.filter(e => !dismissedWarnings.has(getWarningKey(e)));
+  }, [positionErrors, dismissedWarnings]);
+
+  const errorSet = useMemo(() => new Set(activeErrors.filter(e => e.status === "mismatch").map(e => e.scheduleId)), [activeErrors]);
+  const groundSet = useMemo(() => new Set(activeErrors.filter(e => e.status === "ground_short").map(e => e.scheduleId)), [activeErrors]);
 
   // Flight blocks with overlap detection
   const flightBlocks = useMemo((): FlightBlock[] => {
@@ -558,38 +572,105 @@ export default function Calendar() {
       {/* Warnings & Errors */}
       {activeGroup && (
         <div className="mb-4">
-          {positionErrors.filter(e => e.status === "mismatch").map(e => (
-            <div
-              key={`e-${e.scheduleId}`}
-              className="rounded-xl px-3 py-1.5 text-xs font-bold mb-1 shadow-sm"
-              style={{
-                background: "var(--status-error-bg)",
-                color: "var(--status-error-text)",
-                border: "1px solid var(--status-error-border)",
-              }}
-            >
-              Mismatch: {e.registration}: Expected {e.expectedDep} but flight departs {e.actualDep}
+          {activeErrors.filter(e => e.status === "mismatch").map(e => {
+            const key = getWarningKey(e);
+            return (
+              <div
+                key={`e-${e.scheduleId}`}
+                className="rounded-xl px-3 py-2 text-xs font-semibold mb-1.5 shadow-sm flex items-center justify-between gap-3 hover:shadow-md transition-all duration-200"
+                style={{
+                  background: "var(--status-error-bg)",
+                  color: "var(--status-error-text)",
+                  border: "1px solid var(--status-error-border)",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 shrink-0 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>Mismatch: <strong className="font-black">{e.registration}</strong>: Expected {e.expectedDep} but flight departs {e.actualDep}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = new Set(dismissedWarnings);
+                    next.add(key);
+                    setDismissedWarnings(next);
+                    localStorage.setItem("dismissed_warnings", JSON.stringify(Array.from(next)));
+                  }}
+                  className="hover:bg-red-500/10 active:bg-red-500/20 p-1 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                  title="Dismiss warning"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
+          {activeErrors.filter(e => e.status === "ground_short").map(e => {
+            const key = getWarningKey(e);
+            return (
+              <div
+                key={`g-${e.scheduleId}`}
+                className="rounded-xl px-3 py-2 text-xs font-semibold mb-1.5 shadow-sm flex items-center justify-between gap-3 hover:shadow-md transition-all duration-200"
+                style={{
+                  background: "var(--status-warn-bg)",
+                  color: "var(--status-warn-text)",
+                  border: "1px solid var(--status-warn-border)",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 shrink-0 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>Ground warning: <strong className="font-black">{e.registration}</strong>: Ground {e.expectedDep.replace("gap:", "")} vs req {e.actualDep.replace("need:", "")}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = new Set(dismissedWarnings);
+                    next.add(key);
+                    setDismissedWarnings(next);
+                    localStorage.setItem("dismissed_warnings", JSON.stringify(Array.from(next)));
+                  }}
+                  className="hover:bg-amber-500/10 active:bg-amber-500/20 p-1 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                  title="Dismiss warning"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
+          {positionErrors.length > activeErrors.length && (
+            <div className="flex justify-end mt-1.5 px-1">
+              <button
+                onClick={() => {
+                  setDismissedWarnings(new Set());
+                  localStorage.removeItem("dismissed_warnings");
+                }}
+                className="text-[11px] font-bold text-gray-500 hover:text-brand hover:underline cursor-pointer flex items-center gap-1 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                Restore {positionErrors.length - activeErrors.length} dismissed warning{positionErrors.length - activeErrors.length !== 1 ? "s" : ""}
+              </button>
             </div>
-          ))}
-          {positionErrors.filter(e => e.status === "ground_short").map(e => (
-            <div
-              key={`g-${e.scheduleId}`}
-              className="rounded-xl px-3 py-1.5 text-xs font-bold mb-1 shadow-sm"
-              style={{
-                background: "var(--status-warn-bg)",
-                color: "var(--status-warn-text)",
-                border: "1px solid var(--status-warn-border)",
-              }}
-            >
-              Ground warning: {e.registration}: Ground {e.expectedDep.replace("gap:", "")} vs req {e.actualDep.replace("need:", "")}
-            </div>
-          ))}
+          )}
         </div>
       )}
 
       {/* Main Page Content */}
       {activeGroup ? (
-        viewMode === "calendar" ? (
+        <div className="relative">
+          {loading && (
+            <div className="absolute inset-0 z-50 bg-white/70 backdrop-blur-xs flex flex-col items-center justify-center gap-3 transition-all duration-300 min-h-[400px] rounded-xl md:rounded-2xl">
+              <div className="w-10 h-10 border-4 border-brand-border border-t-brand rounded-full animate-spin"></div>
+              <p className="text-xs font-black text-brand animate-pulse uppercase tracking-wider">Loading schedules...</p>
+            </div>
+          )}
+          {viewMode === "calendar" ? (
           /* CALENDAR GRID VIEW */
           <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-auto max-h-[75vh] -mx-2 md:mx-0">
             <div className="grid grid-cols-[45px_repeat(7,minmax(85px,1fr))] md:grid-cols-[70px_repeat(7,minmax(120px,1fr))] relative z-0 min-w-[700px] md:min-w-[900px]" style={{ minHeight: HEADER_HEIGHT + 24 * HOUR_HEIGHT }}>
@@ -1078,7 +1159,8 @@ export default function Calendar() {
               </div>
             </div>
           </div>
-        )
+        )}
+        </div>
       ) : (
         /* Landing Page UI when no activeGroup is selected */
         <div className="max-w-4xl mx-auto mt-6 md:mt-10 animate-fade-in px-2">
