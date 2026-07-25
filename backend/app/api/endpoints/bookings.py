@@ -147,6 +147,9 @@ async def create_booking_route(
             raise HTTPException(status_code=400, detail="Schedule not available or already booked")
 
         await db.commit()
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception:
         await db.rollback()
         raise

@@ -106,12 +106,121 @@ async def delete_schedule(db: AsyncSession, schedule_id: int) -> bool:
     return True
 
 
+async def get_pilot_proposal_quota(
+    db: AsyncSession, pilot_id: int, week_start: str
+) -> dict:
+    from sqlalchemy import func
+    from app.models.live_models import LivePilotCareer, LiveCareerRank
+
+    career_res = await db.execute(
+        select(LivePilotCareer)
+        .where(LivePilotCareer.pilot_id == pilot_id)
+        .options(selectinload(LivePilotCareer.current_rank))
+    )
+    career = career_res.scalar_one_or_none()
+    weekly_limit = 3
+    if career and career.current_rank:
+        weekly_limit = career.current_rank.weekly_proposal_limit or 3
+
+    count_res = await db.execute(
+        select(func.count(LiveFlightSchedule.id)).where(
+            LiveFlightSchedule.created_by == pilot_id,
+            LiveFlightSchedule.week_start == week_start,
+            LiveFlightSchedule.status != "cancelled",
+        )
+    )
+    proposals_used = count_res.scalar() or 0
+
+    return {
+        "weekly_limit": weekly_limit,
+        "proposals_used": proposals_used,
+        "remaining_free_slots": max(0, weekly_limit - proposals_used),
+        "extra_slot_fee_short_haul": 1000,
+        "extra_slot_fee_long_haul": 2000,
+    }
+
+
+async def check_and_process_proposal_slot(
+    db: AsyncSession, pilot_id: int, week_start: Any, schedule: LiveFlightSchedule
+) -> int:
+    from sqlalchemy import func
+    from app.models.live_models import (
+        LivePilotCareer,
+        LiveCurrency,
+        LiveCurrencyTransaction,
+    )
+
+    career_res = await db.execute(
+        select(LivePilotCareer)
+        .where(LivePilotCareer.pilot_id == pilot_id)
+        .options(selectinload(LivePilotCareer.current_rank))
+    )
+    career = career_res.scalar_one_or_none()
+    if not career or not career.selected_aircraft_ids:
+        raise ValueError(
+            "Configuration Required: You cannot propose flights until your Career Path (Airbus/Boeing) and 2 Aircraft selection are configured by staff."
+        )
+
+    weekly_limit = 3
+    if career and career.current_rank:
+        weekly_limit = career.current_rank.weekly_proposal_limit or 3
+
+    count_res = await db.execute(
+        select(func.count(LiveFlightSchedule.id)).where(
+            LiveFlightSchedule.created_by == pilot_id,
+            LiveFlightSchedule.week_start == week_start,
+            LiveFlightSchedule.status != "cancelled",
+            LiveFlightSchedule.id != schedule.id,
+        )
+    )
+    proposals_used = count_res.scalar() or 0
+
+    if proposals_used < weekly_limit:
+        schedule.proposal_cost_qar = 0
+        return 0
+
+    duration_hours = 0.0
+    if schedule.scheduled_departure and schedule.scheduled_arrival:
+        diff = schedule.scheduled_arrival - schedule.scheduled_departure
+        duration_hours = diff.total_seconds() / 3600.0
+    elif schedule.route and schedule.route.duration:
+        duration_hours = schedule.route.duration / 3600.0
+
+    cost = 1000 if duration_hours < 8.0 else 2000
+
+    curr_res = await db.execute(select(LiveCurrency).where(LiveCurrency.pilot_id == pilot_id))
+    currency = curr_res.scalar_one_or_none()
+    if not currency or currency.balance < cost:
+        raise ValueError(
+            f"Weekly rank proposal limit ({weekly_limit}) reached. "
+            f"Extra proposal slot requires {cost:,.0f} QAR, but your balance is {currency.balance if currency else 0:,.0f} QAR."
+        )
+
+    currency.balance -= cost
+    currency.total_spent += cost
+
+    tx = LiveCurrencyTransaction(
+        pilot_id=pilot_id,
+        amount=-cost,
+        transaction_type="extra_proposal_slot",
+        description=f"Fee for extra flight proposal slot #{schedule.id} ({duration_hours:.1f}h flight)",
+    )
+    db.add(tx)
+    schedule.proposal_cost_qar = cost
+    return cost
+
+
 async def update_schedule_status(
-    db: AsyncSession, schedule_id: int, status: str, approved_by: int | None = None
+    db: AsyncSession, schedule_id: int, status: str, approved_by: int | None = None, pilot_id: int | None = None
 ) -> LiveFlightSchedule | None:
     schedule = await get_schedule(db, schedule_id)
     if not schedule:
         return None
+    if status == "proposed" and schedule.status != "proposed":
+        effective_pilot_id = pilot_id or schedule.created_by
+        if effective_pilot_id:
+            await check_and_process_proposal_slot(db, effective_pilot_id, schedule.week_start, schedule)
+
     schedule.status = status
     if approved_by:
         schedule.approved_by = approved_by

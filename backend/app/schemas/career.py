@@ -6,6 +6,7 @@ class CareerPathOut(BaseModel):
     name: str
     description: str | None = None
     is_active: bool
+    ranks: list["CareerRankOut"] = []
 
     model_config = {"from_attributes": True}
 
@@ -18,6 +19,7 @@ class CareerRankOut(BaseModel):
     required_route_pct: float
     required_takeoffs: int
     required_landings: int
+    weekly_proposal_limit: int = 3
 
     model_config = {"from_attributes": True}
 
@@ -50,6 +52,7 @@ class PilotCareerOut(BaseModel):
     sort_order: int | None = None
     started_at: str | None = None
     promoted_at: str | None = None
+    selected_aircraft_ids: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -78,6 +81,7 @@ class CareerRankCreate(BaseModel):
     required_route_pct: float = 0.0
     required_takeoffs: int = 0
     required_landings: int = 0
+    weekly_proposal_limit: int = 3
 
 
 class CareerRankUpdate(BaseModel):
@@ -85,3 +89,4 @@ class CareerRankUpdate(BaseModel):
     required_route_pct: float | None = None
     required_takeoffs: int | None = None
     required_landings: int | None = None
+    weekly_proposal_limit: int | None = None

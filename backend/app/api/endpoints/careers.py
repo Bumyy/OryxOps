@@ -211,6 +211,10 @@ async def remove_aircraft_from_rank(
     return {"detail": "Aircraft type removed from rank"}
 
 
+class PilotAircraftSelectionUpdate(BaseModel):
+    selected_aircraft_ids: str
+
+
 # ── PILOT CAREERS ──
 
 @router.get("/pilot/{pilot_id}", response_model=list[PilotCareerOut])
@@ -226,9 +230,54 @@ async def get_pilot_careers_route(pilot_id: int, db: AsyncSession = Depends(get_
             sort_order=c.current_rank.sort_order,
             started_at=str(c.started_at) if c.started_at else None,
             promoted_at=str(c.promoted_at) if c.promoted_at else None,
+            selected_aircraft_ids=c.selected_aircraft_ids,
         )
         for c in careers
     ]
+
+
+@router.patch("/pilot/{pilot_id}/aircraft", response_model=PilotCareerOut)
+async def update_pilot_selected_aircraft_route(
+    pilot_id: int,
+    data: PilotAircraftSelectionUpdate,
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_pilot),
+):
+    from app.models.live_models import LivePilotCareer
+
+    if pilot.id != pilot_id:
+        from app.models.live_models import StaffRole, Permission
+        perm_result = await db.execute(
+            select(Permission).where(Permission.userid == pilot.id, Permission.name.in_(["admin", "opsmanage"])).limit(1)
+        )
+        staff_result = await db.execute(
+            select(StaffRole).where(StaffRole.user_id == pilot.id).limit(1)
+        )
+        if perm_result.scalar_one_or_none() is None and staff_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=403, detail="Not authorized to edit another pilot's selection")
+
+    result = await db.execute(
+        select(LivePilotCareer).where(LivePilotCareer.pilot_id == pilot_id)
+    )
+    career = result.scalar_one_or_none()
+    if not career:
+        raise HTTPException(status_code=404, detail="Pilot career enrollment not found")
+
+    career.selected_aircraft_ids = data.selected_aircraft_ids
+    await db.commit()
+    await db.refresh(career)
+
+    return PilotCareerOut(
+        id=career.id,
+        career_path_id=career.career_path_id,
+        career_path_name=career.career_path.name if career.career_path else None,
+        current_rank_id=career.current_rank_id,
+        current_rank_name=career.current_rank.name if career.current_rank else None,
+        sort_order=career.current_rank.sort_order if career.current_rank else 0,
+        started_at=str(career.started_at) if career.started_at else None,
+        promoted_at=str(career.promoted_at) if career.promoted_at else None,
+        selected_aircraft_ids=career.selected_aircraft_ids,
+    )
 
 
 @router.get("/pilot/{pilot_id}/path/{path_id}", response_model=PilotCareerProgressOut)

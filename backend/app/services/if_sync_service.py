@@ -287,9 +287,8 @@ async def sync_aircraft_location(db: AsyncSession, airframe_id: int) -> dict:
     await client.open()
     
     try:
-        # 3. Request metadata & location concurrently
+        # 3. Request metadata first
         if_aircraft_data = await client.get_aircraft(aircraft.if_organization_aircraft_id)
-        position_data = await client.get_aircraft_position(aircraft.if_organization_aircraft_id)
         
         # Sync basic metadata
         if if_aircraft_data.registration:
@@ -297,6 +296,27 @@ async def sync_aircraft_location(db: AsyncSession, airframe_id: int) -> dict:
         if if_aircraft_data.aircraft_id:
             aircraft.if_aircraft_id = if_aircraft_data.aircraft_id
             
+        # 4. Check if the aircraft is hangared. If so, return early and bypass position API call
+        if if_aircraft_data.visibility == 2:
+            aircraft.status = "in_hangar"
+            db.add(aircraft)
+            return {
+                "icao": aircraft.current_airport or "OTHH",
+                "status": "in_hangar",
+                "registration": aircraft.registration,
+                "last_airport": aircraft.last_airport,
+                "last_pilot_id": aircraft.last_pilot_id,
+                "last_pilot_username": None,
+                "last_flight_at": str(aircraft.last_flight_at) if aircraft.last_flight_at else None,
+                "latitude": None,
+                "longitude": None,
+                "is_on_ground": True,
+                "skipped_position_fetch": True
+            }
+            
+        # 5. Fetch position coordinates for active aircraft
+        position_data = await client.get_aircraft_position(aircraft.if_organization_aircraft_id)
+        
         lat = position_data.get("latitude")
         lon = position_data.get("longitude")
         is_on_ground = position_data.get("isOnGround", True)
@@ -305,18 +325,14 @@ async def sync_aircraft_location(db: AsyncSession, airframe_id: int) -> dict:
         last_pilot_id = position_data.get("lastPilotId")
         last_pilot_username = position_data.get("lastPilotUsername")
         
-        # 4. Resolve closest airport
+        # 6. Resolve closest airport
         if lat is not None and lon is not None:
             icao = _find_nearest_icao(lat, lon)
         else:
             icao = aircraft.current_airport or "OTHH"
         
-        # 5. Map Infinite Flight states & visibility to OryxOps status enums
-        # Visibility values: 2 = Hangared
-        # State values: 5 = Maintenance, 2 = InFlight
-        if if_aircraft_data.visibility == 2:
-            new_status = "in_hangar"
-        elif state == 5:
+        # 7. Map status (visibility is checked above, so status is based on state/isOnGround)
+        if state == 5:
             new_status = "maintenance"
         elif not is_on_ground or state == 2:
             new_status = "flying"
@@ -366,7 +382,8 @@ async def sync_aircraft_location(db: AsyncSession, airframe_id: int) -> dict:
             "last_flight_at": str(aircraft.last_flight_at) if aircraft.last_flight_at else None,
             "latitude": lat,
             "longitude": lon,
-            "is_on_ground": is_on_ground
+            "is_on_ground": is_on_ground,
+            "skipped_position_fetch": False
         }
     finally:
         await client.close()

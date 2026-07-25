@@ -19,7 +19,45 @@ async def get_all_career_paths(db: AsyncSession) -> list[LiveCareerPath]:
         .where(LiveCareerPath.is_active == 1)
         .options(selectinload(LiveCareerPath.ranks))
     )
-    return list(result.scalars().all())
+    paths = list(result.scalars().all())
+
+    # Auto-seed default First Officer and Captain ranks if missing
+    modified = False
+    for p in paths:
+        if not p.ranks or len(p.ranks) == 0:
+            prefix = p.name.replace("Career Path", "").replace("Path", "").strip()
+            r1 = LiveCareerRank(
+                career_path_id=p.id,
+                name=f"{prefix} First Officer",
+                sort_order=1,
+                weekly_proposal_limit=3,
+                required_route_pct=0,
+                required_takeoffs=0,
+                required_landings=0,
+            )
+            r2 = LiveCareerRank(
+                career_path_id=p.id,
+                name=f"{prefix} Captain",
+                sort_order=2,
+                weekly_proposal_limit=7,
+                required_route_pct=0,
+                required_takeoffs=0,
+                required_landings=0,
+            )
+            db.add(r1)
+            db.add(r2)
+            modified = True
+
+    if modified:
+        await db.commit()
+        result = await db.execute(
+            select(LiveCareerPath)
+            .where(LiveCareerPath.is_active == 1)
+            .options(selectinload(LiveCareerPath.ranks))
+        )
+        paths = list(result.scalars().all())
+
+    return paths
 
 
 async def get_career_path_with_ranks(db: AsyncSession, path_id: int) -> LiveCareerPath | None:

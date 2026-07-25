@@ -35,6 +35,10 @@ export default function Fleet() {
 
   const [ifData, setIfData] = useState<Map<number, IfFleetEntry>>(new Map());
   const [ifError, setIfError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStatusText, setSyncStatusText] = useState("");
 
   useEffect(() => {
     dispatch(fetchAirframes());
@@ -47,6 +51,53 @@ export default function Fleet() {
   }, []);
 
   const myGroupId = currentPilot?.group_id || user?.flying_groupid;
+
+  const handleSyncAll = async () => {
+    const linkedAirframes = airframes.filter(a => a.if_organization_aircraft_id);
+    if (linkedAirframes.length === 0) {
+      setSyncResult("No linked aircraft found to sync.");
+      return;
+    }
+
+    setSyncing(true);
+    setSyncResult(null);
+    setIfError(null);
+    setSyncProgress(0);
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < linkedAirframes.length; i++) {
+      const ac = linkedAirframes[i];
+      setSyncStatusText(`Syncing ${ac.registration} (${i + 1}/${linkedAirframes.length})...`);
+      
+      try {
+        const res = await api.post<{ skipped_position_fetch: boolean }>(
+          `/infinite-flight/aircraft/${ac.id}/sync-location`
+        );
+        successCount++;
+        
+        // Refresh local state
+        dispatch(fetchAirframes());
+        fetchIfStatus();
+
+        // Update progress percentage
+        setSyncProgress(Math.round(((i + 1) / linkedAirframes.length) * 100));
+
+        // Delay 3 seconds for active aircraft to respect 20 requests/minute rate limit
+        if (res && !res.skipped_position_fetch && i < linkedAirframes.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+      } catch (err: any) {
+        failedCount++;
+      }
+    }
+
+    setSyncResult(`Successfully synced ${successCount} aircraft. ${failedCount} failed.`);
+    setSyncing(false);
+    setSyncProgress(0);
+    setSyncStatusText("");
+  };
 
   const fetchIfStatus = async () => {
     try {
@@ -99,7 +150,54 @@ export default function Fleet() {
           <h1 className="text-4xl md:text-5xl font-extrabold text-brand">Fleet Registry</h1>
           <p className="text-sm text-gray-500 mt-1">Qatar Virtual aircraft fleet organized by Flying Groups</p>
         </div>
+        <div className="flex items-center gap-3">
+          <button
+            disabled={syncing}
+            onClick={handleSyncAll}
+            className="px-5 py-2.5 rounded-full bg-brand text-white font-bold text-sm hover:bg-brand-light transition-all duration-300 disabled:opacity-50 shadow-md hover:shadow-lg flex items-center gap-2"
+          >
+            {syncing ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Syncing Fleet...
+              </>
+            ) : (
+              <>🔄 Sync All Locations</>
+            )}
+          </button>
+        </div>
       </div>
+
+      {syncing && (
+        <div className="mb-6 bg-white border border-brand-border/40 rounded-3xl p-5 shadow-sm space-y-3">
+          <div className="flex justify-between items-center text-xs font-bold">
+            <span className="text-brand flex items-center gap-2">
+              <svg className="animate-spin h-3.5 w-3.5 text-brand" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              {syncStatusText}
+            </span>
+            <span className="text-gray-500 font-mono">{syncProgress}%</span>
+          </div>
+          <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+            <div
+              className="bg-brand h-full rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${syncProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {syncResult && (
+        <div className="mb-6 text-sm text-green-700 bg-green-50 border border-green-200 rounded-2xl p-4 shadow-sm flex items-center justify-between animate-fade-in">
+          <span>{syncResult}</span>
+          <button onClick={() => setSyncResult(null)} className="text-green-500 hover:text-green-700 font-bold px-2 text-base">&times;</button>
+        </div>
+      )}
 
       {ifError && (
         <div className="mb-6 text-sm text-yellow-700 bg-yellow-50 border border-yellow-300 rounded-2xl p-4 shadow-sm">

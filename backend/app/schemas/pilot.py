@@ -10,6 +10,7 @@ class PilotOut(BaseModel):
     transflights: int
     status: int
     joined: str | None = None
+    lifts: int = 0
 
     model_config = {"from_attributes": True}
 

@@ -172,19 +172,31 @@ export function PilotsTab() {
   const dispatch = useAppDispatch();
   const { enrolled, unenrolled } = useAppSelector((s) => s.admin);
   const { paths } = useAppSelector((s) => s.career);
+  const { groups } = useAppSelector((s) => s.group);
+  const { types } = useAppSelector((s) => s.aircraft);
+
   const [careerPathId, setCareerPathId] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [pilotSimbriefIds, setPilotSimbriefIds] = useState<Record<number, string>>({});
+  const [pilotLifts, setPilotLifts] = useState<Record<number, number>>({});
+  const [pilotGroups, setPilotGroups] = useState<Record<number, number>>({});
+  const [pilotPaths, setPilotPaths] = useState<Record<number, number>>({});
+  const [pilotAircrafts, setPilotAircrafts] = useState<Record<number, string>>({});
+  const [pilotRanks, setPilotRanks] = useState<Record<number, number>>({});
+  const [savingPilotId, setSavingPilotId] = useState<number | null>(null);
 
   useEffect(() => {
     dispatch(fetchEnrolledPilots());
-  }, []);
+    dispatch(fetchGroups());
+    dispatch(fetchAircraftTypes());
+    dispatch(fetchCareerPaths());
+  }, [dispatch]);
 
   useEffect(() => {
     if (paths.length > 0 && careerPathId === 0) {
       setCareerPathId(paths[0].id);
     }
-  }, [paths]);
+  }, [paths, careerPathId]);
 
   const handleEnroll = async (pilotId: number, simbriefIdStr?: string) => {
     const sId = simbriefIdStr !== undefined ? simbriefIdStr : "";
@@ -207,31 +219,87 @@ export function PilotsTab() {
     }
   };
 
-  const handleUpdateSimbrief = async (pilotId: number, simbriefIdStr: string) => {
-    const parsedSimbrief = simbriefIdStr.trim() ? parseInt(simbriefIdStr.trim(), 10) : null;
-    const res = await dispatch(
-      updateSimbriefId({ pilot_id: pilotId, simbrief_id: parsedSimbrief })
-    );
-    if (updateSimbriefId.fulfilled.match(res)) {
-      alert("SimBrief ID updated successfully!");
+  const handleSavePilotSettings = async (p: any) => {
+    setSavingPilotId(p.id);
+    try {
+      const rawSId = pilotSimbriefIds[p.id] !== undefined ? pilotSimbriefIds[p.id] : (p.simbrief_id ?? "");
+      const sIdStr = String(rawSId).trim();
+      const parsedSimbrief = sIdStr ? parseInt(sIdStr, 10) : null;
+      if (parsedSimbrief !== p.simbrief_id) {
+        await dispatch(updateSimbriefId({ pilot_id: p.id, simbrief_id: parsedSimbrief }));
+      }
+
+      const liftsVal = pilotLifts[p.id] !== undefined ? pilotLifts[p.id] : (p.lifts || 0);
+      const groupVal = pilotGroups[p.id] !== undefined ? pilotGroups[p.id] : (p.flying_groupid || 0);
+      const firstCareer = p.careers && p.careers[0];
+      const aircraftVal = pilotAircrafts[p.id] !== undefined ? pilotAircrafts[p.id] : (firstCareer?.selected_aircraft_ids || "");
+      const pathVal = pilotPaths[p.id] !== undefined ? pilotPaths[p.id] : (firstCareer?.career_path_id || null);
+      const rankVal = pilotRanks[p.id] !== undefined ? pilotRanks[p.id] : (firstCareer?.current_rank_id || null);
+
+      await api.post("/admin/update-pilot", {
+        pilot_id: p.id,
+        lifts: liftsVal,
+        flying_groupid: groupVal,
+        selected_aircraft_ids: aircraftVal,
+        career_path_id: pathVal,
+        rank_id: rankVal,
+      });
+
+      alert(`Updated settings for ${p.callsign}!`);
       dispatch(fetchEnrolledPilots());
-    } else {
-      alert(
-        "Failed to update SimBrief ID: " + (res.error?.message || "Unknown error")
-      );
+    } catch (err: any) {
+      alert("Failed to update pilot: " + (err.message || "Unknown error"));
+    } finally {
+      setSavingPilotId(null);
     }
   };
 
-  const handlePromote = async (pilotId: number, pathId: number) => {
-    const res = await dispatch(promotePilot({ pilotId, careerPathId: pathId }));
-    if (promotePilot.fulfilled.match(res)) {
-      alert("Pilot promoted successfully!");
-      dispatch(fetchEnrolledPilots());
-    } else {
-      alert(
-        "Failed to promote pilot: " + (res.error?.message || "Unknown error")
-      );
+  const [enrollCallsign, setEnrollCallsign] = useState("");
+  const [enrollSimbrief, setEnrollSimbrief] = useState("");
+  const [enrolling, setEnrolling] = useState(false);
+
+  const handleEnrollByCallsign = async () => {
+    if (!enrollCallsign.trim()) {
+      alert("Please enter a pilot callsign!");
+      return;
     }
+    if (!careerPathId) {
+      alert("Please select a career path!");
+      return;
+    }
+    setEnrolling(true);
+    try {
+      const sId = enrollSimbrief.trim() ? parseInt(enrollSimbrief.trim(), 10) : null;
+      const res = await api.post<{ detail: string }>("/admin/enroll-by-callsign", {
+        callsign: enrollCallsign.trim(),
+        career_path_id: careerPathId,
+        simbrief_id: sId,
+      });
+      alert(res.detail || "Pilot enrolled successfully!");
+      setEnrollCallsign("");
+      setEnrollSimbrief("");
+      dispatch(fetchEnrolledPilots());
+    } catch (err: any) {
+      alert("Failed to enroll pilot: " + (err.message || "Unknown error"));
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  const toggleAircraftForPilot = (pilotId: number, acTypeId: number, currentStr: string) => {
+    const ids = currentStr ? currentStr.split(",").map((x: string) => x.trim()).filter(Boolean) : [];
+    const strId = String(acTypeId);
+    let newIds: string[];
+    if (ids.includes(strId)) {
+      newIds = ids.filter((x: string) => x !== strId);
+    } else {
+      if (ids.length >= 2) {
+        alert("Maximum 2 aircraft can be selected per pilot!");
+        return;
+      }
+      newIds = [...ids, strId];
+    }
+    setPilotAircrafts(prev => ({ ...prev, [pilotId]: newIds.join(",") }));
   };
 
   const filterPilots = (list: any[]) => {
@@ -244,62 +312,211 @@ export function PilotsTab() {
     );
   };
 
-  const filteredUnenrolled = filterPilots(unenrolled);
   const filteredEnrolled = filterPilots(enrolled);
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-brand">Enroll Pilot</h2>
-            <select
-              value={careerPathId}
-              onChange={(e) => setCareerPathId(Number(e.target.value))}
-              className="border border-brand-border rounded-xl px-3 py-1.5 text-xs"
-            >
-              {paths.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} Path
-                </option>
-              ))}
-            </select>
+          <div>
+            <h2 className="text-xl font-bold text-brand">Pilot Fleet & Path Management</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Manage enrolled pilots, assigned paths, ranks, aircrafts, and lifts.</p>
           </div>
           <input
             type="text"
-            placeholder="Search pilots by callsign or name..."
+            placeholder="Search enrolled pilots by callsign or name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="border border-brand-border rounded-xl px-4 py-2 text-xs w-full sm:w-64"
+            className="border border-brand-border rounded-xl px-4 py-2 text-xs w-full sm:w-72 focus:outline-none focus:border-brand"
           />
         </div>
 
-        {filteredUnenrolled.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-500 mb-3">
-              Not Enrolled ({filteredUnenrolled.length})
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {filteredUnenrolled.map((p) => (
+        {/* Quick Enroll Box */}
+        <div className="bg-brand-pale/80 p-4 rounded-2xl border border-brand-border mb-8 shadow-xs">
+          <h3 className="text-xs font-black uppercase tracking-wider text-brand mb-2 flex items-center gap-1.5">
+            <span>Quick Enroll Pilot by Callsign (Grants Award 9)</span>
+          </h3>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <input
+              type="text"
+              placeholder="Enter Callsign (e.g. QRV001)..."
+              value={enrollCallsign}
+              onChange={(e) => setEnrollCallsign(e.target.value)}
+              className="border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold w-full sm:w-64 bg-white focus:outline-none focus:border-brand"
+            />
+            <select
+              value={careerPathId}
+              onChange={(e) => setCareerPathId(Number(e.target.value))}
+              className="border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand bg-white focus:outline-none"
+            >
+              {(paths || []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              placeholder="SimBrief ID (Optional)..."
+              value={enrollSimbrief}
+              onChange={(e) => setEnrollSimbrief(e.target.value)}
+              className="border border-brand-border rounded-xl px-3.5 py-2 text-xs font-mono w-full sm:w-48 bg-white focus:outline-none focus:border-brand"
+            />
+            <button
+              disabled={enrolling}
+              onClick={handleEnrollByCallsign}
+              className="w-full sm:w-auto text-xs font-black uppercase tracking-wider bg-brand text-white px-5 py-2 rounded-xl hover:bg-brand-dark transition-all cursor-pointer shadow-xs disabled:opacity-50 whitespace-nowrap"
+            >
+              {enrolling ? "Enrolling..." : "+ Enroll Pilot"}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-black uppercase tracking-wider text-emerald-600 mb-3 flex items-center gap-2">
+            <span>Enrolled Active Pilots ({filteredEnrolled.length})</span>
+          </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {filteredEnrolled.map((p) => {
+              const firstCareer = p.careers && p.careers[0];
+              const currentLifts = pilotLifts[p.id] !== undefined ? pilotLifts[p.id] : (p.lifts || 0);
+              const currentGroup = pilotGroups[p.id] !== undefined ? pilotGroups[p.id] : (p.flying_groupid || 0);
+              const currentAcStr = pilotAircrafts[p.id] !== undefined ? pilotAircrafts[p.id] : (firstCareer?.selected_aircraft_ids || "");
+              const selectedAcIds = currentAcStr ? currentAcStr.split(",").map((x: string) => x.trim()).filter(Boolean) : [];
+              
+              const pathsList = paths || [];
+              const currentPathId = pilotPaths[p.id] !== undefined ? pilotPaths[p.id] : (firstCareer?.career_path_id || (pathsList[0]?.id || 0));
+              const currentPathObj = pathsList.find(path => path?.id === currentPathId);
+              const availableRanks = (currentPathObj && Array.isArray(currentPathObj.ranks)) ? currentPathObj.ranks : [];
+              const currentRankId = pilotRanks[p.id] !== undefined ? pilotRanks[p.id] : (firstCareer?.current_rank_id || (availableRanks[0]?.id || 0));
+
+              const isSaving = savingPilotId === p.id;
+
+              return (
                 <div
                   key={p.id}
-                  className="flex flex-col p-3 bg-brand-pale rounded-xl border border-brand-border gap-2"
+                  className="flex flex-col p-4 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 shadow-xs gap-3.5"
                 >
-                  <div className="flex items-center justify-between">
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between gap-2 border-b border-emerald-200/60 pb-2.5">
                     <div>
-                      <p className="font-semibold text-sm">{p.callsign}</p>
-                      <p className="text-xs text-gray-400">{p.name}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-base text-brand">{p.callsign}</span>
+                        <span className="text-[10px] font-bold text-gray-500">({p.name})</span>
+                        {currentLifts > 0 && (
+                          <span className="text-[9px] font-black uppercase bg-purple-100 text-purple-800 border border-purple-300 px-2 py-0.5 rounded-full">
+                            ★ {currentLifts} Lift{currentLifts > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                      {firstCareer && (
+                        <div className="text-[11px] font-bold text-emerald-700 mt-0.5">
+                          {firstCareer.career_path_name}{firstCareer.current_rank_name ? ` · ${firstCareer.current_rank_name}` : " · First Officer"}
+                        </div>
+                      )}
                     </div>
+
                     <button
-                      onClick={() => handleEnroll(p.id, pilotSimbriefIds[p.id])}
-                      className="text-xs rounded-full bg-brand text-white px-3 py-1 hover:bg-brand-light transition-colors"
+                      disabled={isSaving}
+                      onClick={() => handleSavePilotSettings(p)}
+                      className="text-xs font-black uppercase tracking-wider bg-brand text-white px-3.5 py-1.5 rounded-xl hover:bg-brand-dark transition-all cursor-pointer shadow-xs disabled:opacity-50"
                     >
-                      Enroll
+                      {isSaving ? "Saving..." : "Save All"}
                     </button>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-1 border-t border-brand-border/40 pt-2 justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase">SimBrief ID:</span>
+
+                  {/* Grid of Edit Controls */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+
+                    {/* 1. Flying Group Selector */}
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
+                      <label className="text-[10px] font-black uppercase text-gray-500">Flying Group</label>
+                      <select
+                        value={currentGroup}
+                        onChange={(e) => setPilotGroups(prev => ({ ...prev, [p.id]: Number(e.target.value) }))}
+                        className="border border-brand-border rounded-lg px-2.5 py-1 text-xs font-bold text-gray-700 bg-white focus:outline-none focus:border-brand"
+                      >
+                        <option value={0}>No Group Assigned</option>
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 2. Path Selector */}
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
+                      <label className="text-[10px] font-black uppercase text-gray-500">Career Path</label>
+                      <select
+                        value={currentPathId}
+                        onChange={(e) => {
+                          const newPathId = Number(e.target.value);
+                          setPilotPaths((prev: Record<number, number>) => ({ ...prev, [p.id]: newPathId }));
+                          const newPathObj = paths.find(path => path.id === newPathId);
+                          if (newPathObj && newPathObj.ranks && newPathObj.ranks.length > 0) {
+                            setPilotRanks((prev: Record<number, number>) => ({ ...prev, [p.id]: newPathObj.ranks[0].id }));
+                          }
+                        }}
+                        className="border border-brand-border rounded-lg px-2.5 py-1 text-xs font-bold text-gray-700 bg-white focus:outline-none focus:border-brand"
+                      >
+                        <option value={0} disabled>
+                          Select Career Path...
+                        </option>
+                        {paths.map((path) => (
+                          <option key={path.id} value={path.id}>
+                            {path.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 3. Rank Selector */}
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
+                      <label className="text-[10px] font-black uppercase text-gray-500">Career Rank</label>
+                      {availableRanks.length > 0 ? (
+                        <select
+                          value={currentRankId}
+                          onChange={(e) => setPilotRanks(prev => ({ ...prev, [p.id]: Number(e.target.value) }))}
+                          className="border border-brand-border rounded-lg px-2.5 py-1 text-xs font-bold text-gray-700 bg-white focus:outline-none focus:border-brand"
+                        >
+                          {availableRanks.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name} (Limit: {r.weekly_proposal_limit} / wk)
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-gray-400 py-1">
+                          No ranks configured
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 4. Lifts Counter */}
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
+                      <label className="text-[10px] font-black uppercase text-gray-500">Lifts Provided (Count)</label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPilotLifts(prev => ({ ...prev, [p.id]: Math.max(0, currentLifts - 1) }))}
+                          className="w-6 h-6 rounded-lg bg-gray-100 font-bold text-gray-700 hover:bg-gray-200 flex items-center justify-center cursor-pointer"
+                        >-</button>
+                        <span className="font-mono font-black text-sm px-2">{currentLifts}</span>
+                        <button
+                          type="button"
+                          onClick={() => setPilotLifts(prev => ({ ...prev, [p.id]: currentLifts + 1 }))}
+                          className="w-6 h-6 rounded-lg bg-gray-100 font-bold text-gray-700 hover:bg-gray-200 flex items-center justify-center cursor-pointer"
+                        >+</button>
+                        <span className="text-[10px] text-gray-400 font-semibold ml-auto">
+                          {currentLifts > 0 ? "Lift Provider" : "Regular"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 4. SimBrief ID */}
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
+                      <label className="text-[10px] font-black uppercase text-gray-500">SimBrief ID</label>
                       <input
                         type="text"
                         placeholder="Not set"
@@ -308,91 +525,48 @@ export function PilotsTab() {
                           const val = e.target.value;
                           setPilotSimbriefIds(prev => ({ ...prev, [p.id]: val }));
                         }}
-                        className="border border-brand-border rounded px-2 py-0.5 text-[10px] w-24 font-mono bg-white focus:outline-none focus:border-brand"
+                        className="border border-brand-border rounded-lg px-2.5 py-1 text-xs font-mono bg-white focus:outline-none focus:border-brand"
                       />
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        <div>
-          <h3 className="text-sm font-semibold text-gray-500 mb-3">
-            Enrolled ({filteredEnrolled.length})
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {filteredEnrolled.map((p) => {
-              const currentSimbrief = pilotSimbriefIds[p.id] !== undefined ? pilotSimbriefIds[p.id] : (p.simbrief_id || "");
-              const isChanged = String(p.simbrief_id || "") !== String(currentSimbrief);
-
-              return (
-                <div
-                  key={p.id}
-                  className="flex flex-col p-4 bg-green-50 rounded-xl border border-green-200"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="font-semibold text-sm">{p.callsign}</p>
-                      <p className="text-xs text-gray-400">{p.name}</p>
+                  {/* 5. 2-Aircraft Selection Models */}
+                  <div className="bg-white p-3 rounded-xl border border-emerald-200/80 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase text-brand">
+                        Assigned Aircraft Models (Max 2)
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${selectedAcIds.length === 2 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                        {selectedAcIds.length} / 2 Selected
+                      </span>
                     </div>
-                    <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                      Active
-                    </span>
-                  </div>
 
-                  <div className="flex items-center justify-between gap-2 border-t border-green-200/50 pt-2 mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase">SimBrief ID:</span>
-                      <input
-                        type="text"
-                        placeholder="Not set"
-                        value={currentSimbrief}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setPilotSimbriefIds(prev => ({ ...prev, [p.id]: val }));
-                        }}
-                        className="border border-green-200 rounded px-2 py-0.5 text-[10px] w-24 font-mono bg-white focus:outline-none focus:border-brand"
-                      />
-                    </div>
-                    {isChanged && (
-                      <button
-                        onClick={() => handleUpdateSimbrief(p.id, currentSimbrief)}
-                        className="text-[9px] font-black uppercase tracking-wider bg-brand text-white px-2.5 py-1 rounded-lg hover:bg-brand-light transition-all"
-                      >
-                        Save
-                      </button>
-                    )}
-                  </div>
-
-                  {p.careers && p.careers.length > 0 && (
-                    <div className="space-y-2 mt-2 pt-2 border-t border-green-200/50">
-                      {p.careers.map((c: any) => (
-                        <div
-                          key={c.career_path_id}
-                          className="flex items-center justify-between text-xs text-brand-light"
-                        >
-                          <div className="truncate flex-1">
-                            <span className="font-semibold">
-                              {c.career_path_name}:
-                            </span>{" "}
-                            {c.current_rank_name}
-                          </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {types.map((acType) => {
+                        const isSelected = selectedAcIds.includes(String(acType.id));
+                        return (
                           <button
-                            onClick={() => handlePromote(p.id, c.career_path_id)}
-                            className="text-[10px] bg-brand text-white font-semibold px-2 py-1 rounded-full hover:bg-brand-light transition-colors ml-2 flex-shrink-0"
+                            key={acType.id}
+                            type="button"
+                            onClick={() => toggleAircraftForPilot(p.id, acType.id, currentAcStr)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                              isSelected
+                                ? "bg-brand text-white border-brand shadow-xs"
+                                : "bg-gray-50 text-gray-600 border-gray-200 hover:border-brand/40"
+                            }`}
                           >
-                            Promote
+                            {isSelected ? "✓ " : ""}{acType.name}
                           </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+
                 </div>
               );
             })}
           </div>
+
           {filteredEnrolled.length === 0 && (
             <p className="text-sm text-gray-400 py-4">
               No matching enrolled pilots found.

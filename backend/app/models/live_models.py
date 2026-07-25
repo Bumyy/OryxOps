@@ -52,6 +52,7 @@ class Pilot(Base):
     flying_groupid = Column(Integer, default=0)
     flying_group_airport = Column(String(4), default="OTHH")
     simbrief_id = Column(Integer)
+    lifts = Column(Integer, default=0)
 
 
 class Aircraft(Base):
@@ -168,6 +169,7 @@ class LiveCareerRank(Base):
     required_route_pct = Column(Numeric(5, 2), nullable=False, default=0)
     required_takeoffs = Column(Integer, nullable=False, default=0)
     required_landings = Column(Integer, nullable=False, default=0)
+    weekly_proposal_limit = Column(Integer, nullable=False, default=3)
 
     career_path = relationship("LiveCareerPath", back_populates="ranks")
     rank_aircraft = relationship("LiveCareerRankAircraft", back_populates="career_rank")
@@ -196,6 +198,7 @@ class LivePilotCareer(Base):
     started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     promoted_at = Column(DateTime)
     previous_rank_id = Column(Integer, ForeignKey("live_career_ranks.id"))
+    selected_aircraft_ids = Column(String(255), nullable=True)
 
     pilot = relationship("Pilot", foreign_keys=[pilot_id])
     career_path = relationship("LiveCareerPath", back_populates="pilot_careers")
@@ -331,6 +334,9 @@ class LiveCurrencyTransaction(Base):
             "admin_remove",
             "booking_spend",
             "no_show_penalty",
+            "extra_proposal_slot",
+            "path_switch_fee",
+            "aircraft_switch_fee",
             name="transaction_type",
         ),
         nullable=False,
@@ -378,6 +384,7 @@ class LiveFlightSchedule(Base):
     week_start = Column(Date, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     if_schedule_id = Column(String(36), nullable=True)
+    proposal_cost_qar = Column(Integer, nullable=False, default=0)
 
     group = relationship("LiveFlyingGroup", back_populates="flight_schedules")
     aircraft = relationship("LiveAircraft", back_populates="flight_schedules")
@@ -429,12 +436,13 @@ class LiveTransfer(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=False)
     transfer_type = Column(
-        Enum("group_switch", "career_path_switch", name="transfer_type"),
+        Enum("group_switch", "career_path_switch", "path_switch", "aircraft_switch", name="transfer_type"),
         nullable=False,
     )
     from_value = Column(String(100))
     to_value = Column(String(100), nullable=False)
     reason = Column(Text)
+    fee_paid_qar = Column(Integer, default=0)
     status = Column(
         Enum("pending", "approved", "denied", name="transfer_status"),
         nullable=False,

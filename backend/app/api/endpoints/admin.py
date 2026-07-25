@@ -149,51 +149,178 @@ async def enroll_pilot(
     }
 
 
-# ── GET ENROLLED PILOTS ──
+class AdminUpdatePilotRequest(BaseModel):
+    pilot_id: int
+    lifts: int | None = None
+    flying_groupid: int | None = None
+    selected_aircraft_ids: str | None = None
+    rank_id: int | None = None
+    career_path_id: int | None = None
+
+
+@router.post("/update-pilot")
+async def update_pilot_admin(
+    data: AdminUpdatePilotRequest,
+    db: AsyncSession = Depends(get_db),
+    staff: Pilot = Depends(get_current_staff),
+):
+    pilot = await db.get(Pilot, data.pilot_id)
+    if not pilot:
+        raise HTTPException(status_code=404, detail="Pilot not found")
+
+    if data.lifts is not None:
+        pilot.lifts = data.lifts
+    if data.flying_groupid is not None:
+        pilot.flying_groupid = data.flying_groupid
+
+    if data.selected_aircraft_ids is not None or data.rank_id is not None or data.career_path_id is not None:
+        career_res = await db.execute(
+            select(LivePilotCareer).where(LivePilotCareer.pilot_id == data.pilot_id)
+        )
+        career = career_res.scalar_one_or_none()
+        if career:
+            if data.selected_aircraft_ids is not None:
+                career.selected_aircraft_ids = data.selected_aircraft_ids
+            if data.career_path_id is not None:
+                career.career_path_id = data.career_path_id
+            if data.rank_id is not None:
+                career.current_rank_id = data.rank_id
+
+    await db.commit()
+    return {"detail": "Pilot settings updated successfully"}
+
+
+class EnrollByCallsignRequest(BaseModel):
+    callsign: str
+    career_path_id: int
+    simbrief_id: int | None = None
+
+
+@router.post("/enroll-by-callsign")
+async def enroll_pilot_by_callsign(
+    data: EnrollByCallsignRequest,
+    db: AsyncSession = Depends(get_db),
+    staff: Pilot = Depends(get_current_staff),
+):
+    from sqlalchemy import func
+    clean_callsign = data.callsign.strip()
+    pilot_res = await db.execute(
+        select(Pilot).where(func.lower(Pilot.callsign) == clean_callsign.lower())
+    )
+    pilot = pilot_res.scalar_one_or_none()
+    if not pilot:
+        raise HTTPException(status_code=404, detail=f"Pilot with callsign '{clean_callsign}' not found.")
+
+    if pilot.status != 1:
+        raise HTTPException(status_code=400, detail=f"Pilot {pilot.callsign} is not active.")
+
+    existing = await db.execute(
+        select(LivePilotCareer).where(
+            LivePilotCareer.pilot_id == pilot.id,
+            LivePilotCareer.career_path_id == data.career_path_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Pilot {pilot.callsign} is already enrolled.")
+
+    first_rank = await db.execute(
+        select(LiveCareerRank)
+        .where(LiveCareerRank.career_path_id == data.career_path_id)
+        .order_by(LiveCareerRank.sort_order)
+        .limit(1)
+    )
+    rank = first_rank.scalar_one_or_none()
+    if not rank:
+        raise HTTPException(status_code=400, detail="Career path has no ranks configured.")
+
+    if data.simbrief_id is not None:
+        pilot.simbrief_id = data.simbrief_id
+
+    # Grant Award ID 9 if not already granted
+    award_exist = await db.execute(
+        select(AwardGranted).where(
+            AwardGranted.awardid == 9,
+            AwardGranted.pilotid == pilot.id
+        )
+    )
+    if not award_exist.scalar_one_or_none():
+        db.add(AwardGranted(awardid=9, pilotid=pilot.id, dateawarded=date.today()))
+
+    career = LivePilotCareer(
+        pilot_id=pilot.id,
+        career_path_id=data.career_path_id,
+        current_rank_id=rank.id,
+    )
+    db.add(career)
+
+    await db.commit()
+    await db.refresh(career)
+
+    return {
+        "detail": f"Pilot {pilot.callsign} enrolled successfully with Award 9 granted!",
+        "pilot_id": pilot.id,
+        "callsign": pilot.callsign,
+        "career_path_id": career.career_path_id,
+        "current_rank_id": career.current_rank_id,
+    }
+
+
+# ── GET ENROLLED PILOTS ONLY (OPTIMIZED) ──
 
 @router.get("/enrolled-pilots")
 async def get_enrolled_pilots(db: AsyncSession = Depends(get_db), staff=Depends(get_current_staff)):
     result = await db.execute(
-        select(LivePilotCareer)
+        select(LivePilotCareer, Pilot)
+        .join(Pilot, Pilot.id == LivePilotCareer.pilot_id)
+        .where(Pilot.status == 1)
         .options(
             selectinload(LivePilotCareer.career_path),
             selectinload(LivePilotCareer.current_rank),
         )
     )
-    careers = result.scalars().all()
+    rows = result.all()
 
     from collections import defaultdict
     pilot_careers = defaultdict(list)
-    for c in careers:
-        pilot_careers[c.pilot_id].append({
-            "career_path_id": c.career_path_id,
-            "career_path_name": c.career_path.name if c.career_path else None,
-            "current_rank_id": c.current_rank_id,
-            "current_rank_name": c.current_rank.name if c.current_rank else None,
+    pilots_dict = {}
+
+    for career, pilot in rows:
+        if not career.current_rank_id and career.career_path_id:
+            first_rank_res = await db.execute(
+                select(LiveCareerRank)
+                .where(LiveCareerRank.career_path_id == career.career_path_id)
+                .order_by(LiveCareerRank.sort_order)
+                .limit(1)
+            )
+            fr = first_rank_res.scalar_one_or_none()
+            if fr:
+                career.current_rank_id = fr.id
+                career.current_rank = fr
+                await db.commit()
+
+        pilots_dict[pilot.id] = pilot
+        pilot_careers[pilot.id].append({
+            "career_path_id": career.career_path_id,
+            "career_path_name": career.career_path.name if career.career_path else None,
+            "current_rank_id": career.current_rank_id,
+            "current_rank_name": career.current_rank.name if career.current_rank else None,
+            "selected_aircraft_ids": career.selected_aircraft_ids,
         })
 
-    all_pilots = await db.execute(select(Pilot).where(Pilot.status == 1))
-    pilots = list(all_pilots.scalars().all())
-
     enrolled = []
-    unenrolled = []
-    for p in pilots:
-        entry = {
+    for pid, p in pilots_dict.items():
+        enrolled.append({
             "id": p.id,
             "callsign": p.callsign,
             "name": p.name,
             "simbrief_id": p.simbrief_id,
-            "careers": [],
-        }
-        if p.id in pilot_careers:
-            entry["enrolled"] = True
-            entry["careers"] = pilot_careers[p.id]
-            enrolled.append(entry)
-        else:
-            entry["enrolled"] = False
-            unenrolled.append(entry)
+            "lifts": getattr(p, "lifts", 0) or 0,
+            "flying_groupid": p.flying_groupid,
+            "enrolled": True,
+            "careers": pilot_careers[p.id],
+        })
 
-    return {"enrolled": enrolled, "unenrolled": unenrolled}
+    return {"enrolled": enrolled, "unenrolled": []}
 
 
 # ── MONTHLY RESHUFFLE ──

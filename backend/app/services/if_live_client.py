@@ -659,10 +659,18 @@ class IFTokenManager:
         """Exchange the authorization code, persist tokens, return token info."""
         from app.models.live_models import LiveIFOAuthToken
 
+        # First try to find by matching state in pending token
         result = await db.execute(
-            select(LiveIFOAuthToken).where(LiveIFOAuthToken.pilot_id == pilot_id)
+            select(LiveIFOAuthToken).where(LiveIFOAuthToken.access_token.like(f"pending:{state}:%"))
         )
-        token_row: LiveIFOAuthToken | None = result.scalar_one_or_none()
+        token_row = result.scalar_one_or_none()
+        
+        # Fallback to pilot_id if no matching state found
+        if token_row is None:
+            result = await db.execute(
+                select(LiveIFOAuthToken).where(LiveIFOAuthToken.pilot_id == pilot_id)
+            )
+            token_row = result.scalar_one_or_none()
 
         if token_row is None or not token_row.access_token.startswith("pending:"):
             raise IFLiveAuthError(400, 0, "No pending authorization — call begin_authorization first")

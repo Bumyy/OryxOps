@@ -302,7 +302,20 @@ async def if_fleet_status(
     try:
         client = await _get_if_client(db, pilot)
     except HTTPException:
-        return {"aircraft": [], "error": "Not connected to Infinite Flight"}
+        from app.models.live_models import LiveIFOAuthToken
+        token_result = await db.execute(
+            select(LiveIFOAuthToken)
+            .where(LiveIFOAuthToken.refresh_token != "")
+            .where(LiveIFOAuthToken.refresh_token.isnot(None))
+        )
+        token_row = token_result.scalars().first()
+        if token_row is None:
+            return {"aircraft": [], "error": "Not connected to Infinite Flight"}
+        try:
+            client = await _manager.get_client(db, token_row.pilot_id)
+            await client.open()
+        except Exception:
+            return {"aircraft": [], "error": "Not connected to Infinite Flight"}
 
     try:
         orgs = await client.list_organizations()
@@ -481,3 +494,43 @@ async def if_sync_aircraft_location(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Details sync failed: {str(e)}")
+
+
+@router.post("/aircraft/sync-all-locations")
+async def if_sync_all_locations(
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_staff)
+):
+    """Fetch exact position and details for all linked aircraft, respecting rate limits."""
+    import asyncio
+    from sqlalchemy import select
+    
+    result = await db.execute(
+        select(LiveAircraft).where(LiveAircraft.if_organization_aircraft_id.isnot(None))
+    )
+    linked = list(result.scalars().all())
+    if not linked:
+        return {"detail": "No linked aircraft found.", "synced": 0}
+        
+    success = 0
+    failed = 0
+    errors = []
+    
+    for ac in linked:
+        try:
+            res = await sync_aircraft_location(db, ac.id)
+            # If the plane was active and we fetched position, delay 3.0s to stay below 20 requests/min
+            if not res.get("skipped_position_fetch"):
+                await asyncio.sleep(3.0)
+            success += 1
+        except Exception as e:
+            failed += 1
+            errors.append(f"{ac.registration}: {str(e)}")
+            
+    await db.commit()
+    return {
+        "detail": f"Successfully synced {success} aircraft. {failed} failed.",
+        "success_count": success,
+        "failed_count": failed,
+        "errors": errors
+    }

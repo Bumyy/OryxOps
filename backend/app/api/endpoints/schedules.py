@@ -104,6 +104,42 @@ async def create_schedule_route(
     pilot: Pilot = Depends(get_current_pilot),
 ):
     await check_group_access(db, data.group_id, pilot)
+
+    # ── Career & Aircraft Qualification Lock ──
+    from app.models.live_models import LivePilotCareer, LiveAircraft, Aircraft
+
+    career_res = await db.execute(
+        select(LivePilotCareer).where(LivePilotCareer.pilot_id == pilot.id)
+    )
+    career = career_res.scalar_one_or_none()
+    if not career or not career.selected_aircraft_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Configuration Required: You cannot draft schedules until your Career Path and 2 Aircraft selection are configured by staff."
+        )
+
+    assigned_ids = [x.strip() for x in career.selected_aircraft_ids.split(",") if x.strip()]
+    if assigned_ids and data.aircraft_id:
+        ac_res = await db.execute(
+            select(LiveAircraft)
+            .where(LiveAircraft.id == data.aircraft_id)
+        )
+        ac = ac_res.scalar_one_or_none()
+        if ac and ac.aircraft_type_id:
+            if str(ac.aircraft_type_id) not in assigned_ids:
+                # Get assigned model names for clear error
+                names_res = await db.execute(
+                    select(Aircraft.name).where(
+                        Aircraft.id.in_([int(x) for x in assigned_ids if x.isdigit()])
+                    )
+                )
+                assigned_names = [r[0] for r in names_res.all()]
+                assigned_str = ", ".join(assigned_names) if assigned_names else "None"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Aircraft Qualification Locked: You can only draft schedules for [{assigned_str}]. This aircraft is not in your qualification list."
+                )
+
     schedule = await create_schedule(db, {**data.model_dump(), "created_by": pilot.id, "status": "draft"})
     return ScheduleOut(
         id=schedule.id,
@@ -188,6 +224,16 @@ async def delete_schedule_route(
     return {"detail": "Schedule deleted"}
 
 
+@router.get("/proposal-quota")
+async def get_proposal_quota_route(
+    week_start: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_pilot),
+):
+    from app.services.schedule_service import get_pilot_proposal_quota
+    return await get_pilot_proposal_quota(db, pilot.id, week_start)
+
+
 @router.post("/{schedule_id}/propose", response_model=ScheduleOut)
 async def propose_schedule(
     schedule_id: int,
@@ -198,7 +244,11 @@ async def propose_schedule(
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
     await check_group_access(db, schedule.group_id, pilot)
-    schedule = await update_schedule_status(db, schedule_id, "proposed")
+    try:
+        schedule = await update_schedule_status(db, schedule_id, "proposed", pilot_id=pilot.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     return ScheduleOut(
         id=schedule.id,
         group_id=schedule.group_id,
