@@ -1486,7 +1486,50 @@ export default function Calendar() {
               </div>
               <div><label className="block text-sm font-semibold text-gray-600 mb-1">Time (UTC)</label><input type="time" value={selTime} onChange={e => setSelTime(e.target.value)} className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm focus:border-brand focus:ring-1 focus:ring-brand/30" /></div>
               <div><label className="block text-sm font-semibold text-gray-600 mb-1">Ground Time After (min)</label><input type="number" value={selGroundTime} onChange={e => setSelGroundTime(Number(e.target.value))} min={30} max={480} className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm" /><p className="text-xs text-gray-400 mt-1">A320=45m · A330=90m · B777=120m · A380=180m</p></div>
-              <div><label className="block text-sm font-semibold text-gray-600 mb-1">Aircraft</label><select value={selAircraftId} onChange={e => loadRoutesForAircraft(Number(e.target.value))} className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm cursor-pointer"><option value={0}>Select</option>{airframes.map(a => { const t = types.find(ty => ty.id === a.aircraft_type_id); return (<option key={a.id} value={a.id}>{a.registration} — {t?.name || "?"}{t?.liveryname ? ` (${t.liveryname})` : ""} [at {a.current_airport}]</option>); })}</select>{popup.position && <p className="text-xs text-brand mt-1 font-semibold">Position: {popup.position}</p>}</div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-600 mb-1">Aircraft</label>
+                {(() => {
+                  // Build qualified type ID set from pilot's career
+                  const qualifiedTypeIds = new Set<number>();
+                  (currentPilot?.careers ?? []).forEach((c: any) => {
+                    if (c.selected_aircraft_ids) {
+                      c.selected_aircraft_ids.split(",").forEach((id: string) => {
+                        const n = parseInt(id.trim(), 10);
+                        if (!isNaN(n)) qualifiedTypeIds.add(n);
+                      });
+                    }
+                  });
+                  const filteredFrames = qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin
+                    ? airframes.filter(a => qualifiedTypeIds.has(a.aircraft_type_id))
+                    : airframes;
+                  return (
+                    <>
+                      <select
+                        value={selAircraftId}
+                        onChange={e => loadRoutesForAircraft(Number(e.target.value))}
+                        className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm cursor-pointer"
+                      >
+                        <option value={0}>Select</option>
+                        {filteredFrames.map(a => {
+                          const t = types.find(ty => ty.id === a.aircraft_type_id);
+                          return (
+                            <option key={a.id} value={a.id}>
+                              {a.registration} — {t?.name || "?"}{t?.liveryname ? ` (${t.liveryname})` : ""} [at {a.current_airport}]
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin && filteredFrames.length === 0 && (
+                        <p className="text-xs text-red-500 mt-1 font-semibold">No qualified aircraft available. Contact staff to configure your aircraft types.</p>
+                      )}
+                      {qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin && (
+                        <p className="text-xs text-brand mt-1">Showing your qualified aircraft only.</p>
+                      )}
+                    </>
+                  );
+                })()}
+                {popup.position && <p className="text-xs text-brand mt-1 font-semibold">Position: {popup.position}</p>}
+              </div>
               <div><label className="block text-sm font-semibold text-gray-600 mb-1">Override Dep ICAO</label><input type="text" maxLength={4} placeholder={popup.position || "e.g. EGLL"} value={selOverrideDep} onChange={e => { const v = e.target.value.toUpperCase(); setSelOverrideDep(v); if (selAircraftId > 0) loadRoutesForAircraft(selAircraftId); }} className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm" /></div>
               <div><label className="block text-sm font-semibold text-gray-600 mb-1">Route {popup.position ? `(from ${popup.position})` : ""}</label><select value={selRouteId} onChange={e => setSelRouteId(Number(e.target.value))} className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm cursor-pointer"><option value={0}>Select</option>{availableRoutes.map(r => (<option key={r.id} value={r.id}>{r.dep}→{r.arr} [{r.fltnum?.split(",")[0]?.trim() || `#${r.id}`}] ({Math.floor(r.duration / 3600)}h{Math.floor(r.duration % 3600 / 60)}m)</option>))}</select>{loadingRoutes && <p className="text-xs text-gray-400 mt-1">Loading...</p>}{!loadingRoutes && selAircraftId > 0 && availableRoutes.length === 0 && <p className="text-xs text-orange-500 mt-1">No routes from this position for this aircraft.</p>}</div>
               {selectedRoute && <div className="bg-brand-pale rounded-xl p-3 text-sm"><p className="text-gray-600">Arr: <span className="font-semibold text-brand">{selectedRoute.arr}</span> · Dur: <span className="font-semibold">{Math.floor(selectedRoute.duration / 3600)}h{Math.floor(selectedRoute.duration % 3600 / 60)}m</span></p></div>}

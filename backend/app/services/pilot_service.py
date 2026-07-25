@@ -93,9 +93,10 @@ async def get_pilot_detail(db: AsyncSession, pilot_id: int) -> dict | None:
         "group_id": group.id if group else None,
         "careers": [
             {
-                "path": c.career_path.name,
-                "rank": c.current_rank.name,
-                "sort_order": c.current_rank.sort_order,
+                "path": c.career_path.name if c.career_path else None,
+                "rank": c.current_rank.name if c.current_rank else None,
+                "sort_order": c.current_rank.sort_order if c.current_rank else None,
+                "selected_aircraft_ids": c.selected_aircraft_ids or "",
             }
             for c in careers
         ],
