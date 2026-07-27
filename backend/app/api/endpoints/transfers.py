@@ -104,6 +104,8 @@ async def review_transfer(
     if data.status == "approved" and transfer.status != "approved":
         # 1. Process Group Switch
         if transfer.transfer_type == "group_switch":
+            from app.services.group_service import get_group_capacity
+
             group_res = await db.execute(
                 select(LiveFlyingGroup).where(
                     func.lower(LiveFlyingGroup.name) == func.lower(transfer.to_value),
@@ -115,6 +117,14 @@ async def review_transfer(
                 raise HTTPException(
                     status_code=400,
                     detail=f"Target active group '{transfer.to_value}' not found",
+                )
+
+            # Check target group capacity
+            cap = await get_group_capacity(db, target_group.id)
+            if cap["is_full"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Target group '{target_group.name}' is full ({cap['member_count']}/{cap['max_slots']} slots filled). Cannot complete transfer.",
                 )
 
             # Deactivate current active group assignments for this pilot

@@ -22,6 +22,7 @@ from app.services.group_service import (
     get_all_groups,
     get_group_aircraft,
     get_group_aircraft_count,
+    get_group_capacity,
     get_group_member_count,
     get_group_members,
     get_group_with_members_aircraft,
@@ -39,8 +40,7 @@ async def list_groups(db: AsyncSession = Depends(get_db)):
     groups = await get_all_groups(db)
     result = []
     for g in groups:
-        member_count = await get_group_member_count(db, g.id)
-        aircraft_count = await get_group_aircraft_count(db, g.id)
+        cap = await get_group_capacity(db, g.id)
         result.append(
             FlyingGroupOut(
                 id=g.id,
@@ -49,8 +49,11 @@ async def list_groups(db: AsyncSession = Depends(get_db)):
                 is_active=bool(g.is_active),
                 period_start=str(g.period_start),
                 period_end=str(g.period_end),
-                member_count=member_count,
-                aircraft_count=aircraft_count,
+                member_count=cap["member_count"],
+                aircraft_count=cap["aircraft_count"],
+                max_slots=cap["max_slots"],
+                available_slots=cap["available_slots"],
+                is_full=cap["is_full"],
             )
         )
     return result
@@ -65,6 +68,12 @@ async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
     active_members = [gp for gp in group.group_pilots if gp.removed_at is None]
     active_aircraft = [ga for ga in group.group_aircraft if ga.removed_at is None]
 
+    member_count = len(active_members)
+    aircraft_count = len(active_aircraft)
+    max_slots = 2 + (aircraft_count * 2)
+    available_slots = max(0, max_slots - member_count)
+    is_full = member_count >= max_slots
+
     return GroupDetailOut(
         id=group.id,
         name=group.name,
@@ -72,8 +81,11 @@ async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
         is_active=bool(group.is_active),
         period_start=str(group.period_start),
         period_end=str(group.period_end),
-        member_count=len(active_members),
-        aircraft_count=len(active_aircraft),
+        member_count=member_count,
+        aircraft_count=aircraft_count,
+        max_slots=max_slots,
+        available_slots=available_slots,
+        is_full=is_full,
         members=[
             GroupPilotOut(
                 id=gp.id,
@@ -116,6 +128,9 @@ async def create_group_route(
         period_end=str(group.period_end),
         member_count=0,
         aircraft_count=0,
+        max_slots=2,
+        available_slots=2,
+        is_full=False,
     )
 
 
@@ -129,6 +144,7 @@ async def update_group_route(
     group = await update_group(db, group_id, data.model_dump(exclude_none=True))
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
+    cap = await get_group_capacity(db, group_id)
     return FlyingGroupOut(
         id=group.id,
         name=group.name,
@@ -136,8 +152,11 @@ async def update_group_route(
         is_active=bool(group.is_active),
         period_start=str(group.period_start),
         period_end=str(group.period_end),
-        member_count=await get_group_member_count(db, group_id),
-        aircraft_count=await get_group_aircraft_count(db, group_id),
+        member_count=cap["member_count"],
+        aircraft_count=cap["aircraft_count"],
+        max_slots=cap["max_slots"],
+        available_slots=cap["available_slots"],
+        is_full=cap["is_full"],
     )
 
 
@@ -148,7 +167,11 @@ async def assign_pilots(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_staff),
 ):
-    assignments = await assign_pilots_to_group(db, group_id, data.pilot_ids, data.is_group_admin)
+    try:
+        assignments = await assign_pilots_to_group(db, group_id, data.pilot_ids, data.is_group_admin)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
     return [
         GroupPilotOut(
             id=a.id,

@@ -427,3 +427,56 @@ async def auto_generate_schedules_route(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+
+@router.post("/buy-proposal-token")
+async def buy_proposal_token(
+    slot_type: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_pilot),
+):
+    from app.models.live_models import LiveCurrency, LiveCurrencyTransaction, LivePilotCareer
+
+    if slot_type not in ["short", "long"]:
+        raise HTTPException(status_code=400, detail="Invalid slot type. Must be 'short' or 'long'.")
+
+    # Check if pilot has a career profile setup
+    career_res = await db.execute(
+        select(LivePilotCareer)
+        .where(LivePilotCareer.pilot_id == pilot.id)
+    )
+    career = career_res.scalar_one_or_none()
+    if not career:
+        raise HTTPException(
+            status_code=400,
+            detail="Configuration Required: You cannot purchase proposal slots until your Career Path is configured."
+        )
+
+    cost = 1000 if slot_type == "short" else 2000
+    description = f"Pre-purchased {'Short' if slot_type == 'short' else 'Long'}-Haul Slot Token"
+
+    curr_res = await db.execute(select(LiveCurrency).where(LiveCurrency.pilot_id == pilot.id))
+    currency = curr_res.scalar_one_or_none()
+    if not currency or currency.balance < cost:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient balance. Purchasing a {slot_type}-haul token requires {cost:,.0f} QAR, but your balance is {currency.balance if currency else 0:,.0f} QAR."
+        )
+
+    # Deduct QAR
+    currency.balance -= cost
+    currency.total_spent += cost
+
+    # Insert unused extra_proposal_slot transaction (reference_id = 0)
+    tx = LiveCurrencyTransaction(
+        pilot_id=pilot.id,
+        amount=-cost,
+        transaction_type="extra_proposal_slot",
+        reference_id=0,
+        description=description,
+    )
+    db.add(tx)
+    await db.commit()
+
+    return {"detail": f"Successfully purchased {slot_type}-haul proposal token.", "balance": currency.balance}
+

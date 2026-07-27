@@ -254,6 +254,57 @@
             "descent_speed_profile": {"cruise_to_fl280":"M 0.85","fl280_to_fl150":"320 knots","fl150_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
         }
     },
+    "A35K": {
+        "properties": {"full_name":"Airbus A350-1000","manufacturer":"Airbus","engines":2,"capacity":395,"min_runway_length_ft":9000},
+        "engine_start_sequence": [1,2],
+        "flap_retraction_schedule": [
+            {"speed":212,"setting":"1+F"},
+            {"speed":220,"setting":"1"},
+            {"speed":255,"setting":"0"}
+        ],
+        "performance_data": {
+            "flap_speeds": {"1":255,"2":212,"3":196,"1+F":220,"F":186},
+            "cruise_profile": {
+                "west": [
+                    {"load_range":[71,100],"altitude":"FL340"},
+                    {"load_range":[51,70],"altitude":"FL360"},
+                    {"load_range":[31,50],"altitude":"FL380"},
+                    {"load_range":[0,30],"altitude":"FL400"}
+                ],
+                "east": [
+                    {"load_range":[71,100],"altitude":"FL330"},
+                    {"load_range":[51,70],"altitude":"FL350"},
+                    {"load_range":[31,50],"altitude":"FL370"},
+                    {"load_range":[0,30],"altitude":"FL390"}
+                ]
+            },
+            "takeoff_data": [
+                {"load_range":[0,27],"flaps":"2","n1":"85% - 88%","vr":130,"va":135},
+                {"load_range":[28,34],"flaps":"2","n1":"85% - 88%","vr":132,"va":137},
+                {"load_range":[35,44],"flaps":"2","n1":"86% - 89%","vr":136,"va":141},
+                {"load_range":[45,54],"flaps":"2","n1":"86% - 89%","vr":140,"va":145},
+                {"load_range":[55,64],"flaps":"2","n1":"86% - 89%","vr":144,"va":149},
+                {"load_range":[65,72],"flaps":"2","n1":"87% - 90%","vr":148,"va":153},
+                {"load_range":[73,84],"flaps":"2","n1":"88% - 91%","vr":150,"va":155},
+                {"load_range":[85,94],"flaps":"2","n1":"88% - 91%","vr":154,"va":159},
+                {"load_range":[95,100],"flaps":"2","n1":"89% - 92%","vr":155,"va":160}
+            ],
+            "landing_data": [
+                {"load_range":[0,27],"flaps":"Full","vapp":135,"vflare":130},
+                {"load_range":[28,34],"flaps":"Full","vapp":137,"vflare":132},
+                {"load_range":[35,44],"flaps":"Full","vapp":141,"vflare":136},
+                {"load_range":[45,54],"flaps":"Full","vapp":145,"vflare":140},
+                {"load_range":[55,64],"flaps":"Full","vapp":149,"vflare":144},
+                {"load_range":[65,72],"flaps":"Full","vapp":153,"vflare":148},
+                {"load_range":[73,84],"flaps":"Full","vapp":155,"vflare":150},
+                {"load_range":[85,94],"flaps":"Full","vapp":159,"vflare":154},
+                {"load_range":[95,100],"flaps":"Full","vapp":160,"vflare":155}
+            ],
+            "speed_profile": {"initial_speed":"250","below_10k":"250","above_10k":"320","mach_transition_alt":"FL280","mach":"0.85"},
+            "climb_vs_profile": {"0_5000":"3000","5000_15000":"2300","15000_24000":"1600","24000_cruise":"1400"},
+            "descent_speed_profile": {"cruise_to_fl280":"M 0.85","fl280_to_fl150":"320 knots","fl150_to_fl100":"280 knots","fl100_to_ground":"<250 knots"}
+        }
+    },
     "B788": {
         "properties": {"full_name":"Boeing 787-8","manufacturer":"Boeing","engines":2,"capacity":242,"min_runway_length_ft":8500},
         "engine_start_sequence": [2,1],

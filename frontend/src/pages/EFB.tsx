@@ -276,7 +276,7 @@ export default function EFB() {
 
   const aircraftCode = (efbDataSource === "simbrief" && ofpData?.aircraft?.icao_code?.toUpperCase()) || activeBooking?.aircraft_icao?.toUpperCase() || "";
   const activeAircraft = aircraftOverride || aircraftCode || "A320";
-  const resolvedAircraftKey = activeAircraft === "A35K" ? "A359" : activeAircraft;
+  const resolvedAircraftKey = (activeAircraft === "A35K" && !aircraftsDb["A35K"]) ? "A359" : activeAircraft;
   const aircraftInfo = aircraftsDb[resolvedAircraftKey as keyof typeof aircraftsDb] as any;
 
   // Retrieve performance data

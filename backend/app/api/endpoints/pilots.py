@@ -120,3 +120,59 @@ async def get_pilot(
         token_balance=detail["token_balance"],
         careers=detail["careers"],
     )
+
+
+@router.get("/me/proposal-transactions")
+async def get_my_proposal_transactions(
+    pilot: Pilot = Depends(get_current_pilot),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import select
+    from app.models.live_models import LiveCurrencyTransaction, LiveFlightSchedule
+    
+    # Fetch transactions of type "extra_proposal_slot"
+    tx_res = await db.execute(
+        select(LiveCurrencyTransaction)
+        .where(
+            LiveCurrencyTransaction.pilot_id == pilot.id,
+            LiveCurrencyTransaction.transaction_type == "extra_proposal_slot"
+        )
+        .order_by(LiveCurrencyTransaction.created_at.desc())
+    )
+    transactions = list(tx_res.scalars().all())
+    
+    # Gather unique schedule IDs (reference_id) that are not None/0
+    schedule_ids = [tx.reference_id for tx in transactions if tx.reference_id and tx.reference_id > 0]
+    
+    schedules_by_id = {}
+    if schedule_ids:
+        sched_res = await db.execute(
+            select(LiveFlightSchedule).where(LiveFlightSchedule.id.in_(schedule_ids))
+        )
+        for s in sched_res.scalars().all():
+            schedules_by_id[s.id] = s
+
+    # Format results
+    logs = []
+    for tx in transactions:
+        flight_detail = None
+        if tx.reference_id and tx.reference_id in schedules_by_id:
+            s = schedules_by_id[tx.reference_id]
+            flight_detail = {
+                "flight_number": s.flight_number,
+                "departure": s.departure,
+                "arrival": s.arrival,
+                "week_start": str(s.week_start)
+            }
+            
+        logs.append({
+            "id": tx.id,
+            "amount": tx.amount,
+            "description": tx.description,
+            "created_at": str(tx.created_at),
+            "reference_id": tx.reference_id,
+            "flight_detail": flight_detail
+        })
+        
+    return logs
+

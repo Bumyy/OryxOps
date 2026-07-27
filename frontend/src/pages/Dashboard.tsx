@@ -3,39 +3,94 @@ import { Link } from "react-router-dom";
 import { useCurrency } from "../hooks/useCurrency";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchMyProfile } from "../store/slices/pilotSlice";
-import { fetchMyDiscoverySummary } from "../store/slices/discoverySlice";
+import { fetchBookings } from "../store/slices/bookingSlice";
 import { api } from "../api/client";
-import useReveal from "../hooks/useReveal";
+
+// ── Zulu Clock ─────────────────────────────────────────────
+function ZuluClock() {
+  const [time, setTime] = useState("");
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setTime(d.toISOString().slice(11, 19) + "Z");
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <span className="font-mono text-sm font-bold tracking-widest text-brand">
+      {time}
+    </span>
+  );
+}
+
+// ── Greeting helper ─────────────────────────────────────────
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good Morning";
+  if (h < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
+// ── Derive title from rank string ───────────────────────────
+function getPilotTitle(rankLine: string): string {
+  const r = rankLine.toLowerCase();
+  if (r.includes("captain")) return "Captain";
+  if (r.includes("senior first officer") || r.includes("sfo")) return "Senior First Officer";
+  if (r.includes("first officer") || r.includes("f/o") || r.includes("fo ")) return "First Officer";
+  if (r.includes("cadet") || r.includes("student")) return "Cadet";
+  if (r.includes("training") || r.includes("trainee")) return "Trainee";
+  if (r === "no career path" || r === "") return "Pilot";
+  // fallback: return the rank itself as the title
+  return rankLine;
+}
+
+// ── Animated count-up ───────────────────────────────────────
+function CountUp({ to, prefix = "", suffix = "", decimals = 0 }: { to: number; prefix?: string; suffix?: string; decimals?: number }) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!to) return;
+    let start = 0;
+    const duration = 900;
+    const step = 16;
+    const increment = to / (duration / step);
+    const timer = setInterval(() => {
+      start += increment;
+      if (start >= to) { setVal(to); clearInterval(timer); }
+      else setVal(start);
+    }, step);
+    return () => clearInterval(timer);
+  }, [to]);
+  return <>{prefix}{decimals > 0 ? val.toFixed(decimals) : Math.floor(val)}{suffix}</>;
+}
 
 export default function Dashboard() {
   const dispatch = useAppDispatch();
   const { formatAmount } = useCurrency();
   const { user } = useAppSelector((s) => s.auth);
   const { currentPilot } = useAppSelector((s) => s.pilot);
-  const { summary } = useAppSelector((s) => s.discovery);
-  const revealRef = useReveal();
+  const { bookings } = useAppSelector((s) => s.booking);
 
-  const [airlineBalance, setAirlineBalance] = useState<number | null>(null);
   const [globalReputation, setGlobalReputation] = useState<number | null>(null);
   const [completedFlightsCount, setCompletedFlightsCount] = useState<number>(0);
+  const [quota, setQuota] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
 
   const pilot = currentPilot || user;
+  const activeBooking = bookings.find((b) => b.status === "booked");
 
-  const fetchGlobalStats = async () => {
+  const fetchData = async () => {
     try {
-      // 1. Fetch Airline Treasury Balance
-      const balanceData = await api.get<{ setting_key: string; setting_value: string }>(
-        "/settings/airline_balance"
-      );
-      if (balanceData && balanceData.setting_value) {
-        setAirlineBalance(Number(balanceData.setting_value));
-      }
-    } catch (e) {
-      console.log("Error loading treasury setting:", e);
-    }
+      const today = new Date();
+      const monday = new Date(today.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1))).toISOString().split("T")[0];
+      const quotaData = await api.get<any>(`/schedules/proposal-quota?week_start=${monday}`);
+      if (quotaData) setQuota(quotaData);
+      const logsData = await api.get<any[]>("/pilots/me/proposal-transactions");
+      if (logsData) setLogs(logsData);
+    } catch {}
 
     try {
-      // 2. Fetch completed bookings to calculate global reputation and flight counts
       const bookingsData = await api.get<any[]>("/bookings?status=completed");
       if (bookingsData) {
         setCompletedFlightsCount(bookingsData.length);
@@ -43,130 +98,365 @@ export default function Dashboard() {
           const sum = bookingsData.reduce((acc, b) => acc + (b.reputation_score || 0), 0);
           setGlobalReputation(sum / bookingsData.length);
         } else {
-          setGlobalReputation(4.0); // Default if empty
+          setGlobalReputation(4.0);
         }
       }
-    } catch (e) {
-      console.log("Error loading global reputation:", e);
-    }
+    } catch {}
   };
 
   useEffect(() => {
     dispatch(fetchMyProfile());
-    dispatch(fetchMyDiscoverySummary());
-    fetchGlobalStats();
+    dispatch(fetchBookings({ pilot_id: user?.id, status: "booked" }));
+    fetchData();
   }, []);
 
+  const careers = pilot?.careers || [];
+  const rankLine = careers.length > 0
+    ? careers.map((c: any) => c.rank).filter(Boolean).join(" · ")
+    : "No career path";
+  const careerPathLine = careers.length > 0
+    ? careers.map((c: any) => c.career_path_name || c.path_name).filter(Boolean).join(", ")
+    : null;
+
+  const quotaPercent = quota ? Math.round((quota.proposals_used / quota.weekly_limit) * 100) : 0;
+
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8" ref={revealRef}>
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <h1 className="text-5xl font-bold text-brand">Dashboard</h1>
-        <div className="bg-brand-pale border border-brand-border px-4 py-2 rounded-2xl flex items-center gap-3">
-          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Pilot Wallet Balance:</div>
-          <div className="text-xl font-extrabold text-brand-dark">
-            {pilot?.token_balance ? formatAmount(pilot.token_balance) : formatAmount(0)}
+    <div className="max-w-6xl mx-auto px-5 py-8 space-y-6">
+
+      {/* ─── SECTION 1: HERO BANNER ─────────────────────────── */}
+      <div className="relative overflow-hidden rounded-3xl border border-brand-border bg-white shadow-sm p-7">
+        {/* decorative glow blobs */}
+        <div className="absolute -top-10 -right-10 w-64 h-64 rounded-full bg-brand/8 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-20 w-48 h-32 rounded-full bg-brand/5 blur-2xl pointer-events-none" />
+
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-5">
+          {/* Left: Greeting */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black uppercase tracking-widest text-gray-400">{getGreeting()}</span>
+              <span className="w-1 h-1 rounded-full bg-gray-300" />
+              <ZuluClock />
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 leading-tight">
+              <span className="text-gray-400 font-semibold text-2xl sm:text-3xl">{getPilotTitle(rankLine)}</span>{" "}
+              <span className="text-brand">{pilot?.name || pilot?.callsign || "—"}</span>
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              {/* Callsign badge */}
+              <span className="inline-flex items-center gap-1.5 bg-brand text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                {pilot?.callsign || "—"}
+              </span>
+              {/* Group badge */}
+              {pilot?.group_name && (
+                <span className="inline-flex items-center gap-1.5 bg-brand-pale border border-brand-border text-brand text-xs font-bold px-3 py-1 rounded-full">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {pilot.group_name}
+                </span>
+              )}
+              {/* Rank badge */}
+              {rankLine !== "No career path" && (
+                <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold px-3 py-1 rounded-full">
+                  ✦ {rankLine}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Wallet */}
+          <div className="flex-shrink-0 bg-brand-pale border border-brand-border rounded-2xl px-6 py-4 text-right space-y-0.5 min-w-[160px]">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Pilot Wallet</p>
+            <p className="text-2xl font-extrabold text-brand-dark tabular-nums">
+              {pilot?.token_balance != null ? formatAmount(pilot.token_balance) : formatAmount(0)}
+            </p>
+            <p className="text-[10px] text-gray-400 font-medium">Token balance</p>
           </div>
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md transition-shadow">
-          <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Rank</p>
-          <p className="text-2xl font-bold text-brand mt-1">
-            {pilot?.callsign || "—"}
+      {/* ─── SECTION 2: ACTIVE BOOKING ALERT ───────────────── */}
+      {activeBooking ? (
+        <div className="flex items-center gap-4 bg-brand text-white rounded-2xl px-5 py-4 shadow-md shadow-brand/20">
+          <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-black uppercase tracking-wider text-white/70">Active Flight Booked</p>
+            <p className="text-sm font-bold truncate">
+              {activeBooking.flight_number && <span className="mr-2 opacity-80">{activeBooking.flight_number}</span>}
+              {activeBooking.flight_departure} → {activeBooking.flight_arrival}
+              {activeBooking.aircraft_registration && (
+                <span className="ml-2 text-white/70 font-mono text-xs">({activeBooking.aircraft_registration})</span>
+              )}
+            </p>
+          </div>
+          <Link
+            to="/efb"
+            className="flex-shrink-0 bg-white/15 hover:bg-white/25 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5"
+          >
+            Open EFB
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </Link>
+        </div>
+      ) : (
+        <div className="flex items-center gap-4 bg-gray-50 border border-brand-border rounded-2xl px-5 py-4">
+          <div className="w-9 h-9 rounded-xl bg-brand-pale border border-brand-border flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-gray-700">No active flight booked</p>
+            <p className="text-xs text-gray-400">Browse the schedule to pick up your next leg.</p>
+          </div>
+          <Link
+            to="/calendar"
+            className="flex-shrink-0 bg-brand hover:bg-brand-dark text-white text-xs font-bold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5"
+          >
+            Browse Schedule
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </Link>
+        </div>
+      )}
+
+      {/* ─── SECTION 3: STAT CARDS (3 cards) ────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+        {/* Card 1: Rank & Career */}
+        <Link to="/careers" className="group bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md hover:border-amber-300 transition-all duration-200 block">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+              <span className="text-base">✦</span>
+            </div>
+            <svg className="w-4 h-4 text-gray-300 group-hover:text-amber-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Current Rank</p>
+          <p className="text-xl font-extrabold text-gray-900 leading-tight truncate">{rankLine}</p>
+          {careerPathLine && (
+            <p className="text-xs text-gray-400 mt-1 font-semibold truncate">{careerPathLine}</p>
+          )}
+        </Link>
+
+        {/* Card 2: Weekly Proposals */}
+        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-xl bg-brand-pale border border-brand-border flex items-center justify-center">
+              <svg className="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <Link to="/shop" className="text-[10px] font-black uppercase tracking-wider text-brand hover:underline">Shop →</Link>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Weekly Proposals</p>
+          <p className="text-xl font-extrabold text-gray-900">
+            {quota ? `${quota.proposals_used} / ${quota.weekly_limit}` : "—"}
           </p>
-          <p className="text-xs text-gray-400 mt-1.5 font-medium">
-            {pilot?.careers?.map((c: any) => c.rank).join(", ") || "No path selected"}
-          </p>
+          {quota && (
+            <>
+              <div className="mt-3 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${quotaPercent >= 80 ? "bg-rose-500" : "bg-brand"}`}
+                  style={{ width: `${Math.min(100, quotaPercent)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1.5 font-semibold">
+                {quota.remaining_free_slots ?? 0} free slots left
+              </p>
+            </>
+          )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md transition-shadow">
-          <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Group</p>
-          <p className="text-2xl font-bold text-brand mt-1">
-            {pilot?.group_name || "Not assigned"}
+        {/* Card 3: Pilot Wallet */}
+        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+              <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              </svg>
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Balance</span>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Pilot Wallet</p>
+          <p className="text-xl font-extrabold text-gray-900 tabular-nums">
+            {pilot?.token_balance != null ? formatAmount(pilot.token_balance) : formatAmount(0)}
           </p>
-          <Link to="/groups" className="text-xs text-brand hover:underline mt-1.5 inline-block font-semibold">View groups</Link>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md transition-shadow">
-          <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Transfer Stats</p>
-          <p className="text-2xl font-bold text-brand mt-1">
-            {pilot?.transhours ?? 0}h
-          </p>
-          <p className="text-xs text-gray-400 mt-1.5 font-medium">
-            {pilot?.transflights ?? 0} flights logged
-          </p>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md transition-shadow">
-          <p className="text-sm text-gray-500 font-semibold uppercase tracking-wider">Routes Discovered</p>
-          <p className="text-2xl font-bold text-brand mt-1">
-            {Array.isArray(summary) ? summary.reduce((a, b) => a + b.discovered_routes, 0) : 0}
-          </p>
+          <div className="mt-3 flex gap-2 text-[10px] font-bold text-gray-400">
+            <span className="bg-gray-100 rounded-lg px-2 py-0.5">Short: {quota?.purchased_short_slots ?? 0} tkn</span>
+            <span className="bg-gray-100 rounded-lg px-2 py-0.5">Long: {quota?.purchased_long_slots ?? 0} tkn</span>
+          </div>
         </div>
       </div>
 
-      {/* Airline Corporate Treasury & Reputation Layer (Premium Section) */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-brand-dark to-brand rounded-3xl border border-brand-border shadow-xl p-8 mb-8 text-white">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none" />
-        
-        <h2 className="text-xl font-bold uppercase tracking-wider text-brand-pale/80 mb-6">
-          Qatari Virtual Corporate Operations
-        </h2>
+      {/* ─── SECTION 4: AIRLINE METRICS STRIP ───────────────── */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-dark via-brand to-brand-light border border-brand/30 shadow-xl p-7 text-white">
+        {/* texture */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{
+          backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
+          backgroundSize: "24px 24px"
+        }} />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none" />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Treasury Balance */}
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-brand-pale/70 uppercase tracking-widest">Airline Treasury Balance</span>
-            <span className="text-4xl font-extrabold mt-1">
-              {airlineBalance !== null ? formatAmount(airlineBalance) : formatAmount(5000000)}
-            </span>
-            <span className="text-[10px] text-brand-pale/60 mt-1">Updated in real-time from active PIREPs</span>
-          </div>
+        <p className="relative text-[10px] font-black uppercase tracking-widest text-white/50 mb-6">Qatari Virtual — Airline Operations</p>
 
+        <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-8">
           {/* Global Reputation */}
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-brand-pale/70 uppercase tracking-widest">Global Airline Rating</span>
-            <span className="text-4xl font-extrabold mt-1">
-              {globalReputation !== null ? `${globalReputation.toFixed(2)} ★` : "4.00 ★"}
-            </span>
-            <span className="text-[10px] text-brand-pale/60 mt-1">Calculated as average of performance ratings</span>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-white/50">Global Airline Rating</p>
+            <div className="flex items-end gap-3">
+              <span className="text-4xl font-extrabold tabular-nums">
+                {globalReputation !== null
+                  ? <CountUp to={globalReputation} decimals={2} />
+                  : "4.00"}
+              </span>
+              <div className="flex gap-0.5 mb-1.5">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <svg key={i} className={`w-4 h-4 ${(globalReputation ?? 4) >= i ? "text-amber-400" : "text-white/20"}`} fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+            </div>
+            <p className="text-[10px] text-white/40">Average of all completed flight reputation scores</p>
           </div>
 
-          {/* Total Career Completed Flights */}
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-brand-pale/70 uppercase tracking-widest">Completed Flights</span>
-            <span className="text-4xl font-extrabold mt-1">
-              {completedFlightsCount} Flight{completedFlightsCount !== 1 ? "s" : ""}
-            </span>
-            <span className="text-[10px] text-brand-pale/60 mt-1">Total revenue legs filed in EFB</span>
+          {/* Completed Flights */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-white/50">Completed Flights</p>
+            <p className="text-4xl font-extrabold tabular-nums">
+              <CountUp to={completedFlightsCount} suffix=" Legs" />
+            </p>
+            <p className="text-[10px] text-white/40">Total revenue legs filed across all pilots</p>
           </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Link to="/fleet" className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-all duration-300 p-6 block group">
-          <h3 className="text-lg font-bold text-brand group-hover:text-brand-light transition-colors">Fleet Registry</h3>
-          <p className="text-sm text-gray-500 mt-2">Explore airframes, registrations, and aircraft specifications.</p>
-        </Link>
+      {/* ─── SECTION 5: SPLIT BOTTOM ────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
-        <Link to="/groups" className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-all duration-300 p-6 block group">
-          <h3 className="text-lg font-bold text-brand group-hover:text-brand-light transition-colors">Flying Groups</h3>
-          <p className="text-sm text-gray-500 mt-2">View your group, assigned aircraft, and Discord channel.</p>
-        </Link>
+        {/* Left: Proposal Transaction Log */}
+        <div className="lg:col-span-3 bg-white rounded-3xl border border-brand-border shadow-sm p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-base font-extrabold text-gray-800">Proposal Transactions</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Slot purchases and proposal token usage</p>
+            </div>
+            <Link
+              to="/shop"
+              className="bg-brand hover:bg-brand-dark text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1.5"
+            >
+              Shop
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+          </div>
 
-        <Link to="/calendar" className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-all duration-300 p-6 block group">
-          <h3 className="text-lg font-bold text-brand group-hover:text-brand-light transition-colors">Schedule Calendar</h3>
-          <p className="text-sm text-gray-500 mt-2">Weekly flight plans, wave scheduling, and aircraft availability.</p>
-        </Link>
+          {logs.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-brand-border rounded-2xl space-y-2">
+              <div className="text-3xl">📋</div>
+              <p className="text-sm font-bold text-gray-400">No transactions yet</p>
+              <p className="text-xs text-gray-300">Proposal purchases and usage will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {logs.slice(0, 8).map((log) => {
+                const isPurchase = log.amount < 0 && log.description.includes("Pre-purchased");
+                const isConsumed = log.amount === 0;
+                return (
+                  <div key={log.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-brand-pale transition-colors group">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-black ${
+                      isPurchase ? "bg-blue-50 text-blue-600 border border-blue-100"
+                        : isConsumed ? "bg-purple-50 text-purple-600 border border-purple-100"
+                        : "bg-amber-50 text-amber-600 border border-amber-100"
+                    }`}>
+                      {isPurchase ? "🛒" : isConsumed ? "✓" : "⚡"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-700 truncate">{log.description}</p>
+                      {log.flight_detail && (
+                        <p className="text-[10px] text-brand font-bold">
+                          ✈ {log.flight_detail.flight_number} · {log.flight_detail.departure} → {log.flight_detail.arrival}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className={`text-xs font-extrabold ${log.amount < 0 ? "text-rose-500" : "text-gray-400"}`}>
+                        {log.amount === 0 ? "Free" : formatAmount(log.amount)}
+                      </p>
+                      <p className="text-[10px] text-gray-300">{new Date(log.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-        <Link to="/bookings" className="bg-white rounded-2xl border border-brand-border shadow-sm hover:shadow-lg transition-all duration-300 p-6 block group">
-          <h3 className="text-lg font-bold text-brand group-hover:text-brand-light transition-colors">My Bookings</h3>
-          <p className="text-sm text-gray-500 mt-2">Your reserved flights and upcoming departures.</p>
-        </Link>
+        {/* Right: Quick Actions */}
+        <div className="lg:col-span-2 grid grid-cols-2 gap-3 content-start">
+          {[
+            {
+              to: "/fleet",
+              icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8",
+              label: "Fleet",
+              desc: "Aircraft & registrations",
+              color: "text-sky-600",
+              bg: "bg-sky-50 border-sky-100",
+            },
+            {
+              to: "/groups",
+              icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z",
+              label: "Groups",
+              desc: "Flying group & slots",
+              color: "text-violet-600",
+              bg: "bg-violet-50 border-violet-100",
+            },
+            {
+              to: "/calendar",
+              icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+              label: "Schedule",
+              desc: "Waves & flight plans",
+              color: "text-emerald-600",
+              bg: "bg-emerald-50 border-emerald-100",
+            },
+            {
+              to: "/efb",
+              icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+              label: "EFB",
+              desc: "Briefing & checklist",
+              color: "text-brand",
+              bg: "bg-brand-pale border-brand-border",
+            },
+          ].map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="group bg-white rounded-2xl border border-brand-border shadow-sm p-4 hover:shadow-md hover:border-opacity-80 transition-all duration-200 flex flex-col gap-3"
+            >
+              <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${item.bg} transition-transform group-hover:scale-110 duration-200`}>
+                <svg className={`w-4 h-4 ${item.color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-extrabold text-gray-800 group-hover:text-brand transition-colors">{item.label}</p>
+                <p className="text-[10px] text-gray-400 font-medium mt-0.5">{item.desc}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );

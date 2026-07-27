@@ -10,6 +10,9 @@ class FlyingGroupOut(BaseModel):
     period_end: str
     member_count: int = 0
     aircraft_count: int = 0
+    max_slots: int = 2
+    available_slots: int = 2
+    is_full: bool = False
 
     model_config = {"from_attributes": True}
 

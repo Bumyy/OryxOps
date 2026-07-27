@@ -63,15 +63,26 @@ export default function Groups() {
                 <h3 className="text-xl font-black text-brand group-hover:text-brand-light transition-colors">
                   {group.name}
                 </h3>
-                {group.is_active ? (
-                  <span className="text-[10px] font-black uppercase tracking-wide bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full shrink-0 border border-emerald-300">
-                    Active
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-black uppercase tracking-wide bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full shrink-0 border border-slate-300">
-                    Inactive
-                  </span>
-                )}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {group.is_active ? (
+                    <span className="text-[10px] font-black uppercase tracking-wide bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-300">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black uppercase tracking-wide bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full border border-slate-300">
+                      Inactive
+                    </span>
+                  )}
+                  {group.is_full ? (
+                    <span className="text-[9px] font-black uppercase tracking-wide bg-rose-100 text-rose-700 px-2 py-0.5 rounded-md border border-rose-200">
+                      FULL ({group.member_count}/{group.max_slots})
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-black uppercase tracking-wide bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border border-blue-200">
+                      {group.available_slots} Slot{group.available_slots !== 1 ? 's' : ''} Open
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Group Statistics */}
@@ -81,8 +92,10 @@ export default function Groups() {
                     👥
                   </div>
                   <div>
-                    <div className="text-[10px] text-gray-400 font-bold uppercase">Pilots</div>
-                    <div className="text-sm font-black text-gray-800">{group.member_count}</div>
+                    <div className="text-[10px] text-gray-400 font-bold uppercase">Pilot Slots</div>
+                    <div className="text-sm font-black text-gray-800">
+                      {group.member_count} <span className="text-xs font-normal text-gray-400">/ {group.max_slots || (2 + (group.aircraft_count * 2))}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -94,6 +107,33 @@ export default function Groups() {
                     <div className="text-[10px] text-gray-400 font-bold uppercase">Fleet</div>
                     <div className="text-sm font-black text-gray-800">{group.aircraft_count}</div>
                   </div>
+                </div>
+              </div>
+
+              {/* Capacity Progress Bar */}
+              <div className="mt-3">
+                <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 mb-1">
+                  <span>Capacity Usage</span>
+                  <span className={group.is_full ? "text-rose-600 font-extrabold" : "text-gray-600"}>
+                    {Math.round(((group.member_count || 0) / (group.max_slots || 1)) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-500 ${
+                      group.is_full
+                        ? "bg-rose-500"
+                        : (group.member_count / (group.max_slots || 1)) > 0.75
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                    }`}
+                    style={{
+                      width: `${Math.min(100, Math.round(((group.member_count || 0) / (group.max_slots || 1)) * 100))}%`,
+                    }}
+                  />
+                </div>
+                <div className="text-[9px] text-gray-400 mt-1 italic text-right">
+                  Capacity: 2 + ({group.aircraft_count} Aircraft × 2) = {group.max_slots}
                 </div>
               </div>
 

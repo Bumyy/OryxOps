@@ -110,7 +110,7 @@ async def get_pilot_proposal_quota(
     db: AsyncSession, pilot_id: int, week_start: str
 ) -> dict:
     from sqlalchemy import func
-    from app.models.live_models import LivePilotCareer, LiveCareerRank
+    from app.models.live_models import LivePilotCareer, LiveCareerRank, LiveCurrencyTransaction
 
     career_res = await db.execute(
         select(LivePilotCareer)
@@ -131,10 +131,34 @@ async def get_pilot_proposal_quota(
     )
     proposals_used = count_res.scalar() or 0
 
+    # Query for unused short-haul tokens (-1000)
+    short_tokens_res = await db.execute(
+        select(func.count(LiveCurrencyTransaction.id)).where(
+            LiveCurrencyTransaction.pilot_id == pilot_id,
+            LiveCurrencyTransaction.transaction_type == "extra_proposal_slot",
+            LiveCurrencyTransaction.amount == -1000,
+            (LiveCurrencyTransaction.reference_id.is_(None)) | (LiveCurrencyTransaction.reference_id == 0)
+        )
+    )
+    purchased_short_slots = short_tokens_res.scalar() or 0
+
+    # Query for unused long-haul tokens (-2000)
+    long_tokens_res = await db.execute(
+        select(func.count(LiveCurrencyTransaction.id)).where(
+            LiveCurrencyTransaction.pilot_id == pilot_id,
+            LiveCurrencyTransaction.transaction_type == "extra_proposal_slot",
+            LiveCurrencyTransaction.amount == -2000,
+            (LiveCurrencyTransaction.reference_id.is_(None)) | (LiveCurrencyTransaction.reference_id == 0)
+        )
+    )
+    purchased_long_slots = long_tokens_res.scalar() or 0
+
     return {
         "weekly_limit": weekly_limit,
         "proposals_used": proposals_used,
         "remaining_free_slots": max(0, weekly_limit - proposals_used),
+        "purchased_short_slots": purchased_short_slots,
+        "purchased_long_slots": purchased_long_slots,
         "extra_slot_fee_short_haul": 1000,
         "extra_slot_fee_long_haul": 2000,
     }
@@ -187,27 +211,34 @@ async def check_and_process_proposal_slot(
         duration_hours = schedule.route.duration / 3600.0
 
     cost = 1000 if duration_hours < 8.0 else 2000
+    slot_label = "Short" if duration_hours < 8.0 else "Long"
 
-    curr_res = await db.execute(select(LiveCurrency).where(LiveCurrency.pilot_id == pilot_id))
-    currency = curr_res.scalar_one_or_none()
-    if not currency or currency.balance < cost:
-        raise ValueError(
-            f"Weekly rank proposal limit ({weekly_limit}) reached. "
-            f"Extra proposal slot requires {cost:,.0f} QAR, but your balance is {currency.balance if currency else 0:,.0f} QAR."
+    # Look for an unused pre-purchased slot transaction of matching cost
+    unused_tx_res = await db.execute(
+        select(LiveCurrencyTransaction)
+        .where(
+            LiveCurrencyTransaction.pilot_id == pilot_id,
+            LiveCurrencyTransaction.transaction_type == "extra_proposal_slot",
+            LiveCurrencyTransaction.amount == -cost,
+            (LiveCurrencyTransaction.reference_id.is_(None)) | (LiveCurrencyTransaction.reference_id == 0)
         )
-
-    currency.balance -= cost
-    currency.total_spent += cost
-
-    tx = LiveCurrencyTransaction(
-        pilot_id=pilot_id,
-        amount=-cost,
-        transaction_type="extra_proposal_slot",
-        description=f"Fee for extra flight proposal slot #{schedule.id} ({duration_hours:.1f}h flight)",
+        .order_by(LiveCurrencyTransaction.created_at.asc())
+        .limit(1)
     )
-    db.add(tx)
-    schedule.proposal_cost_qar = cost
-    return cost
+    unused_tx = unused_tx_res.scalar_one_or_none()
+
+    if unused_tx:
+        # Consume the token: link it to the schedule ID and update description
+        unused_tx.reference_id = schedule.id
+        unused_tx.description = f"Pre-purchased slot consumed for flight #{schedule.id} ({duration_hours:.1f}h flight)"
+        schedule.proposal_cost_qar = 0
+        return 0
+
+    # If no token is available, block proposal and require shop purchase
+    raise ValueError(
+        f"Weekly rank proposal limit ({weekly_limit}) reached. "
+        f"You must purchase a {slot_label}-Haul Proposal Token in the Shop to propose this flight."
+    )
 
 
 async def update_schedule_status(

@@ -19,6 +19,7 @@ import Transfers from "./pages/Transfers";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import EFB from "./pages/EFB";
+import Shop from "./pages/Shop";
 
 import AdminPilots from "./pages/admin/PilotsPage";
 import AdminGroups from "./pages/admin/GroupsPage";
@@ -147,6 +148,7 @@ export default function App() {
           <Route path="/bookings" element={<PilotAccessRoute><Bookings /></PilotAccessRoute>} />
           <Route path="/operations" element={<PilotAccessRoute><Operations /></PilotAccessRoute>} />
           <Route path="/transfers" element={<PilotAccessRoute><Transfers /></PilotAccessRoute>} />
+          <Route path="/shop" element={<PilotAccessRoute><Shop /></PilotAccessRoute>} />
 
           {/* Admin Routes - Requires Admin Permission or Executive Callsign */}
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />

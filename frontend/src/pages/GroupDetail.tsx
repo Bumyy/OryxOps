@@ -20,10 +20,43 @@ export default function GroupDetail() {
     <div className="max-w-6xl mx-auto px-6 py-8">
       <Link to="/groups" className="text-sm text-brand hover:underline mb-4 inline-block">&larr; Back to Groups</Link>
       <h1 className="text-5xl font-bold text-brand mb-2">{currentGroup.name}</h1>
-      <p className="text-gray-500 mb-8">
+      <p className="text-gray-500 mb-6">
         {currentGroup.period_start} &mdash; {currentGroup.period_end}
         {currentGroup.discord_channel_id && <span className="ml-4 text-brand">Discord: #{currentGroup.discord_channel_id}</span>}
       </p>
+
+      {/* Group Capacity Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white rounded-2xl border border-brand-border p-4 shadow-sm">
+          <div className="text-xs font-bold text-gray-400 uppercase">Assigned Aircraft</div>
+          <div className="text-2xl font-extrabold text-brand mt-1">{currentGroup.aircraft_count}</div>
+          <div className="text-[10px] text-gray-400 mt-1">Active fleet in group</div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-brand-border p-4 shadow-sm">
+          <div className="text-xs font-bold text-gray-400 uppercase">Max Pilot Capacity</div>
+          <div className="text-2xl font-extrabold text-blue-600 mt-1">
+            {currentGroup.max_slots || (2 + (currentGroup.aircraft_count * 2))}
+          </div>
+          <div className="text-[10px] text-gray-400 mt-1">Formula: 2 + ({currentGroup.aircraft_count} × 2)</div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-brand-border p-4 shadow-sm">
+          <div className="text-xs font-bold text-gray-400 uppercase">Active Pilots</div>
+          <div className="text-2xl font-extrabold text-gray-800 mt-1">{currentGroup.member_count}</div>
+          <div className="text-[10px] text-gray-400 mt-1">Current members</div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-brand-border p-4 shadow-sm">
+          <div className="text-xs font-bold text-gray-400 uppercase">Available Slots</div>
+          <div className={`text-2xl font-extrabold mt-1 ${currentGroup.is_full ? 'text-rose-600' : 'text-emerald-600'}`}>
+            {currentGroup.is_full ? 'FULL (0)' : currentGroup.available_slots}
+          </div>
+          <div className="text-[10px] text-gray-400 mt-1">
+            {currentGroup.is_full ? 'Capacity ceiling reached' : 'Open pilot slots'}
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Members */}

@@ -118,9 +118,48 @@ async def get_group_aircraft_count(db: AsyncSession, group_id: int) -> int:
     return result.scalar() or 0
 
 
+async def get_group_capacity(db: AsyncSession, group_id: int) -> dict:
+    member_count = await get_group_member_count(db, group_id)
+    aircraft_count = await get_group_aircraft_count(db, group_id)
+    max_slots = 2 + (aircraft_count * 2)
+    available_slots = max(0, max_slots - member_count)
+    is_full = member_count >= max_slots
+    return {
+        "member_count": member_count,
+        "aircraft_count": aircraft_count,
+        "max_slots": max_slots,
+        "available_slots": available_slots,
+        "is_full": is_full,
+    }
+
+
 async def assign_pilots_to_group(
     db: AsyncSession, group_id: int, pilot_ids: list[int], is_group_admin: bool = False
 ) -> list[LiveGroupPilot]:
+    # Calculate current capacity
+    capacity_info = await get_group_capacity(db, group_id)
+    current_members = capacity_info["member_count"]
+    max_slots = capacity_info["max_slots"]
+
+    # Calculate how many NEW pilots are actually being added
+    new_pilots_count = 0
+    for pilot_id in pilot_ids:
+        exists_result = await db.execute(
+            select(LiveGroupPilot).where(
+                LiveGroupPilot.group_id == group_id,
+                LiveGroupPilot.pilot_id == pilot_id,
+                LiveGroupPilot.removed_at.is_(None),
+            )
+        )
+        if not exists_result.scalar_one_or_none():
+            new_pilots_count += 1
+
+    if current_members + new_pilots_count > max_slots:
+        raise ValueError(
+            f"Group capacity limit reached. Maximum allowed pilots: {max_slots} (2 + {capacity_info['aircraft_count']} aircraft * 2). "
+            f"Current members: {current_members}, trying to add: {new_pilots_count}."
+        )
+
     assignments = []
     for pilot_id in pilot_ids:
         # Mark all other active group memberships as removed to enforce single-group membership
@@ -169,7 +208,19 @@ async def assign_aircraft_to_group(
     db: AsyncSession, group_id: int, aircraft_ids: list[int]
 ) -> list[LiveGroupAircraft]:
     assignments = []
-    for aircraft_id in aircraft_ids:
+    unique_ids = list(dict.fromkeys(aircraft_ids))
+    for aircraft_id in unique_ids:
+        # Deactivate any other active group assignments for this aircraft
+        other_active_res = await db.execute(
+            select(LiveGroupAircraft).where(
+                LiveGroupAircraft.aircraft_id == aircraft_id,
+                LiveGroupAircraft.group_id != group_id,
+                LiveGroupAircraft.removed_at.is_(None),
+            )
+        )
+        for other in other_active_res.scalars().all():
+            other.removed_at = datetime.utcnow()
+
         exists_result = await db.execute(
             select(LiveGroupAircraft).where(
                 LiveGroupAircraft.group_id == group_id,

@@ -10,6 +10,9 @@ interface Group {
   period_end: string;
   member_count: number;
   aircraft_count: number;
+  max_slots: number;
+  available_slots: number;
+  is_full: boolean;
 }
 
 interface GroupDetail extends Group {

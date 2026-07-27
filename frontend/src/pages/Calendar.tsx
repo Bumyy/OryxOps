@@ -65,6 +65,16 @@ export default function Calendar() {
       return new Set();
     }
   });
+  const [quota, setQuota] = useState<any>(null);
+
+  const fetchQuota = async () => {
+    try {
+      const data = await api.get<any>(`/schedules/proposal-quota?week_start=${weekStart}`);
+      if (data) setQuota(data);
+    } catch (e) {
+      console.error("Failed to load quota", e);
+    }
+  };
 
   const isExecutiveOrAdmin = Boolean(user?.is_executive || user?.is_admin);
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -101,6 +111,7 @@ export default function Calendar() {
       dispatch(fetchSchedules({ group_id: activeGroup, week_start: weekStart, status: "all" }));
       dispatch(fetchWaves({ week_start: weekStart }));
       dispatch(fetchAirframes({ group_id: activeGroup }));
+      fetchQuota();
     }
   }, [activeGroup, weekStart]);
 
@@ -1386,23 +1397,89 @@ export default function Calendar() {
                 );
               })()}
 
+              {editingSchedule.status === "draft" && (
+                (() => {
+                  const depDate = new Date(editingSchedule.scheduled_departure + "Z");
+                  const arrDate = new Date(editingSchedule.scheduled_arrival + "Z");
+                  const durHrs = (arrDate.getTime() - depDate.getTime()) / 3600000;
+                  const isShort = durHrs < 8.0;
+                  const tokenCount = isShort ? (quota?.purchased_short_slots ?? 0) : (quota?.purchased_long_slots ?? 0);
+                  const tokenLabel = isShort ? "Short-Haul" : "Long-Haul";
+                  const isBlocked = quota && quota.remaining_free_slots === 0 && tokenCount === 0;
+
+                  return (
+                    <div className="w-full text-[11px] bg-brand-pale border border-brand-border rounded-xl p-2.5 space-y-1 mb-2">
+                      <p className="font-bold text-brand-dark flex justify-between">
+                        <span>Proposal Quota:</span>
+                        <a href="/shop" className="text-brand hover:underline font-extrabold">Shop &rarr;</a>
+                      </p>
+                      {quota ? (
+                        <div className="text-gray-600 space-y-0.5">
+                          <div className="flex justify-between">
+                            <span>Weekly Free Limit:</span>
+                            <span className="font-bold">{quota.proposals_used} / {quota.weekly_limit}</span>
+                          </div>
+                          {quota.remaining_free_slots > 0 ? (
+                            <p className="text-emerald-700 font-bold mt-1">✓ Proposing this flight is FREE (uses weekly slot)</p>
+                          ) : (
+                            <div className="space-y-1 border-t border-brand-border/40 pt-1 mt-1 font-semibold">
+                              {isBlocked ? (
+                                <p className="text-rose-600 font-bold">❌ Weekly free slots exhausted. No {tokenLabel} token available. Buy one in the Shop to propose.</p>
+                              ) : (
+                                <>
+                                  <p className="text-amber-800 text-[10px]">Weekly quota reached! Proposing will consume 1x {tokenLabel} token.</p>
+                                  <div className="grid grid-cols-2 gap-1 text-[9px] text-gray-500 font-bold uppercase tracking-wider text-center">
+                                    <div className={`p-1 rounded border ${isShort ? "bg-brand/10 border-brand text-brand" : "bg-white/60 border-brand-border/40"}`}>
+                                      <div>Short Token</div>
+                                      <div className="text-xs font-black">{quota.purchased_short_slots} left</div>
+                                    </div>
+                                    <div className={`p-1 rounded border ${!isShort ? "bg-brand/10 border-brand text-brand" : "bg-white/60 border-brand-border/40"}`}>
+                                      <div>Long Token</div>
+                                      <div className="text-xs font-black">{quota.purchased_long_slots} left</div>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-gray-400">Loading quota details...</p>
+                      )}
+                    </div>
+                  );
+                })()
+              )}
+
               <div className="flex gap-2 flex-wrap w-full">
                 {editingSchedule.status === "draft" && (
-                  <button 
-                    onClick={async () => { 
-                      const res = await dispatch(proposeSchedule(editingSchedule.id)); 
-                      if (proposeSchedule.fulfilled.match(res)) {
-                        alert("Schedule proposed successfully!");
-                        refreshSchedules(); 
-                        setEditingSchedule(null); 
-                      } else {
-                        alert("Failed to propose schedule: " + (res.error?.message || "Unknown error"));
-                      }
-                    }} 
-                    className="flex-1 rounded-full bg-blue-500 text-white py-2 hover:bg-blue-600 cursor-pointer"
-                  >
-                    Propose
-                  </button>
+                  (() => {
+                    const depDate = new Date(editingSchedule.scheduled_departure + "Z");
+                    const arrDate = new Date(editingSchedule.scheduled_arrival + "Z");
+                    const durHrs = (arrDate.getTime() - depDate.getTime()) / 3600000;
+                    const isShort = durHrs < 8.0;
+                    const tokenCount = isShort ? (quota?.purchased_short_slots ?? 0) : (quota?.purchased_long_slots ?? 0);
+                    const isBlocked = quota && quota.remaining_free_slots === 0 && tokenCount === 0;
+
+                    return (
+                      <button 
+                        onClick={async () => { 
+                          const res = await dispatch(proposeSchedule(editingSchedule.id)); 
+                          if (proposeSchedule.fulfilled.match(res)) {
+                            alert("Schedule proposed successfully!");
+                            refreshSchedules(); 
+                            setEditingSchedule(null); 
+                          } else {
+                            alert("Failed to propose schedule: " + (res.error?.message || "Unknown error"));
+                          }
+                        }} 
+                        disabled={Boolean(isBlocked)}
+                        className="flex-1 rounded-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-2 cursor-pointer font-bold disabled:cursor-not-allowed text-center"
+                      >
+                        Propose
+                      </button>
+                    );
+                  })()
                 )}
                 {editingSchedule.status === "proposed" && (
                   <>
