@@ -36,8 +36,8 @@ router = APIRouter(prefix="/groups", tags=["groups"])
 
 
 @router.get("", response_model=list[FlyingGroupOut])
-async def list_groups(db: AsyncSession = Depends(get_db)):
-    groups = await get_all_groups(db)
+async def list_groups(active_only: bool = False, db: AsyncSession = Depends(get_db)):
+    groups = await get_all_groups(db, active_only=active_only)
     result = []
     for g in groups:
         cap = await get_group_capacity(db, g.id)

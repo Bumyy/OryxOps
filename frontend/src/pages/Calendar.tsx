@@ -9,6 +9,7 @@ import { fetchGroups } from "../store/slices/groupSlice";
 import { fetchAirframes, fetchAircraftTypes } from "../store/slices/aircraftSlice";
 import { fetchMyProfile } from "../store/slices/pilotSlice";
 import { api } from "../api/client";
+import aircraftImages from "../assets/aircraft_images.json";
 
 interface AvailableRoute { id: number; fltnum: string; dep: string; arr: string; duration: number; notes: string | null; }
 interface PositionError { aircraftId: number; registration: string; scheduleId: number; expectedDep: string; actualDep: string; status: "ok" | "mismatch" | "ground_short"; }
@@ -39,9 +40,10 @@ export default function Calendar() {
   const [weekStart, setWeekStart] = useState(getWeekStart);
   const [filterAircraftId, setFilterAircraftId] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string | null>("active");
-  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+  const [viewMode, setViewMode] = useState<"calendar" | "list">("list");
 
   const [popup, setPopup] = useState<{ day: number; hour: number; position: string } | null>(null);
+  const [createStep, setCreateStep] = useState<1 | 2>(1);
   const [selAircraftId, setSelAircraftId] = useState(0);
   const [selRouteId, setSelRouteId] = useState(0);
   const [selTime, setSelTime] = useState("00:00");
@@ -347,17 +349,25 @@ export default function Calendar() {
 
   function refreshSchedules() { if (activeGroup) { dispatch(fetchSchedules({ group_id: activeGroup, week_start: weekStart, status: "all" })); } }
 
-  async function openPopup(day: number, hour: number) {
-    const pid = filterAircraftId > 0 ? filterAircraftId : 0;
+  async function openPopup(day: number, hour: number, preselectedAcId?: number) {
+    const pid = preselectedAcId ?? (filterAircraftId > 0 ? filterAircraftId : 0);
     setSelAircraftId(pid); setSelRouteId(0); setSelTime(`${String(hour).padStart(2, "0")}:00`); setSelGroundTime(60); setSelOverrideDep(""); setAvailableRoutes([]); setEditingSchedule(null);
+    // If a specific aircraft is pre-selected, skip straight to step 2
+    if (pid > 0) {
+      setCreateStep(2);
+    } else {
+      setCreateStep(1);
+    }
     setPopup({ day, hour, position: "" });
     if (pid > 0) loadRoutesForAircraft(pid, day, hour);
   }
 
-  async function loadRoutesForAircraft(acId: number, day?: number, hour?: number) {
+  async function loadRoutesForAircraft(acId: number, day?: number, hour?: number, overrideDepStr?: string) {
     setSelAircraftId(acId); setSelRouteId(0); setAvailableRoutes([]); if (!acId) return;
     const d = day ?? popup?.day ?? 0; const h = hour ?? popup?.hour ?? 0;
-    const pos = selOverrideDep || getAircraftPosition(acId, d, h);
+    const depVal = overrideDepStr !== undefined ? overrideDepStr : selOverrideDep;
+    const validOverride = depVal && depVal.trim().length === 4 ? depVal.trim().toUpperCase() : "";
+    const pos = validOverride || getAircraftPosition(acId, d, h);
     setPopup(p => p ? { ...p, position: pos } : p);
     const ac = airframes.find(a => a.id === acId); if (!ac) return;
     setLoadingRoutes(true);
@@ -369,8 +379,12 @@ export default function Calendar() {
 
   async function doCreate() {
     if (!activeGroup || !selAircraftId || !selRouteId || !popup) return;
+    if (selOverrideDep && selOverrideDep.trim().length !== 4) {
+      alert("Override Dep ICAO must be a 4-letter uppercase code (e.g. EGLL).");
+      return;
+    }
     const r = selectedRoute; if (!r) return;
-    const depIcao = selOverrideDep || popup.position || r.dep;
+    const depIcao = (selOverrideDep && selOverrideDep.trim().length === 4 ? selOverrideDep.trim().toUpperCase() : "") || popup.position || r.dep;
     const ws = new Date(weekStart + "T00:00:00Z"); ws.setUTCDate(ws.getUTCDate() + popup.day);
     const dd = new Date(`${ws.toISOString().split("T")[0]}T${selTime}:00Z`);
     const ad = new Date(dd.getTime() + r.duration * 1000);
@@ -910,344 +924,395 @@ export default function Calendar() {
             </div>
           </div>
         ) : (
-          /* SIMPLE LIST VIEW — Kanban columns per day */
-          <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-hidden">
-            {/* Header row with day columns + ADD button per column */}
-            <div className="overflow-x-auto scroll-smooth">
-              <div className="min-w-[1540px]">
-                {/* Day column headers */}
-                <div className="grid grid-cols-7 border-b border-brand-border bg-brand-pale/60">
-                  {days.map((d, i) => {
-                    const dt = new Date(weekStart + "T00:00:00Z");
-                    dt.setUTCDate(dt.getUTCDate() + i);
-                    const isToday = dt.toISOString().split("T")[0] === new Date().toISOString().split("T")[0];
-                    const dayFlightCount = filteredSchedules.filter(s => {
-                      const dep = new Date(s.scheduled_departure + "Z");
-                      const depCol = dep.getUTCDay() === 0 ? 6 : dep.getUTCDay() - 1;
-                      return depCol === i;
-                    }).length;
-                    return (
-                      <div
-                        key={d}
-                        className={`p-3 text-center border-r border-brand-border last:border-r-0 ${isToday ? "bg-brand/5" : ""}`}
-                      >
-                        <div className={`text-[11px] font-black uppercase tracking-wide ${isToday ? "text-brand" : "text-gray-500"}`}>
-                          {d}
-                        </div>
-                        <div className={`text-[13px] font-black mt-0.5 ${isToday ? "text-brand" : "text-gray-700"}`}>
-                          {dt.getUTCDate()}/{dt.getUTCMonth() + 1}
-                        </div>
-                        {dayFlightCount > 0 && (
-                          <div className="mt-1 text-[9px] font-bold text-brand bg-brand/10 rounded-full px-2 py-0.5 inline-block">
-                            {dayFlightCount} flight{dayFlightCount !== 1 ? "s" : ""}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+          /* LIST VIEW: Aircraft Matrix Grid (Y-axis: Fleet Airframe | X-axis: Dates Mon-Sun) */
+          <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-auto max-h-[75vh] -mx-2 md:mx-0">
+            {(() => {
+              const listAirframes = filterAircraftId > 0
+                ? airframes.filter(a => Number(a.id) === Number(filterAircraftId))
+                : airframes;
 
-                {/* Flight card columns */}
-                <div className="grid grid-cols-7 min-h-[300px]">
+              if (listAirframes.length === 0) {
+                return (
+                  <div className="text-center py-12 text-gray-400 font-semibold bg-white rounded-2xl border border-dashed border-gray-200 m-4">
+                    No aircraft found for this flying group.
+                  </div>
+                );
+              }
+
+              const isDarkTheme = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+
+              // Compute maximum flights per day across all aircraft to dynamically set column widths
+              const flightsPerDay = days.map((_, colIdx) => {
+                let maxCount = 0;
+                for (const ac of listAirframes) {
+                  const count = filteredSchedules.filter(s => {
+                    if (Number(s.aircraft_id) !== Number(ac.id)) return false;
+                    const dep = new Date(s.scheduled_departure + "Z");
+                    const depCol = dep.getUTCDay() === 0 ? 6 : dep.getUTCDay() - 1;
+                    return depCol === colIdx;
+                  }).length;
+                  if (count > maxCount) maxCount = count;
+                }
+                return Math.max(maxCount, 1);
+              });
+
+              // Dynamic grid column widths: Y-axis (220px) + Day columns (width based on flight count)
+              const gridTemplateCols = "220px " + flightsPerDay.map(c => `minmax(${c * 230 + (c > 1 ? 16 : 0)}px, ${c}fr)`).join(" ");
+              const totalMinWidth = 220 + flightsPerDay.reduce((acc, c) => acc + (c * 230 + (c > 1 ? 16 : 0)), 0);
+
+              return (
+                <div
+                  className="grid relative z-0 border-collapse"
+                  style={{ gridTemplateColumns: gridTemplateCols, minWidth: `${totalMinWidth}px` }}
+                >
+                  {/* Top-Left Corner Cell: Sticky Header + Sticky Left */}
+                  <div className="border-b border-r border-brand-border bg-brand-pale p-3 text-xs font-black text-brand uppercase text-center sticky left-0 top-0 z-40 flex items-center justify-center shadow-xs">
+                    Fleet Airframe (Y)
+                  </div>
+
+                  {/* Top Row: X-axis Day Headers with single + ADD FLIGHT button per day */}
                   {days.map((d, colIdx) => {
                     const dt = new Date(weekStart + "T00:00:00Z");
                     dt.setUTCDate(dt.getUTCDate() + colIdx);
                     const isToday = dt.toISOString().split("T")[0] === new Date().toISOString().split("T")[0];
-
-                    // Flights departing on this day, sorted by departure time
-                    const dayFlights = filteredSchedules
-                      .filter(s => {
-                        const dep = new Date(s.scheduled_departure + "Z");
-                        const depCol = dep.getUTCDay() === 0 ? 6 : dep.getUTCDay() - 1;
-                        return depCol === colIdx;
-                      })
-                      .sort((a, b) =>
-                        new Date(a.scheduled_departure + "Z").getTime() -
-                        new Date(b.scheduled_departure + "Z").getTime()
-                      );
+                    const dayFlightCount = filteredSchedules.filter(s => {
+                      const dep = new Date(s.scheduled_departure + "Z");
+                      const depCol = dep.getUTCDay() === 0 ? 6 : dep.getUTCDay() - 1;
+                      return depCol === colIdx;
+                    }).length;
 
                     return (
                       <div
-                        key={d}
-                        className={`border-r border-brand-border last:border-r-0 flex flex-col gap-2 p-2 ${isToday ? "bg-brand/[0.02]" : "bg-white"}`}
+                        key={`listh-${d}`}
+                        className={`border-b border-r border-brand-border p-2.5 text-center sticky top-0 z-30 flex flex-col items-center justify-between gap-1.5 transition-colors ${
+                          isToday ? "bg-brand/10 text-brand" : "bg-brand-pale text-gray-600"
+                        }`}
                       >
-                        {/* ADD button per column */}
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs font-black uppercase tracking-wider">{d}</span>
+                          <span className="text-[10px] font-bold text-gray-400 font-mono">
+                            {dt.getUTCDate()}/{dt.getUTCMonth() + 1}
+                          </span>
+                          {dayFlightCount > 0 && (
+                            <span className="mt-0.5 text-[8px] font-extrabold text-brand bg-brand/10 rounded-full px-2 py-0.5">
+                              {dayFlightCount} flight{dayFlightCount !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Single + ADD FLIGHT Button in Top Header */}
                         <button
                           onClick={() => openPopup(colIdx, 12)}
-                          className="w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-brand-border text-brand/50 hover:border-brand hover:text-brand hover:bg-brand/5 py-1.5 text-[10px] font-bold transition-all cursor-pointer"
+                          className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg border border-dashed border-brand-border text-brand/60 hover:text-brand hover:border-brand hover:bg-brand/5 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer"
                         >
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                          </svg>
-                          ADD
+                          <span className="text-xs font-black">+</span>
+                          <span>ADD FLIGHT</span>
                         </button>
-
-                        {dayFlights.length === 0 ? (
-                          <div className="flex-1 flex items-center justify-center py-6">
-                            <span className="text-[10px] text-gray-300 font-semibold">No flights</span>
-                          </div>
-                        ) : (
-                          dayFlights.map(s => {
-                            const depDate = new Date(s.scheduled_departure + "Z");
-                            const arrDate = new Date(s.scheduled_arrival + "Z");
-                            const durHrs = Math.round((arrDate.getTime() - depDate.getTime()) / 360000) / 10;
-                            const bkd = bookings[s.id] || [];
-                            const activeBooking = bkd.find((b: any) => b.status === "booked");
-                            const hasError = errorSet.has(s.id);
-                            const hasGroundIssue = groundSet.has(s.id);
-
-                            const statusKey =
-                              hasError ? "error" :
-                              s.status === "cancelled" ? "cancelled" :
-                              s.status === "approved" ? "approved" :
-                              s.status === "proposed" ? "proposed" :
-                              "draft";
-
-                            const textColor = s.status === "cancelled" ? "opacity-60" : "";
-
-                            // Build pilot list (dep + arr, or combined if same)
-                            const pilotsToShow: { pilot_id: number; callsign: string; avatar: string | null; label: string }[] = [];
-                            if (activeBooking) {
-                              if (activeBooking.departure_pilot_id) {
-                                pilotsToShow.push({ pilot_id: activeBooking.departure_pilot_id, callsign: activeBooking.departure_pilot_callsign || "?", avatar: activeBooking.departure_pilot_avatar || null, label: activeBooking.departure_pilot_id === activeBooking.arrival_pilot_id ? "Full" : "DEP" });
-                              }
-                              if (activeBooking.arrival_pilot_id && activeBooking.arrival_pilot_id !== activeBooking.departure_pilot_id) {
-                                pilotsToShow.push({ pilot_id: activeBooking.arrival_pilot_id, callsign: activeBooking.arrival_pilot_callsign || "?", avatar: activeBooking.arrival_pilot_avatar || null, label: "ARR" });
-                              }
-                            }
-
-                            return (
-                              <button
-                                key={s.id}
-                                onClick={() => setEditingSchedule(s)}
-                                className={`w-full text-left rounded-xl border border-l-4 shadow-sm hover:shadow-lg hover:scale-[1.015] transition-all cursor-pointer overflow-hidden ${
-                                  hasError ? "border-l-rose-500" :
-                                  s.status === "cancelled" ? "border-l-slate-400" :
-                                  s.status === "approved" ? "border-l-emerald-500" :
-                                  s.status === "proposed" ? "border-l-amber-500" :
-                                  "border-l-sky-500"
-                                }`}
-                                style={{
-                                  background: `var(--status-${statusKey}-bg)`,
-                                  borderColor: `var(--status-${statusKey}-border)`,
-                                }}
-                              >
-                                {/* Card inner padding */}
-                                <div className="p-2.5 flex flex-col gap-1.5 min-w-0">
-
-                                  {/* Row 1: Flight number + status badge */}
-                                  <div className="flex items-center justify-between gap-1 min-w-0">
-                                    <span
-                                      className={`text-[12px] font-black tracking-tight truncate ${textColor}`}
-                                      style={{ color: `var(--status-${statusKey}-text)` }}
-                                    >
-                                      {s.flight_number || `#${s.id}`}
-                                    </span>
-                                    <span
-                                      className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full shrink-0 border"
-                                      style={{
-                                        background: `var(--status-${statusKey}-bg)`,
-                                        color: `var(--status-${statusKey}-text)`,
-                                        borderColor: `var(--status-${statusKey}-border)`,
-                                      }}
-                                    >
-                                      {s.status}
-                                    </span>
-                                  </div>
-
-                                  {/* Row 2: Route — larger, prominent */}
-                                  <div className={`flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-tight ${textColor}`}>
-                                    <span className="text-[15px] font-black tracking-wide shrink-0">{s.departure}</span>
-                                    <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M2.5 19h19v2h-19zm7.18-1.73l4.35 1.16 5.31 1.42c.8.21 1.62-.26 1.84-1.06.21-.8-.26-1.62-1.06-1.84l-3.77-1.01-2.3-8.59L12 8v6l-4-1V8.5L6.5 8v7.5l3.18.77z"/>
-                                    </svg>
-                                    <span className="text-[15px] font-black tracking-wide shrink-0">{s.arrival}</span>
-                                  </div>
-
-                                  {/* Row 2b: Flight duration — dedicated line */}
-                                  <div className="flex items-center gap-1 text-gray-500">
-                                    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                      <circle cx="12" cy="12" r="10"/><path strokeLinecap="round" d="M12 6v6l4 2"/>
-                                    </svg>
-                                    <span className="text-[10px] font-semibold">{durHrs}h flight time</span>
-                                  </div>
-
-                                  {/* Row 3: Aircraft */}
-                                  <div className="flex items-center gap-1 text-gray-500">
-                                    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                    </svg>
-                                    <span className="text-[10px] font-semibold">{s.aircraft_registration}</span>
-                                  </div>
-
-                                  {/* Divider */}
-                                  <div className="border-t border-gray-200/70" />
-
-                                  {/* Row 4: Departure time */}
-                                  <div className="flex items-center justify-between text-gray-600">
-                                    <span className="text-[10px] font-bold font-mono whitespace-nowrap">DEP {String(depDate.getUTCHours()).padStart(2, "0")}:{String(depDate.getUTCMinutes()).padStart(2, "0")} UTC</span>
-                                  </div>
-
-                                  {/* Row 5: Arrival time */}
-                                  <div className="flex flex-wrap items-center gap-x-1 text-gray-500 font-mono text-[10px]">
-                                    <span className="font-semibold whitespace-nowrap">ARR {String(arrDate.getUTCHours()).padStart(2, "0")}:{String(arrDate.getUTCMinutes()).padStart(2, "0")} UTC</span>
-                                    {arrDate.getUTCDate() !== depDate.getUTCDate() && (
-                                      <span className="text-[8px] text-amber-600 font-bold bg-amber-50 px-1 rounded shrink-0">+1</span>
-                                    )}
-                                  </div>
-
-                                  {/* Row 6: Pilot avatar + callsign */}
-                                  {activeBooking ? (
-                                    <div className="flex flex-col gap-1 pt-0.5">
-                                      {pilotsToShow.map((p, idx) => {
-                                        const letter = p.callsign[0]?.toUpperCase() || "?";
-                                        const avatarColors = ["bg-blue-500", "bg-teal-500", "bg-violet-500", "bg-rose-500", "bg-amber-500"];
-                                        const colorClass = avatarColors[p.pilot_id % avatarColors.length];
-                                        return (
-                                          <div key={idx} className="flex items-center gap-1.5">
-                                            {/* Avatar */}
-                                            <span className="relative w-5 h-5 shrink-0 flex-none">
-                                              {p.avatar ? (
-                                                <img
-                                                  src={p.avatar}
-                                                  alt={p.callsign}
-                                                  className="w-5 h-5 rounded-full object-cover border border-blue-300"
-                                                  onError={e => {
-                                                    e.currentTarget.style.display = "none";
-                                                    const fb = e.currentTarget.parentElement?.querySelector(".avfb") as HTMLElement;
-                                                    if (fb) fb.style.display = "flex";
-                                                  }}
-                                                />
-                                              ) : null}
-                                              <span
-                                                className={`avfb w-5 h-5 rounded-full ${colorClass} text-white text-[8px] font-black items-center justify-center border border-white/30`}
-                                                style={{ display: p.avatar ? "none" : "flex" }}
-                                              >{letter}</span>
-                                            </span>
-                                            {/* Callsign + leg label */}
-                                            <span className="text-[10px] font-bold text-blue-700 truncate">{p.callsign}</span>
-                                            <span className="text-[8px] text-gray-400 font-semibold ml-auto shrink-0">{p.label}</span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-1 text-gray-400 pt-0.5">
-                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                        <circle cx="12" cy="8" r="4"/><path strokeLinecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                                      </svg>
-                                      <span className="text-[10px] italic">Unbooked</span>
-                                    </div>
-                                  )}
-
-                                  {/* Row 7: Warnings */}
-                                  {(hasError || hasGroundIssue) && (
-                                    <div className="flex flex-col gap-0.5 pt-0.5 border-t border-gray-200/70 mt-0.5">
-                                      {hasError && (
-                                        <div className="flex items-center gap-1 text-rose-600">
-                                          <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 3.5l8.5 15h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>
-                                          <span className="text-[9px] font-black">Position mismatch</span>
-                                        </div>
-                                      )}
-                                      {hasGroundIssue && (
-                                        <div className="flex items-center gap-1 text-amber-600">
-                                          <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 3.5l8.5 15h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>
-                                          <span className="text-[9px] font-black">GT too short</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                </div>
-                              </button>
-                            );
-                          })
-                        )}
                       </div>
                     );
                   })}
+
+                  {/* Rows for each Aircraft */}
+                  {listAirframes.map((ac) => {
+                    const acType = types.find(t => t.id === ac.aircraft_type_id);
+                    const acTypeName = ac.aircraft_type_name || acType?.name || "Aircraft";
+                    const imgMap = aircraftImages as Record<string, { url: string; source: string; objectPosition?: string }>;
+                    const imgMeta = imgMap[ac.registration] ||
+                                    imgMap[ac.registration?.replace("-", "")] ||
+                                    imgMap[String(ac.aircraft_type_id)];
+
+                    const imgUrl = imgMeta?.url || (isDarkTheme ? "/oryxops_logo_white.webp" : "/oryxops_logo_colored.webp");
+                    const imgSource = imgMeta?.source || null;
+                    const isFallback = !imgMeta?.url;
+
+                    return (
+                      <Fragment key={`acrow-${ac.id}`}>
+                        {/* Sticky Left Y-axis Cell: Aircraft Card */}
+                        <div className="border-b border-r border-brand-border bg-white p-1.5 sticky left-0 z-20 flex flex-col justify-between shadow-xs h-[175px]">
+                          <div className="w-full text-left rounded-xl border border-brand-border bg-white shadow-2xs overflow-hidden flex flex-col h-full">
+                            {/* Photo container */}
+                            <div className="relative w-full h-[120px] bg-brand-pale overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                              <img
+                                src={imgUrl}
+                                alt={ac.registration}
+                                className={isFallback ? "max-h-14 w-auto object-contain p-1" : "w-full h-full object-cover rounded-md"}
+                                style={{ objectPosition: imgMeta?.objectPosition || "center 35%" }}
+                                onError={(e) => {
+                                  const fallbackUrl = isDarkTheme ? "/oryxops_logo_white.webp" : "/oryxops_logo_colored.webp";
+                                  e.currentTarget.src = fallbackUrl;
+                                  e.currentTarget.className = "max-h-14 w-auto object-contain p-1";
+                                }}
+                              />
+                              {imgSource && !isFallback && (
+                                <span className="absolute bottom-1 right-1 text-[7.5px] font-extrabold text-white bg-black/70 backdrop-blur-xs px-1.5 py-0.5 rounded select-none shadow-sm">
+                                  © {imgSource}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Bottom: Registration & Model */}
+                            <div className="p-2 bg-brand-pale/50 border-t border-brand-border/60 flex items-center justify-between gap-1 text-[11px] min-w-0 flex-1">
+                              <span className="font-black text-brand tracking-wide truncate">{ac.registration}</span>
+                              <span className="font-bold text-gray-500 text-[10px] truncate">{acTypeName}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 7 Intersection Cells (one per day) */}
+                        {days.map((d, colIdx) => {
+                          const dt = new Date(weekStart + "T00:00:00Z");
+                          dt.setUTCDate(dt.getUTCDate() + colIdx);
+                          const isToday = dt.toISOString().split("T")[0] === new Date().toISOString().split("T")[0];
+
+                          // Flights for this aircraft departing on this day
+                          const cellFlights = filteredSchedules
+                            .filter((s) => {
+                              if (Number(s.aircraft_id) !== Number(ac.id)) return false;
+                              const dep = new Date(s.scheduled_departure + "Z");
+                              const depCol = dep.getUTCDay() === 0 ? 6 : dep.getUTCDay() - 1;
+                              return depCol === colIdx;
+                            })
+                            .sort((a, b) =>
+                              new Date(a.scheduled_departure + "Z").getTime() -
+                              new Date(b.scheduled_departure + "Z").getTime()
+                            );
+
+                          return (
+                            <div
+                              key={`cell-${ac.id}-${colIdx}`}
+                              className={`border-b border-r border-brand-border p-2.5 flex flex-row gap-2.5 items-stretch h-[175px] transition-colors relative overflow-hidden ${
+                                isToday ? "bg-brand/[0.015]" : "bg-white"
+                              }`}
+                            >
+                              {cellFlights.length === 0 ? (
+                                <div className="flex-1" />
+                              ) : (
+                                cellFlights.map((s) => {
+                                  const depDate = new Date(s.scheduled_departure + "Z");
+                                  const arrDate = new Date(s.scheduled_arrival + "Z");
+                                  const dur = Math.round((arrDate.getTime() - depDate.getTime()) / 360000) / 10;
+                                  const bkd = bookings[s.id] || [];
+                                  const activeBooking = bkd.find((b: any) => b.status === "booked");
+                                  const hasError = errorSet.has(s.id);
+                                  const hasGroundIssue = groundSet.has(s.id);
+
+                                  const statusKey =
+                                    hasError ? "error" :
+                                    s.status === "cancelled" ? "cancelled" :
+                                    s.status === "approved" ? "approved" :
+                                    s.status === "proposed" ? "proposed" :
+                                    "draft";
+
+                                  const textColor = s.status === "cancelled" ? "opacity-60" : "";
+
+                                  const pilotsToShow: { pilot_id: number; callsign: string; avatar: string | null; label: string }[] = [];
+                                  if (activeBooking) {
+                                    if (activeBooking.departure_pilot_id) {
+                                      pilotsToShow.push({ pilot_id: activeBooking.departure_pilot_id, callsign: activeBooking.departure_pilot_callsign || "?", avatar: activeBooking.departure_pilot_avatar || null, label: activeBooking.departure_pilot_id === activeBooking.arrival_pilot_id ? "Full" : "DEP" });
+                                    }
+                                    if (activeBooking.arrival_pilot_id && activeBooking.arrival_pilot_id !== activeBooking.departure_pilot_id) {
+                                      pilotsToShow.push({ pilot_id: activeBooking.arrival_pilot_id, callsign: activeBooking.arrival_pilot_callsign || "?", avatar: activeBooking.arrival_pilot_avatar || null, label: "ARR" });
+                                    }
+                                  }
+
+                                  const depStr = `${String(depDate.getUTCHours()).padStart(2, "0")}:${String(depDate.getUTCMinutes()).padStart(2, "0")} UTC`;
+                                  const arrStr = `${String(arrDate.getUTCHours()).padStart(2, "0")}:${String(arrDate.getUTCMinutes()).padStart(2, "0")} UTC`;
+
+                                  return (
+                                    <button
+                                      key={s.id}
+                                      onClick={() => setEditingSchedule(s)}
+                                      className={`w-[220px] shrink-0 text-left rounded-xl border-2 border-l-4 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all cursor-pointer overflow-hidden p-3 flex flex-col justify-between gap-1.5 ${
+                                        hasError ? "border-l-rose-500" :
+                                        s.status === "cancelled" ? "border-l-slate-400" :
+                                        s.status === "approved" ? "border-l-emerald-500" :
+                                        s.status === "proposed" ? "border-l-amber-500" :
+                                        "border-l-sky-500"
+                                      }`}
+                                      style={{
+                                        background: `var(--status-${statusKey}-bg)`,
+                                        borderColor: `var(--status-${statusKey}-border)`,
+                                      }}
+                                    >
+                                      {/* Flight Number & Status Pill */}
+                                      <div className="flex items-center justify-between gap-2 min-w-0">
+                                        <span className={`text-xs font-black tracking-tight truncate ${textColor}`} style={{ color: `var(--status-${statusKey}-text)` }}>
+                                          {s.flight_number || `#${s.id}`}
+                                        </span>
+                                        <span
+                                          className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 border shadow-2xs"
+                                          style={{
+                                            background: `var(--status-${statusKey}-bg)`,
+                                            color: `var(--status-${statusKey}-text)`,
+                                            borderColor: `var(--status-${statusKey}-border)`,
+                                          }}
+                                        >
+                                          {s.status}
+                                        </span>
+                                      </div>
+
+                                      {/* Route */}
+                                      <div className={`flex items-center gap-2 ${textColor}`}>
+                                        <span className="text-base font-black tracking-wide text-gray-900">{s.departure}</span>
+                                        <span className="text-xs text-brand font-bold">✈</span>
+                                        <span className="text-base font-black tracking-wide text-gray-900">{s.arrival}</span>
+                                      </div>
+
+                                      {/* Flight Duration */}
+                                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-600">
+                                        <svg className="w-3.5 h-3.5 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                          <circle cx="12" cy="12" r="9"/>
+                                          <path strokeLinecap="round" d="M12 7v5l3 2"/>
+                                        </svg>
+                                        <span>{dur}h</span>
+                                      </div>
+
+                                      {/* Warnings */}
+                                      {(hasError || hasGroundIssue) && (
+                                        <div className="flex items-center gap-1 text-[10px] font-bold">
+                                          {hasError ? (
+                                            <span className="text-rose-600 font-extrabold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">⚠ Mismatch</span>
+                                          ) : (
+                                            <span className="text-amber-600 font-extrabold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">⚠ Short</span>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* DEP & ARR Timings */}
+                                      <div className="text-[11px] font-bold font-mono text-gray-600 space-y-0.5 border-t border-brand-border/40 pt-1.5">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-[9px] font-black text-gray-400 uppercase">DEP</span>
+                                          <span className="font-extrabold">{depStr}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-[9px] font-black text-gray-400 uppercase">ARR</span>
+                                          <span className="font-extrabold">{arrStr}</span>
+                                        </div>
+                                      </div>
+
+                                      {/* Pilot Booking Info */}
+                                      <div className="pt-1.5 border-t border-brand-border/40">
+                                        {activeBooking ? (
+                                          <div className="flex items-center justify-between gap-1 min-w-0">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              {pilotsToShow.map((p, idx) => (
+                                                <div key={idx} className="flex items-center gap-1.5 min-w-0" title={`Booked by ${p.callsign}`}>
+                                                  <span className="relative flex-shrink-0 w-4.5 h-4.5 inline-flex select-none">
+                                                    {p.avatar ? (
+                                                      <img src={p.avatar} alt={p.callsign} className="w-full h-full rounded-full object-cover border border-blue-400" />
+                                                    ) : (
+                                                      <span className="w-full h-full rounded-full bg-blue-100 border border-blue-400 text-blue-900 text-[8px] font-black inline-flex items-center justify-center">
+                                                        {p.callsign[0]?.toUpperCase() || "?"}
+                                                      </span>
+                                                    )}
+                                                  </span>
+                                                  <span className="text-[11px] font-black text-blue-700 truncate">{p.callsign}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                            <span className="text-[9px] font-black text-blue-800 bg-blue-100 px-1.5 py-0.5 rounded uppercase shrink-0 border border-blue-200">
+                                              {pilotsToShow[0]?.label || "Booked"}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center justify-between text-gray-400 text-xs">
+                                            <span className="text-[11px] font-medium italic">Unbooked</span>
+                                            <span className="text-[9px] font-bold uppercase bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">Open</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+          )}
+        </div>
+        ) : (
+          /* Landing Page UI when no activeGroup is selected */
+          <div className="max-w-4xl mx-auto mt-6 md:mt-10 animate-fade-in px-2">
+            <div className="bg-gradient-to-br from-brand-dark to-brand rounded-3xl p-6 md:p-8 text-white shadow-xl mb-8 relative overflow-hidden">
+              <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none translate-y-12 translate-x-12 hidden md:block">
+                <svg className="w-80 h-80" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-black mb-3">UTC Operations Center</h2>
+              <p className="text-white/80 max-w-xl text-xs md:text-sm leading-relaxed">
+                Plan route schedules, coordinate aircraft turnarounds, and bid/book flights with your flying group. Select a group below to open its real-time interactive calendar.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {currentPilot?.group_name ? (
+                (() => {
+                  const userGroupId = currentPilot.group_id;
+                  const userGroupObj = groups.find(g => g.id === userGroupId);
+                  return (
+                    <div className="bg-white border-2 border-brand rounded-2xl p-6 shadow-md flex flex-col justify-between hover:shadow-lg transition-all">
+                      <div>
+                        <span className="text-[9px] font-black tracking-widest text-brand uppercase bg-brand-pale px-3 py-1 rounded-full">Your Group</span>
+                        <h3 className="text-2xl font-black text-brand mt-4">{currentPilot.group_name}</h3>
+                        <p className="text-gray-500 text-xs mt-2 leading-relaxed">
+                          This is your primary assigned group. Load the schedules, request slots, and coordinate flights with your team.
+                        </p>
+                        {userGroupObj && (
+                          <div className="flex gap-4 mt-4 text-xs font-semibold text-gray-500 bg-gray-50 p-2.5 rounded-xl border border-brand-border">
+                            <span>{userGroupObj.member_count} members</span>
+                            <span>{userGroupObj.aircraft_count} aircraft</span>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => userGroupId && setActiveGroup(userGroupId)}
+                        className="mt-6 w-full rounded-full bg-brand text-white font-bold py-3 hover:bg-brand-dark hover:shadow-md transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Open Calendar
+                      </button>
+                    </div>
+                  );
+                })()
+              ) : null}
+
+              <div className="bg-white border border-brand-border rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+                <div>
+                  <span className="text-[9px] font-black tracking-widest text-gray-400 uppercase bg-gray-100 px-3 py-1 rounded-full">All Flying Groups</span>
+                  <h3 className="text-xl font-bold text-gray-800 mt-4">Select Group Directory</h3>
+                  <p className="text-gray-500 text-xs mt-2 leading-relaxed">
+                    Browse schedules for any active fleet group across the airline.
+                  </p>
+                  <select
+                    value={activeGroup ?? ""}
+                    onChange={e => setActiveGroup(e.target.value ? Number(e.target.value) : null)}
+                    className="mt-4 w-full border border-brand-border rounded-xl px-4 py-3 bg-white text-xs font-bold text-brand focus:outline-none focus:ring-1 focus:ring-brand cursor-pointer shadow-xs"
+                  >
+                    <option value="" disabled>Choose a flying group...</option>
+                    {groups.map(g => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({g.member_count} pilots, {g.aircraft_count} fleet)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mt-6 text-[9px] text-gray-400 font-semibold text-center italic">
+                  Viewing other group calendars is restricted to read-only unless you are staff.
                 </div>
               </div>
             </div>
           </div>
         )}
-        </div>
-      ) : (
-        /* Landing Page UI when no activeGroup is selected */
-        <div className="max-w-4xl mx-auto mt-6 md:mt-10 animate-fade-in px-2">
-          <div className="bg-gradient-to-br from-brand-dark to-brand rounded-3xl p-6 md:p-8 text-white shadow-xl mb-8 relative overflow-hidden">
-            <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none translate-y-12 translate-x-12 hidden md:block">
-              <svg className="w-80 h-80" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </div>
-            <h2 className="text-2xl md:text-3xl font-black mb-3">UTC Operations Center</h2>
-            <p className="text-white/80 max-w-xl text-xs md:text-sm leading-relaxed">
-              Plan route schedules, coordinate aircraft turnarounds, and bid/book flights with your flying group. Select a group below to open its real-time interactive calendar.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {currentPilot?.group_name ? (
-              (() => {
-                const userGroupId = currentPilot.group_id;
-                const userGroupObj = groups.find(g => g.id === userGroupId);
-                return (
-                  <div className="bg-white border-2 border-brand rounded-2xl p-6 shadow-md flex flex-col justify-between hover:shadow-lg transition-all">
-                    <div>
-                      <span className="text-[9px] font-black tracking-widest text-brand uppercase bg-brand-pale px-3 py-1 rounded-full">Your Group</span>
-                      <h3 className="text-2xl font-black text-brand mt-4">{currentPilot.group_name}</h3>
-                      <p className="text-gray-500 text-xs mt-2 leading-relaxed">
-                        This is your primary assigned group. Load the schedules, request slots, and coordinate flights with your team.
-                      </p>
-                      {userGroupObj && (
-                        <div className="flex gap-4 mt-4 text-xs font-semibold text-gray-500 bg-gray-50 p-2.5 rounded-xl border border-brand-border">
-                          <span>{userGroupObj.member_count} members</span>
-                          <span>{userGroupObj.aircraft_count} aircraft</span>
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => userGroupId && setActiveGroup(userGroupId)}
-                      className="mt-6 w-full rounded-full bg-brand text-white font-bold py-3 hover:bg-brand-dark hover:shadow-md transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      Open Calendar
-                    </button>
-                  </div>
-                );
-              })()
-            ) : null}
-
-            <div className="bg-white border border-brand-border rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-              <div>
-                <span className="text-[9px] font-black tracking-widest text-gray-400 uppercase bg-gray-100 px-3 py-1 rounded-full">All Flying Groups</span>
-                <h3 className="text-xl font-bold text-gray-800 mt-4">Select Group Directory</h3>
-                <p className="text-gray-500 text-xs mt-2 leading-relaxed">
-                  Browse schedules for any active fleet group across the airline.
-                </p>
-                <select
-                  value={activeGroup ?? ""}
-                  onChange={e => setActiveGroup(e.target.value ? Number(e.target.value) : null)}
-                  className="mt-4 w-full border border-brand-border rounded-xl px-4 py-3 bg-white text-xs font-bold text-brand focus:outline-none focus:ring-1 focus:ring-brand cursor-pointer shadow-xs"
-                >
-                  <option value="" disabled>Choose a flying group...</option>
-                  {groups.map(g => (
-                    <option key={g.id} value={g.id}>
-                      {g.name} ({g.member_count} pilots, {g.aircraft_count} fleet)
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="mt-6 text-[9px] text-gray-400 font-semibold text-center italic">
-                Viewing other group calendars is restricted to read-only unless you are staff.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* EDIT POPUP */}
       {editingSchedule && (
@@ -1612,91 +1677,349 @@ export default function Calendar() {
         </div>
       )}
 
-      {/* CREATE POPUP */}
-      {popup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setPopup(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-bold text-brand">Create Schedule Draft</h3>
-              <button onClick={() => setPopup(null)} className="text-gray-400 hover:text-gray-600 text-xl cursor-pointer">&times;</button>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-1">Day of Week</label>
-                <select
-                  value={popup.day}
-                  onChange={e => {
-                    const newDay = Number(e.target.value);
-                    setPopup(p => p ? { ...p, day: newDay } : p);
-                    if (selAircraftId > 0) loadRoutesForAircraft(selAircraftId, newDay);
-                  }}
-                  className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm cursor-pointer"
-                >
-                  {days.map((d, i) => {
-                    const dt = new Date(weekStart + "T00:00:00Z");
-                    dt.setUTCDate(dt.getUTCDate() + i);
-                    return (
-                      <option key={d} value={i}>
-                        {d} ({dt.getUTCDate()}/{dt.getUTCMonth() + 1})
-                      </option>
-                    );
-                  })}
-                </select>
+      {/* CREATE POPUP — 2-Step: Step 1: Aircraft Picker Slider | Step 2: Route & Time */}
+      {popup && (() => {
+        // Compute qualified frames
+        const qualifiedTypeIds = new Set<number>();
+        (currentPilot?.careers ?? []).forEach((c: any) => {
+          if (c.selected_aircraft_ids) {
+            c.selected_aircraft_ids.split(",").forEach((id: string) => {
+              const n = parseInt(id.trim(), 10);
+              if (!isNaN(n)) qualifiedTypeIds.add(n);
+            });
+          }
+        });
+        const filteredFrames = qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin
+          ? airframes.filter(a => qualifiedTypeIds.has(a.aircraft_type_id))
+          : airframes;
+        const selectedAc = filteredFrames.find(a => a.id === selAircraftId);
+        const selectedAcType = selectedAc ? types.find(t => t.id === selectedAc.aircraft_type_id) : null;
+        const selectedAcImg = selectedAc ? (aircraftImages as any)[String(selectedAc.aircraft_type_id)] : null;
+
+        const dayDate = new Date(weekStart + "T00:00:00Z");
+        dayDate.setUTCDate(dayDate.getUTCDate() + popup.day);
+        const dayLabel = `${days[popup.day]} ${dayDate.getUTCDate()}/${dayDate.getUTCMonth() + 1}`;
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => setPopup(null)}
+          >
+            <div
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden"
+              onClick={e => e.stopPropagation()}
+              style={{ maxHeight: "90vh" }}
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-brand-dark to-brand px-6 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">New Flight · {dayLabel}</p>
+                  <h3 className="text-white text-lg font-black mt-0.5">
+                    {createStep === 1 ? "Select Aircraft" : "Configure Flight"}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Step indicator */}
+                  <div className="flex gap-1.5">
+                    <div className={`w-2 h-2 rounded-full transition-all ${createStep === 1 ? "bg-white scale-110" : "bg-white/40"}`} />
+                    <div className={`w-2 h-2 rounded-full transition-all ${createStep === 2 ? "bg-white scale-110" : "bg-white/40"}`} />
+                  </div>
+                  <button
+                    onClick={() => setPopup(null)}
+                    className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-lg transition-all cursor-pointer"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
-              <div><label className="block text-sm font-semibold text-gray-600 mb-1">Time (UTC)</label><input type="time" value={selTime} onChange={e => setSelTime(e.target.value)} className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm focus:border-brand focus:ring-1 focus:ring-brand/30" /></div>
-              <div><label className="block text-sm font-semibold text-gray-600 mb-1">Ground Time After (min)</label><input type="number" value={selGroundTime} onChange={e => setSelGroundTime(Number(e.target.value))} min={30} max={480} className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm" /><p className="text-xs text-gray-400 mt-1">A320=45m · A330=90m · B777=120m · A380=180m</p></div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-1">Aircraft</label>
-                {(() => {
-                  // Build qualified type ID set from pilot's career
-                  const qualifiedTypeIds = new Set<number>();
-                  (currentPilot?.careers ?? []).forEach((c: any) => {
-                    if (c.selected_aircraft_ids) {
-                      c.selected_aircraft_ids.split(",").forEach((id: string) => {
-                        const n = parseInt(id.trim(), 10);
-                        if (!isNaN(n)) qualifiedTypeIds.add(n);
-                      });
-                    }
-                  });
-                  const filteredFrames = qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin
-                    ? airframes.filter(a => qualifiedTypeIds.has(a.aircraft_type_id))
-                    : airframes;
-                  return (
-                    <>
-                      <select
-                        value={selAircraftId}
-                        onChange={e => loadRoutesForAircraft(Number(e.target.value))}
-                        className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm cursor-pointer"
+
+              {createStep === 1 ? (
+                /* ── STEP 1: Aircraft Slider ── */
+                <div className="p-6" style={{ overflowY: "auto", maxHeight: "calc(90vh - 82px)" }}>
+                  <p className="text-xs text-gray-500 font-semibold mb-4">
+                    Choose the airframe you want to schedule. Swipe or scroll horizontally.
+                  </p>
+                  {filteredFrames.length === 0 ? (
+                    <div className="text-center py-10">
+                      <p className="text-gray-400 font-semibold text-sm">No qualified aircraft available.</p>
+                      <p className="text-gray-300 text-xs mt-1">Contact staff to configure your aircraft types.</p>
+                    </div>
+                  ) : (
+                    <div
+                      className="flex gap-4 overflow-x-auto pb-3"
+                      style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
+                    >
+                      {filteredFrames.map(ac => {
+                        const t = types.find(ty => ty.id === ac.aircraft_type_id);
+                        const img = (aircraftImages as any)[String(ac.aircraft_type_id)];
+                        const isSelected = ac.id === selAircraftId;
+                        return (
+                          <button
+                            key={ac.id}
+                            onClick={() => setSelAircraftId(isSelected ? 0 : ac.id)}
+                            className={`flex-shrink-0 w-52 rounded-2xl border-2 overflow-hidden transition-all cursor-pointer text-left shadow-sm hover:shadow-lg ${
+                              isSelected
+                                ? "border-brand shadow-brand/20 scale-[1.02]"
+                                : "border-brand-border hover:border-brand/40"
+                            }`}
+                            style={{ scrollSnapAlign: "start" }}
+                          >
+                            {/* Aircraft Image */}
+                            <div className="h-28 bg-gray-100 relative overflow-hidden">
+                              {img ? (
+                                <img
+                                  src={img.url}
+                                  alt={t?.name || ac.registration}
+                                  className="w-full h-full object-cover"
+                                  style={{ objectPosition: img.objectPosition || "center 40%" }}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <svg className="w-12 h-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                  </svg>
+                                </div>
+                              )}
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-brand/10 flex items-center justify-center">
+                                  <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center shadow-lg">
+                                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            {/* Aircraft Info */}
+                            <div className="p-3 bg-white">
+                              <p className="text-xs font-black text-gray-900 truncate">{ac.registration}</p>
+                              <p className="text-[10px] font-bold text-brand truncate mt-0.5">{t?.name || "Unknown"}{t?.liveryname ? ` · ${t.liveryname}` : ""}</p>
+                              <div className="flex items-center gap-1.5 mt-2">
+                                <span className="text-[9px] font-black text-gray-400 uppercase bg-gray-100 px-1.5 py-0.5 rounded">{ac.current_airport}</span>
+                                <span className="text-[9px] text-gray-300 font-bold">parked at</span>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Step 1 → Step 2 CTA */}
+                  <div className="mt-6 flex gap-3">
+                    <button
+                      onClick={() => setPopup(null)}
+                      className="flex-1 py-3 rounded-2xl border border-brand-border text-gray-500 font-bold text-sm hover:bg-gray-50 transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={!selAircraftId}
+                      onClick={() => {
+                        if (selAircraftId > 0) {
+                          setCreateStep(2);
+                          loadRoutesForAircraft(selAircraftId, popup.day, popup.hour);
+                        }
+                      }}
+                      className="flex-[2] py-3 rounded-2xl bg-gradient-to-r from-brand-dark to-brand text-white font-bold text-sm hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-40 cursor-pointer"
+                    >
+                      Next — Configure Route →
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ── STEP 2: Route & Time Form ── */
+                <div className="p-6" style={{ overflowY: "auto", maxHeight: "calc(90vh - 82px)" }}>
+                  {/* Selected aircraft preview */}
+                  {selectedAc && (
+                    <div className="flex items-center gap-3 mb-5 p-3 rounded-2xl bg-brand-pale border border-brand/20">
+                      <div className="w-16 h-10 rounded-xl overflow-hidden shrink-0 bg-gray-100">
+                        {selectedAcImg ? (
+                          <img
+                            src={selectedAcImg.url}
+                            alt={selectedAcType?.name || selectedAc.registration}
+                            className="w-full h-full object-cover"
+                            style={{ objectPosition: selectedAcImg.objectPosition || "center 40%" }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-brand">{selectedAc.registration}</p>
+                        <p className="text-[10px] text-gray-500 font-semibold truncate">{selectedAcType?.name || "?"}{selectedAcType?.liveryname ? ` · ${selectedAcType.liveryname}` : ""}</p>
+                        {popup.position && <p className="text-[10px] text-gray-400 mt-0.5 font-semibold">Current position: <span className="font-black text-brand">{popup.position}</span></p>}
+                      </div>
+                      <button
+                        onClick={() => { setCreateStep(1); setSelRouteId(0); setAvailableRoutes([]); }}
+                        className="ml-auto text-[10px] font-black text-brand/60 hover:text-brand border border-brand/20 px-2 py-1 rounded-lg transition-all cursor-pointer shrink-0"
                       >
-                        <option value={0}>Select</option>
-                        {filteredFrames.map(a => {
-                          const t = types.find(ty => ty.id === a.aircraft_type_id);
+                        ← Change
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    {/* Day of Week */}
+                    <div>
+                      <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Day of Week</label>
+                      <select
+                        value={popup.day}
+                        onChange={e => {
+                          const newDay = Number(e.target.value);
+                          setPopup(p => p ? { ...p, day: newDay } : p);
+                          if (selAircraftId > 0) loadRoutesForAircraft(selAircraftId, newDay);
+                        }}
+                        className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm cursor-pointer focus:outline-none focus:border-brand"
+                      >
+                        {days.map((d, i) => {
+                          const dt = new Date(weekStart + "T00:00:00Z");
+                          dt.setUTCDate(dt.getUTCDate() + i);
                           return (
-                            <option key={a.id} value={a.id}>
-                              {a.registration} — {t?.name || "?"}{t?.liveryname ? ` (${t.liveryname})` : ""} [at {a.current_airport}]
+                            <option key={d} value={i}>
+                              {d} ({dt.getUTCDate()}/{dt.getUTCMonth() + 1})
                             </option>
                           );
                         })}
                       </select>
-                      {qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin && filteredFrames.length === 0 && (
-                        <p className="text-xs text-red-500 mt-1 font-semibold">No qualified aircraft available. Contact staff to configure your aircraft types.</p>
+                    </div>
+
+                    {/* Time & Ground Time side by side */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Dep Time (UTC)</label>
+                        <input
+                          type="time"
+                          value={selTime}
+                          onChange={e => setSelTime(e.target.value)}
+                          className="w-full border border-brand-border rounded-xl px-3 py-2.5 text-sm focus:border-brand focus:ring-1 focus:ring-brand/30 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Ground Time (min)</label>
+                        <input
+                          type="number"
+                          value={selGroundTime}
+                          onChange={e => setSelGroundTime(Number(e.target.value))}
+                          min={30}
+                          max={480}
+                          className="w-full border border-brand-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-brand"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 -mt-2">A320=45m · A330=90m · B777=120m · A380=180m</p>
+
+                    {/* Override Dep ICAO */}
+                    <div>
+                      <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Override Dep ICAO <span className="font-medium normal-case text-gray-300">(optional)</span></label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          maxLength={4}
+                          placeholder={popup.position || "e.g. EGLL"}
+                          value={selOverrideDep}
+                          onChange={e => setSelOverrideDep(e.target.value.toUpperCase())}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (selAircraftId > 0 && (selOverrideDep === "" || selOverrideDep.trim().length === 4))
+                                loadRoutesForAircraft(selAircraftId, undefined, undefined, selOverrideDep);
+                            }
+                          }}
+                          className="flex-1 border border-brand-border rounded-xl px-4 py-2.5 text-sm uppercase font-mono tracking-wider focus:outline-none focus:border-brand"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selAircraftId > 0 && (selOverrideDep === "" || selOverrideDep.trim().length === 4))
+                              loadRoutesForAircraft(selAircraftId, undefined, undefined, selOverrideDep);
+                          }}
+                          disabled={Boolean(selOverrideDep && selOverrideDep.trim().length !== 4)}
+                          className="px-4 py-2.5 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition-all disabled:opacity-40 cursor-pointer shrink-0"
+                        >
+                          Query DB
+                        </button>
+                      </div>
+                      {selOverrideDep && selOverrideDep.trim().length !== 4 && (
+                        <p className="text-[11px] text-rose-500 font-semibold mt-1">Write full 4-letter ICAO (e.g. EGLL, SBGR) then press Enter or Query DB.</p>
                       )}
-                      {qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin && (
-                        <p className="text-xs text-brand mt-1">Showing your qualified aircraft only.</p>
+                    </div>
+
+                    {/* Route Selection */}
+                    <div>
+                      <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">
+                        Route {popup.position ? `from ${popup.position}` : ""}
+                        {loadingRoutes && <span className="ml-2 normal-case font-normal text-gray-400">Loading...</span>}
+                      </label>
+                      <select
+                        value={selRouteId}
+                        onChange={e => setSelRouteId(Number(e.target.value))}
+                        className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm cursor-pointer focus:outline-none focus:border-brand"
+                      >
+                        <option value={0}>Select route…</option>
+                        {availableRoutes.map(r => (
+                          <option key={r.id} value={r.id}>
+                            {r.dep}→{r.arr} [{r.fltnum?.split(",")[0]?.trim() || `#${r.id}`}] ({Math.floor(r.duration / 3600)}h{Math.floor(r.duration % 3600 / 60)}m)
+                          </option>
+                        ))}
+                      </select>
+                      {!loadingRoutes && selAircraftId > 0 && availableRoutes.length === 0 && (
+                        <p className="text-xs text-orange-500 mt-1">No routes from this position for this aircraft type.</p>
                       )}
-                    </>
-                  );
-                })()}
-                {popup.position && <p className="text-xs text-brand mt-1 font-semibold">Position: {popup.position}</p>}
-              </div>
-              <div><label className="block text-sm font-semibold text-gray-600 mb-1">Override Dep ICAO</label><input type="text" maxLength={4} placeholder={popup.position || "e.g. EGLL"} value={selOverrideDep} onChange={e => { const v = e.target.value.toUpperCase(); setSelOverrideDep(v); if (selAircraftId > 0) loadRoutesForAircraft(selAircraftId); }} className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm" /></div>
-              <div><label className="block text-sm font-semibold text-gray-600 mb-1">Route {popup.position ? `(from ${popup.position})` : ""}</label><select value={selRouteId} onChange={e => setSelRouteId(Number(e.target.value))} className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm cursor-pointer"><option value={0}>Select</option>{availableRoutes.map(r => (<option key={r.id} value={r.id}>{r.dep}→{r.arr} [{r.fltnum?.split(",")[0]?.trim() || `#${r.id}`}] ({Math.floor(r.duration / 3600)}h{Math.floor(r.duration % 3600 / 60)}m)</option>))}</select>{loadingRoutes && <p className="text-xs text-gray-400 mt-1">Loading...</p>}{!loadingRoutes && selAircraftId > 0 && availableRoutes.length === 0 && <p className="text-xs text-orange-500 mt-1">No routes from this position for this aircraft.</p>}</div>
-              {selectedRoute && <div className="bg-brand-pale rounded-xl p-3 text-sm"><p className="text-gray-600">Arr: <span className="font-semibold text-brand">{selectedRoute.arr}</span> · Dur: <span className="font-semibold">{Math.floor(selectedRoute.duration / 3600)}h{Math.floor(selectedRoute.duration % 3600 / 60)}m</span></p></div>}
-              <button onClick={doCreate} disabled={!selAircraftId || !selRouteId} className="w-full rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold py-2.5 hover:-translate-y-0.5 hover:shadow-lg transition-all disabled:opacity-40 cursor-pointer">Save as Draft</button>
+                    </div>
+
+                    {/* Route Preview */}
+                    {selectedRoute && (
+                      <div className="bg-brand-pale rounded-2xl p-4 border border-brand/10">
+                        <div className="flex items-center gap-3">
+                          <div className="text-center">
+                            <p className="text-lg font-black text-gray-900">{selectedRoute.dep}</p>
+                            <p className="text-[9px] font-bold text-gray-400 uppercase">DEP</p>
+                          </div>
+                          <div className="flex-1 flex flex-col items-center">
+                            <div className="w-full flex items-center gap-1">
+                              <div className="flex-1 h-px bg-brand/30" />
+                              <span className="text-brand text-xs">✈</span>
+                              <div className="flex-1 h-px bg-brand/30" />
+                            </div>
+                            <p className="text-[10px] font-bold text-brand mt-1">{Math.floor(selectedRoute.duration / 3600)}h {Math.floor(selectedRoute.duration % 3600 / 60)}m</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-lg font-black text-gray-900">{selectedRoute.arr}</p>
+                            <p className="text-[9px] font-bold text-gray-400 uppercase">ARR</p>
+                          </div>
+                        </div>
+                        <p className="text-[10px] font-bold text-gray-400 text-center mt-2">{selectedRoute.fltnum?.split(",")[0]?.trim() || `Route #${selectedRoute.id}`}</p>
+                      </div>
+                    )}
+
+                    {/* Save Button */}
+                    <div className="flex gap-3 pt-1">
+                      <button
+                        onClick={() => setCreateStep(1)}
+                        className="py-3 px-5 rounded-2xl border border-brand-border text-gray-500 font-bold text-sm hover:bg-gray-50 transition-all cursor-pointer"
+                      >
+                        ← Back
+                      </button>
+                      <button
+                        onClick={doCreate}
+                        disabled={!selAircraftId || !selRouteId}
+                        className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-brand-dark to-brand text-white font-bold text-sm hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-40 cursor-pointer"
+                      >
+                        Save as Draft
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

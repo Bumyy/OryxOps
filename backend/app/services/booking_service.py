@@ -374,18 +374,22 @@ async def dispatch_booking(db: AsyncSession, booking_id: int, pilot_id: int) -> 
     # 3. Calculate Passenger load
     variance = random.uniform(0.95, 1.05)
     
-    rep_stmt = select(func.avg(LiveCurrencyTransaction.amount)).where(
-        LiveCurrencyTransaction.transaction_type == "lift_boost"
+    # Calculate average reputation score across all completed flights (0.00 to 5.00 scale)
+    rep_stmt = select(func.avg(LiveFlightBooking.reputation_score)).where(
+        LiveFlightBooking.status == "completed",
+        LiveFlightBooking.reputation_score.isnot(None)
     )
     avg_rep_val = (await db.execute(rep_stmt)).scalar()
-    avg_rep = float(avg_rep_val) if avg_rep_val is not None else 80.0
+    # Default to 4.0 out of 5.0 (80% base load factor) if no completed flights exist
+    avg_rep_5_scale = float(avg_rep_val) if avg_rep_val is not None else 4.0
+    load_factor = max(0.1, min(1.0, avg_rep_5_scale / 5.0))
 
     if dep_apt == "OTHH":
         # Outbound: Passenger load based on global average reputation
-        pax = int(capacity * (avg_rep / 100.0) * variance)
+        pax = int(capacity * load_factor * variance)
     else:
         # Inbound: Passenger load based on global average reputation + Return Flight reduced pax (70-90%)
-        pax = int(capacity * (avg_rep / 100.0) * variance * random.uniform(0.70, 0.90))
+        pax = int(capacity * load_factor * variance * random.uniform(0.70, 0.90))
 
     pax = max(10, min(capacity, pax))  # Clamp between 10 and max capacity
     

@@ -120,8 +120,9 @@ export default function Fleet() {
   const groupedFleet = useMemo(() => {
     const map: Record<string, { group: any; aircraft: typeof airframes }> = {};
 
-    // Initialize all active groups
+    // Initialize active groups only
     for (const g of groups) {
+      if (!g.is_active) continue;
       map[g.id] = { group: g, aircraft: [] };
     }
     map["unassigned"] = { group: { id: 0, name: "Unassigned Fleet", is_active: true }, aircraft: [] };

@@ -13,7 +13,7 @@ from app.models.live_models import (
 )
 
 
-async def get_all_groups(db: AsyncSession, active_only: bool = True) -> list[LiveFlyingGroup]:
+async def get_all_groups(db: AsyncSession, active_only: bool = False) -> list[LiveFlyingGroup]:
     query = select(LiveFlyingGroup)
     if active_only:
         query = query.where(LiveFlyingGroup.is_active == 1)
