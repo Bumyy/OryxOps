@@ -93,12 +93,12 @@ export default function Calendar() {
   }, []);
 
   useEffect(() => {
-    if (groups.length > 0) {
-      const activeGroupIds = groups.map(g => g.id);
+    const activeGroupIds = groups.filter(g => g.is_active).map(g => g.id);
+    if (activeGroupIds.length > 0) {
       if (currentPilot && currentPilot.group_id && activeGroupIds.includes(currentPilot.group_id)) {
         setActiveGroup(currentPilot.group_id);
       } else if (activeGroup === null || !activeGroupIds.includes(activeGroup)) {
-        setActiveGroup(groups[0].id);
+        setActiveGroup(activeGroupIds[0]);
       }
     }
   }, [groups, currentPilot]);
@@ -422,7 +422,7 @@ export default function Calendar() {
               className="border border-brand-border rounded-xl px-3 py-2 bg-white text-xs font-bold text-brand focus:outline-none focus:ring-1 focus:ring-brand cursor-pointer"
             >
               <option value="">Choose Group...</option>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              {groups.filter(g => g.is_active).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
 
             {/* Week Navigation */}
@@ -1303,7 +1303,7 @@ export default function Calendar() {
                     className="mt-4 w-full border border-brand-border rounded-xl px-4 py-3 bg-white text-xs font-bold text-brand focus:outline-none focus:ring-1 focus:ring-brand cursor-pointer shadow-xs"
                   >
                     <option value="" disabled>Choose a flying group...</option>
-                    {groups.map(g => (
+                    {groups.filter(g => g.is_active).map(g => (
                       <option key={g.id} value={g.id}>
                         {g.name} ({g.member_count} pilots, {g.aircraft_count} fleet)
                       </option>

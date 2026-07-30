@@ -19,8 +19,10 @@ export default function Groups() {
 
   const myGroupId = currentPilot?.group_id || user?.flying_groupid;
 
+  const activeGroups = groups.filter(g => g.is_active);
+
   // Sort assigned group to top
-  const sortedGroups = [...groups].sort((a, b) => {
+  const sortedGroups = [...activeGroups].sort((a, b) => {
     if (a.id === myGroupId) return -1;
     if (b.id === myGroupId) return 1;
     return a.name.localeCompare(b.name);

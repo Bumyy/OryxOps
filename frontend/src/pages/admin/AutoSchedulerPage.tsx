@@ -150,7 +150,7 @@ export default function AutoSchedulerPage() {
                   className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-gray-700 focus:outline-none focus:border-brand"
                 >
                   <option value={0}>Choose a group...</option>
-                  {groups.map((g) => (
+                  {groups.filter(g => g.is_active).map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name}
                     </option>

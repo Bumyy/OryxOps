@@ -437,7 +437,7 @@ export function PilotsTab() {
                         className="border border-brand-border rounded-lg px-2.5 py-1 text-xs font-bold text-gray-700 bg-white focus:outline-none focus:border-brand"
                       >
                         <option value={0}>No Group Assigned</option>
-                        {groups.map((g) => (
+                        {groups.filter(g => g.is_active || g.id === currentGroup).map((g) => (
                           <option key={g.id} value={g.id}>
                             {g.name}
                           </option>
