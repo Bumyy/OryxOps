@@ -273,3 +273,26 @@ async def take_over_booking_route(
         
     booking_loaded = await get_booking(db, booking.id)
     return map_booking_to_out(booking_loaded)
+
+
+@router.get("/{booking_id}/pdf")
+async def download_pay_slip_pdf(
+    booking_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi.responses import Response
+    from app.services.pdf_service import build_pay_slip_pdf_bytes
+    try:
+        pdf_bytes = await build_pay_slip_pdf_bytes(db, booking_id)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"inline; filename=PaySlip_Leg_{booking_id}.pdf"
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate pay slip PDF: {str(e)}")
+
