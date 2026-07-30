@@ -15,11 +15,13 @@ import Fleet from "./pages/Fleet";
 import AircraftDetail from "./pages/AircraftDetail";
 import Bookings from "./pages/Bookings";
 import Operations from "./pages/Operations";
+import LiveTracker from "./pages/LiveTracker";
 import Transfers from "./pages/Transfers";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import EFB from "./pages/EFB";
 import Shop from "./pages/Shop";
+import Handbook from "./pages/Handbook";
 
 import AdminPilots from "./pages/admin/PilotsPage";
 import AdminGroups from "./pages/admin/GroupsPage";
@@ -147,8 +149,11 @@ export default function App() {
           <Route path="/fleet/:id" element={<PilotAccessRoute><AircraftDetail /></PilotAccessRoute>} />
           <Route path="/bookings" element={<PilotAccessRoute><Bookings /></PilotAccessRoute>} />
           <Route path="/operations" element={<PilotAccessRoute><Operations /></PilotAccessRoute>} />
+          <Route path="/operations/track" element={<PilotAccessRoute><LiveTracker /></PilotAccessRoute>} />
           <Route path="/transfers" element={<PilotAccessRoute><Transfers /></PilotAccessRoute>} />
           <Route path="/shop" element={<PilotAccessRoute><Shop /></PilotAccessRoute>} />
+          <Route path="/handbook" element={<Handbook />} />
+          <Route path="/handbook/:sectionId" element={<Handbook />} />
 
           {/* Admin Routes - Requires Admin Permission or Executive Callsign */}
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />

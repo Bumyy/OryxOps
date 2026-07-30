@@ -1028,10 +1028,10 @@ export default function Calendar() {
                     return (
                       <Fragment key={`acrow-${ac.id}`}>
                         {/* Sticky Left Y-axis Cell: Aircraft Card */}
-                        <div className="border-b border-r border-brand-border bg-white p-1.5 sticky left-0 z-20 flex flex-col justify-between shadow-xs h-[175px]">
+                        <div className="border-b border-r border-brand-border bg-white p-1.5 sticky left-0 z-20 flex flex-col justify-between shadow-xs h-[200px]">
                           <div className="w-full text-left rounded-xl border border-brand-border bg-white shadow-2xs overflow-hidden flex flex-col h-full">
                             {/* Photo container */}
-                            <div className="relative w-full h-[120px] bg-brand-pale overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                            <div className="relative w-full h-[135px] bg-brand-pale overflow-hidden shrink-0 flex items-center justify-center p-0.5">
                               <img
                                 src={imgUrl}
                                 alt={ac.registration}
@@ -1080,7 +1080,7 @@ export default function Calendar() {
                           return (
                             <div
                               key={`cell-${ac.id}-${colIdx}`}
-                              className={`border-b border-r border-brand-border p-2.5 flex flex-row gap-2.5 items-stretch h-[175px] transition-colors relative overflow-hidden ${
+                              className={`border-b border-r border-brand-border p-2.5 flex flex-row gap-2.5 items-stretch h-[200px] transition-colors relative overflow-hidden ${
                                 isToday ? "bg-brand/[0.015]" : "bg-white"
                               }`}
                             >

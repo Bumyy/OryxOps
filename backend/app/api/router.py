@@ -16,6 +16,7 @@ from app.api.endpoints import (
     schedules,
     settings,
     transfers,
+    handbook,
 )
 
 api_router = APIRouter()
@@ -35,3 +36,5 @@ api_router.include_router(efb.router)
 api_router.include_router(charts.router)
 api_router.include_router(admin.router)
 api_router.include_router(if_live.router)
+api_router.include_router(handbook.router)
+

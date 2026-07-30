@@ -102,6 +102,20 @@ async def delete_schedule(db: AsyncSession, schedule_id: int) -> bool:
         .values(status="cancelled")
     )
     
+    # Refund any consumed purchased proposal token back to the pilot's account (set reference_id to 0)
+    from app.models.live_models import LiveCurrencyTransaction
+    await db.execute(
+        update(LiveCurrencyTransaction)
+        .where(
+            LiveCurrencyTransaction.transaction_type == "extra_proposal_slot",
+            LiveCurrencyTransaction.reference_id == schedule_id
+        )
+        .values(
+            reference_id=0,
+            description="Refunded proposal token (flight deleted/cancelled)"
+        )
+    )
+    
     await db.commit()
     return True
 
@@ -251,6 +265,21 @@ async def update_schedule_status(
         effective_pilot_id = pilot_id or schedule.created_by
         if effective_pilot_id:
             await check_and_process_proposal_slot(db, effective_pilot_id, schedule.week_start, schedule)
+
+    # Refund token if moving from proposed/approved back to draft (rejection)
+    if status == "draft" and schedule.status in ["proposed", "approved"]:
+        from app.models.live_models import LiveCurrencyTransaction
+        await db.execute(
+            update(LiveCurrencyTransaction)
+            .where(
+                LiveCurrencyTransaction.transaction_type == "extra_proposal_slot",
+                LiveCurrencyTransaction.reference_id == schedule_id
+            )
+            .values(
+                reference_id=0,
+                description="Refunded proposal token (flight rejected/drafted)"
+            )
+        )
 
     schedule.status = status
     if approved_by:

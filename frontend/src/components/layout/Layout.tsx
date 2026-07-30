@@ -115,6 +115,54 @@ export default function Layout() {
     location.pathname.startsWith("/admin")
   );
   const [efbOpen, setEfbOpen] = useState(location.pathname.startsWith("/efb"));
+  const [handbookOpen, setHandbookOpen] = useState(
+    location.pathname.startsWith("/handbook")
+  );
+  const [handbookSections, setHandbookSections] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadHandbook = async () => {
+      try {
+        const res = await fetch("/api/handbook");
+        if (res.ok) {
+          const json = await res.json();
+          setHandbookSections(json.sections || []);
+        } else {
+          const local = localStorage.getItem("oryxops_handbook_data");
+          if (local) {
+            setHandbookSections(JSON.parse(local).sections || []);
+          } else {
+            const fallbackRes = await fetch("/handbook.json");
+            if (fallbackRes.ok) {
+              const fallbackJson = await fallbackRes.json();
+              setHandbookSections(fallbackJson.sections || []);
+            }
+          }
+        }
+      } catch (err) {
+        const local = localStorage.getItem("oryxops_handbook_data");
+        if (local) {
+          setHandbookSections(JSON.parse(local).sections || []);
+        }
+      }
+    };
+    loadHandbook();
+
+    const handleReload = () => loadHandbook();
+    window.addEventListener("reload_handbook_sidebar", handleReload);
+    return () => window.removeEventListener("reload_handbook_sidebar", handleReload);
+  }, []);
+
+  const isExecutive = Boolean(
+    user?.is_executive ||
+    user?.is_admin ||
+    ["QRV001", "QRV002", "QRV003", "QRV004"].includes(user?.callsign?.toUpperCase() || "")
+  );
+
+  const visibleHandbookSections = handbookSections.filter((sec) => {
+    if (sec.admin_only && !isExecutive) return false;
+    return true;
+  });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem("sidebar_collapsed") === "true";
   });
@@ -140,6 +188,7 @@ export default function Layout() {
     setSidebarOpen(false);
     if (location.pathname.startsWith("/admin")) setAdminOpen(true);
     if (location.pathname.startsWith("/efb")) setEfbOpen(true);
+    if (location.pathname.startsWith("/handbook")) setHandbookOpen(true);
   }, [location]);
 
   const handleLogout = () => {
@@ -284,7 +333,7 @@ export default function Layout() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                  d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
                 />
               </svg>
               {!sidebarCollapsed && (
@@ -350,6 +399,83 @@ export default function Layout() {
               </div>
             )}
           </div>
+
+        {/* Handbook section - Always visible, but sections are user-filtered */}
+        <div className="pt-3 mt-3 border-t border-brand-border">
+          <button
+            onClick={() => setHandbookOpen(!handbookOpen)}
+            title={sidebarCollapsed ? "User Handbook" : undefined}
+            className={`flex items-center rounded-xl text-sm font-semibold text-gray-500 hover:bg-brand-hover-bg hover:text-brand w-full transition-colors duration-200 ${
+              sidebarCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
+            }`}
+          >
+            <svg
+              className="w-5 h-5 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              />
+            </svg>
+            {!sidebarCollapsed && (
+              <>
+                <span>Handbook</span>
+                <svg
+                  className={`w-4 h-4 ml-auto transition-transform ${
+                    handbookOpen ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </>
+            )}
+          </button>
+          {handbookOpen && (
+            <div
+              className={`mt-0.5 space-y-0.5 ${
+                sidebarCollapsed ? "" : "ml-2"
+              }`}
+            >
+              {visibleHandbookSections.map((sec) => (
+                <Link
+                  key={sec.id}
+                  to={`/handbook/${sec.id}`}
+                  title={sidebarCollapsed ? sec.title : undefined}
+                  className={`flex items-center rounded-xl text-xs font-semibold transition-colors duration-200 ${
+                    sidebarCollapsed
+                      ? "justify-center p-2"
+                      : "gap-2.5 px-3 py-2"
+                  } ${
+                    location.pathname === `/handbook/${sec.id}` || 
+                    (location.pathname === "/handbook" && visibleHandbookSections[0]?.id === sec.id)
+                      ? "bg-brand text-white font-bold"
+                      : "text-gray-500 hover:bg-brand-hover-bg hover:text-brand"
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold flex items-center justify-center text-[9px] flex-shrink-0">
+                    {sec.chapter}
+                  </span>
+                  {!sidebarCollapsed && (
+                    <span className="truncate">{sec.title}</span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
 
           {/* Admin section - Visible to Executive or Admin */}
           {(user?.is_executive || user?.is_admin) && (

@@ -534,3 +534,300 @@ async def if_sync_all_locations(
         "failed_count": failed,
         "errors": errors
     }
+
+
+# ------------------------------------------------------------------
+# Enroute Live Flight Tracker V2
+# ------------------------------------------------------------------
+
+_airports_db = None
+
+def get_airports_db():
+    global _airports_db
+    if _airports_db is None:
+        import airportsdata
+        _airports_db = airportsdata.load('ICAO')
+    return _airports_db
+
+_telemetry_cache = {}
+TELEMETRY_CACHE_TTL = 15.0  # seconds
+
+@router.get("/live/track-booking/{booking_id}")
+async def if_track_booking(
+    booking_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve enroute telemetry coordinates, actual route history, and flight plan for a booking."""
+    import time
+    import math
+    from app.core.dependencies import get_current_pilot
+    from app.services.if_live_v2_client import IFLiveV2Client
+    from app.models.live_models import LiveFlightBooking, LiveFlightSchedule, LiveAircraft, Pilot
+    
+    now = time.time()
+    # Check cache first
+    cache_entry = _telemetry_cache.get(booking_id)
+    if cache_entry and (now - cache_entry["timestamp"] < TELEMETRY_CACHE_TTL):
+        return cache_entry["data"]
+
+    # Load booking
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    
+    booking_result = await db.execute(
+        select(LiveFlightBooking)
+        .where(LiveFlightBooking.id == booking_id)
+        .options(
+            selectinload(LiveFlightBooking.schedule)
+            .selectinload(LiveFlightSchedule.aircraft)
+            .selectinload(LiveAircraft.aircraft_type),
+            selectinload(LiveFlightBooking.departure_pilot)
+        )
+    )
+    booking = booking_result.scalar_one_or_none()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found.")
+
+    dep_icao = (booking.schedule.departure or "OTHH").upper()
+    arr_icao = (booking.schedule.arrival or "OTHH").upper()
+
+    client = IFLiveV2Client()
+
+    if client.is_mock:
+        # Generate fully-functional mock flight tracking telemetry based on dispatched timestamp
+        dispatched_at = booking.dispatched_at
+        if not dispatched_at:
+            dispatched_at = booking.booked_at
+            
+        import datetime
+        # Remove timezone if aware to compare with utcnow
+        if dispatched_at.tzinfo is not None:
+            dispatched_at = dispatched_at.replace(tzinfo=None)
+
+        elapsed = (datetime.datetime.utcnow() - dispatched_at).total_seconds()
+        
+        # Assume duration from schedule or default to 1.5 hours (90 minutes)
+        duration = (booking.schedule.ground_time_minutes or 90) * 60
+        progress = elapsed / duration
+        if progress > 1.0:
+            progress = 0.99  # Cap at 99% so it remains visible enroute in development
+            
+        # Get coordinates
+        apt_db = get_airports_db()
+        dep_apt = apt_db.get(dep_icao, {"lat": 25.273, "lon": 51.564})
+        arr_apt = apt_db.get(arr_icao, {"lat": 51.470, "lon": -0.454})
+        
+        dep_lat, dep_lon = dep_apt["lat"], dep_apt["lon"]
+        arr_lat, arr_lon = arr_apt["lat"], arr_apt["lon"]
+        
+        # Interpolate position
+        current_lat = dep_lat + progress * (arr_lat - dep_lat)
+        current_lon = dep_lon + progress * (arr_lon - dep_lon)
+        
+        # Compute heading
+        dlon = math.radians(arr_lon - dep_lon)
+        lat1 = math.radians(dep_lat)
+        lat2 = math.radians(arr_lat)
+        y = math.sin(dlon) * math.cos(lat2)
+        x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+        heading = (math.degrees(math.atan2(y, x)) + 360) % 360
+        
+        # Interpolate flight phase stats
+        if progress < 0.15:
+            phase_pct = progress / 0.15
+            altitude = int(phase_pct * 36000)
+            speed = int(160 + phase_pct * 290)
+            vs = 2200
+            status_text = "Climbing"
+        elif progress < 0.85:
+            altitude = 36000
+            speed = 455
+            vs = 0
+            status_text = "Cruising"
+        else:
+            phase_pct = (progress - 0.85) / 0.15
+            altitude = int(36000 - phase_pct * 35900)
+            speed = int(450 - phase_pct * 310)
+            vs = -1800
+            status_text = "Descending"
+            
+        # Generate mock trail coords
+        trail = []
+        steps = int(progress * 50) + 1
+        for i in range(steps):
+            p = i / 50.0
+            trail.append({
+                "latitude": dep_lat + p * (arr_lat - dep_lat),
+                "longitude": dep_lon + p * (arr_lon - dep_lon),
+                "altitude": 36000 if p > 0.15 and p < 0.85 else (36000 * (p/0.15) if p <= 0.15 else 36000 * (1 - (p-0.85)/0.15)),
+                "date": datetime.datetime.utcnow().isoformat() + "Z"
+            })
+            
+        # Generate mock flight plan waypoints
+        flight_plan_waypoints = [
+            {"name": dep_icao, "latitude": dep_lat, "longitude": dep_lon},
+            {"name": "WP-MID1", "latitude": dep_lat + 0.3 * (arr_lat - dep_lat), "longitude": dep_lon + 0.3 * (arr_lon - dep_lon)},
+            {"name": "WP-MID2", "latitude": dep_lat + 0.7 * (arr_lat - dep_lat), "longitude": dep_lon + 0.7 * (arr_lon - dep_lon)},
+            {"name": arr_icao, "latitude": arr_lat, "longitude": arr_lon}
+        ]
+        
+        telemetry = {
+            "active": True,
+            "mock": True,
+            "flightId": "mock-flight-id",
+            "sessionId": "mock-session-id",
+            "callsign": booking.schedule.flight_number or "QRV100",
+            "username": booking.departure_pilot.ifc or "MockPilot",
+            "latitude": current_lat,
+            "longitude": current_lon,
+            "altitude": altitude,
+            "speed": speed,
+            "verticalSpeed": vs,
+            "heading": heading,
+            "track": heading,
+            "status": status_text,
+            "origin": dep_icao,
+            "destination": arr_icao,
+            "dep_lat": dep_lat,
+            "dep_lon": dep_lon,
+            "arr_lat": arr_lat,
+            "arr_lon": arr_lon,
+            "flownRoute": trail,
+            "flightPlan": flight_plan_waypoints
+        }
+        
+        _telemetry_cache[booking_id] = {
+            "timestamp": now,
+            "data": telemetry
+        }
+        return telemetry
+
+    # LIVE TELEMETRY MODE
+    pilot_ifuserid = booking.departure_pilot.ifuserid
+    if not pilot_ifuserid:
+        return {
+            "active": False,
+            "mock": False,
+            "message": "Pilot has not linked their Infinite Flight User ID in Settings."
+        }
+
+    # Fetch sessions
+    sessions = await client.get_sessions()
+    matched_flight = None
+    matched_session_id = None
+
+    for session in sessions:
+        session_id = session["id"]
+        flights = await client.get_flights(session_id)
+        for f in flights:
+            if f.get("userId") == pilot_ifuserid:
+                f_id = f.get("flightId")
+                fplan = await client.get_flight_plan(session_id, f_id)
+                
+                fplan_matches = False
+                if fplan and fplan.get("flightPlanItems"):
+                    items = fplan["flightPlanItems"]
+                    item_names = []
+                    for item in items:
+                        if item.get("name"):
+                            item_names.append(item["name"].upper())
+                        if item.get("children"):
+                            for child in item["children"]:
+                                if child.get("name"):
+                                    item_names.append(child["name"].upper())
+                                    
+                    if dep_icao in item_names and arr_icao in item_names:
+                        fplan_matches = True
+                        
+                # Alternative fallback: if callsign matches
+                if fplan_matches or (f.get("callsign", "").upper() == (booking.schedule.flight_number or "").replace("-", "").upper()):
+                    matched_flight = f
+                    matched_session_id = session_id
+                    break
+        if matched_flight:
+            break
+
+    if not matched_flight:
+        return {
+            "active": False,
+            "mock": False,
+            "message": "No matching active flight found on Infinite Flight servers."
+        }
+
+    f_id = matched_flight["flightId"]
+    flown_route_reports = await client.get_flight_route(matched_session_id, f_id)
+    fplan_details = await client.get_flight_plan(matched_session_id, f_id)
+    
+    trail = []
+    for r in flown_route_reports:
+        trail.append({
+            "latitude": r.get("latitude"),
+            "longitude": r.get("longitude"),
+            "altitude": r.get("altitude"),
+            "date": r.get("date")
+        })
+
+    flight_plan_waypoints = []
+    if fplan_details and fplan_details.get("flightPlanItems"):
+        for item in fplan_details["flightPlanItems"]:
+            if item.get("children"):
+                for child in item["children"]:
+                    loc = child.get("location", {})
+                    flight_plan_waypoints.append({
+                        "name": child.get("name", child.get("identifier")),
+                        "latitude": loc.get("latitude", 0),
+                        "longitude": loc.get("longitude", 0)
+                    })
+            else:
+                loc = item.get("location", {})
+                flight_plan_waypoints.append({
+                    "name": item.get("name", item.get("identifier")),
+                    "latitude": loc.get("latitude", 0),
+                    "longitude": loc.get("longitude", 0)
+                })
+
+    apt_db = get_airports_db()
+    dep_apt = apt_db.get(dep_icao, {"lat": matched_flight.get("latitude"), "lon": matched_flight.get("longitude")})
+    arr_apt = apt_db.get(arr_icao, {"lat": matched_flight.get("latitude"), "lon": matched_flight.get("longitude")})
+
+    alt = matched_flight.get("altitude", 0)
+    vs = matched_flight.get("verticalSpeed", 0)
+    if alt < 1000:
+        status_text = "On the Ground"
+    elif vs > 500:
+        status_text = "Climbing"
+    elif vs < -500:
+        status_text = "Descending"
+    else:
+        status_text = "Cruising"
+
+    telemetry = {
+        "active": True,
+        "mock": False,
+        "flightId": f_id,
+        "sessionId": matched_session_id,
+        "callsign": matched_flight.get("callsign"),
+        "username": matched_flight.get("username"),
+        "latitude": matched_flight.get("latitude"),
+        "longitude": matched_flight.get("longitude"),
+        "altitude": alt,
+        "speed": matched_flight.get("speed"),
+        "verticalSpeed": vs,
+        "heading": matched_flight.get("heading"),
+        "track": matched_flight.get("track"),
+        "status": status_text,
+        "origin": dep_icao,
+        "destination": arr_icao,
+        "dep_lat": dep_apt["lat"],
+        "dep_lon": dep_apt["lon"],
+        "arr_lat": arr_apt["lat"],
+        "arr_lon": arr_apt["lon"],
+        "flownRoute": trail,
+        "flightPlan": flight_plan_waypoints
+    }
+
+    _telemetry_cache[booking_id] = {
+        "timestamp": now,
+        "data": telemetry
+    }
+    return telemetry

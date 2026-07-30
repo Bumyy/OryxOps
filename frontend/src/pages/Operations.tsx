@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchBookings, dispatchBooking, cancelBooking, completeBooking } from "../store/slices/bookingSlice";
 import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
@@ -26,6 +27,7 @@ const FUEL_BURN_RATES: Record<string, number> = {
 };
 
 export default function Operations() {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { bookings, loading } = useAppSelector((s) => s.booking);
   const aircraftData = useAppSelector((s) => s.aircraft.specs);
@@ -295,6 +297,25 @@ export default function Operations() {
           ) : (
             /* 📝 ACTIVE OPERATIONS DASHBOARD */
             <div className="space-y-6">
+              {/* Live Flight Telemetry Tracker Card */}
+              <div className="bg-white rounded-3xl border border-brand-border/80 p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand text-xl shrink-0">
+                    📡
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-brand-dark">Real-Time Flight Telemetry Map</h4>
+                    <p className="text-xs text-gray-400 mt-0.5">Track your flight plan coordinates, flown history, and HUD statistics live.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate(`/operations/track?booking_id=${activeBooking.id}`)}
+                  className="w-full sm:w-auto shrink-0 bg-brand hover:bg-brand-dark text-white font-black px-5 py-3.5 rounded-2xl text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  👁️ Open Live Flight Tracker
+                </button>
+              </div>
+
               {/* Broadcast Fleet Movement Webhook Card */}
               <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 rounded-3xl p-5 text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4 border border-purple-700/40">
                 <div className="flex items-center gap-3">
