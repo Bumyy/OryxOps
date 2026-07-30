@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAppSelector } from "../store/hooks";
+import { api } from "../api/client";
 
 export interface HandbookSection {
   id: string;
@@ -212,28 +213,23 @@ export default function Handbook() {
     const loadData = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/handbook");
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
-        } else {
-          // Fallback to /handbook.json or localStorage
-          const local = localStorage.getItem("oryxops_handbook_data");
-          if (local) {
-            setData(JSON.parse(local));
-          } else {
-            const fallbackRes = await fetch("/handbook.json");
-            if (fallbackRes.ok) {
-              const fallbackJson = await fallbackRes.json();
-              setData(fallbackJson);
-            }
-          }
-        }
+        const json = await api.get<HandbookData>("/handbook");
+        setData(json);
       } catch (err) {
         console.warn("Using fallback handbook data:", err);
         const local = localStorage.getItem("oryxops_handbook_data");
         if (local) {
           setData(JSON.parse(local));
+        } else {
+          try {
+            const fallbackRes = await fetch("/handbook.json");
+            if (fallbackRes.ok) {
+              const fallbackJson = await fallbackRes.json();
+              setData(fallbackJson);
+            }
+          } catch (fallbackErr) {
+            console.error("Fallback load failed:", fallbackErr);
+          }
         }
       } finally {
         setLoading(false);
@@ -336,24 +332,13 @@ export default function Handbook() {
     localStorage.setItem("oryxops_handbook_data", JSON.stringify(updatedPayload));
 
     try {
-      const res = await fetch("/api/handbook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedPayload),
-      });
-
-      if (res.ok) {
-        setSaveStatus("success");
-        window.dispatchEvent(new Event("reload_handbook_sidebar"));
-        setTimeout(() => setSaveStatus("idle"), 2500);
-      } else {
-        setSaveStatus("success"); // Saved locally
-        window.dispatchEvent(new Event("reload_handbook_sidebar"));
-        setTimeout(() => setSaveStatus("idle"), 2500);
-      }
+      await api.post("/handbook", updatedPayload);
+      setSaveStatus("success");
+      window.dispatchEvent(new Event("reload_handbook_sidebar"));
+      setTimeout(() => setSaveStatus("idle"), 2500);
     } catch (err) {
       console.warn("Backend save failed, saved locally:", err);
-      setSaveStatus("success");
+      setSaveStatus("success"); // Saved locally
       window.dispatchEvent(new Event("reload_handbook_sidebar"));
       setTimeout(() => setSaveStatus("idle"), 2500);
     }

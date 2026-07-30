@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../store/hooks";
 import { fetchMe, logout } from "../../store/slices/authSlice";
 import { useCurrency } from "../../hooks/useCurrency";
+import { api } from "../../api/client";
 
 const navItems = [
   {
@@ -123,26 +124,23 @@ export default function Layout() {
   useEffect(() => {
     const loadHandbook = async () => {
       try {
-        const res = await fetch("/api/handbook");
-        if (res.ok) {
-          const json = await res.json();
-          setHandbookSections(json.sections || []);
+        const json = await api.get<any>("/handbook");
+        setHandbookSections(json.sections || []);
+      } catch (err) {
+        console.warn("Failed to fetch handbook from API, trying fallbacks:", err);
+        const local = localStorage.getItem("oryxops_handbook_data");
+        if (local) {
+          setHandbookSections(JSON.parse(local).sections || []);
         } else {
-          const local = localStorage.getItem("oryxops_handbook_data");
-          if (local) {
-            setHandbookSections(JSON.parse(local).sections || []);
-          } else {
+          try {
             const fallbackRes = await fetch("/handbook.json");
             if (fallbackRes.ok) {
               const fallbackJson = await fallbackRes.json();
               setHandbookSections(fallbackJson.sections || []);
             }
+          } catch (fallbackErr) {
+            console.error("Failed to load static fallback handbook.json:", fallbackErr);
           }
-        }
-      } catch (err) {
-        const local = localStorage.getItem("oryxops_handbook_data");
-        if (local) {
-          setHandbookSections(JSON.parse(local).sections || []);
         }
       }
     };
