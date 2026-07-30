@@ -81,6 +81,7 @@
     --brand-border: #ead9df;
     --brand-hover-bg: #f8f1f4;
     --scrollbar-thumb: #ead9df;
+    --y-axis-width: 100px;
 
     /* ── Status Tokens (Light) ───────────────────────────────── */
     --status-approved-bg:      #d1fae5;
@@ -137,6 +138,7 @@
     --brand-border: #3f1e29;
     --brand-hover-bg: #2b141c;
     --scrollbar-thumb: #3f1e29;
+    --y-axis-width: 100px;
 
     /* ── Status Tokens (Dark) ────────────────────────────────── */
     --status-approved-bg:      rgba(16, 185, 129, 0.13);
@@ -173,6 +175,12 @@
 
     --code-bg:   #0f1115;
     --code-text: #94a3b8;
+  }
+
+  @media (min-width: 768px) {
+    :root, .dark {
+      --y-axis-width: 220px;
+    }
   }
 }
 

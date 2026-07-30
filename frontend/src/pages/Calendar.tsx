@@ -956,18 +956,22 @@ export default function Calendar() {
                 return Math.max(maxCount, 1);
               });
 
-              // Dynamic grid column widths: Y-axis (220px) + Day columns (width based on flight count)
-              const gridTemplateCols = "220px " + flightsPerDay.map(c => `minmax(${c * 230 + (c > 1 ? 16 : 0)}px, ${c}fr)`).join(" ");
-              const totalMinWidth = 220 + flightsPerDay.reduce((acc, c) => acc + (c * 230 + (c > 1 ? 16 : 0)), 0);
+              // Dynamic grid column widths: Y-axis (responsive var(--y-axis-width)) + Day columns (width based on flight count)
+              const gridTemplateCols = "var(--y-axis-width, 220px) " + flightsPerDay.map(c => `minmax(${c * 230 + (c > 1 ? 16 : 0)}px, ${c}fr)`).join(" ");
+              const dayWidthSum = flightsPerDay.reduce((acc, c) => acc + (c * 230 + (c > 1 ? 16 : 0)), 0);
 
               return (
                 <div
                   className="grid relative z-0 border-collapse"
-                  style={{ gridTemplateColumns: gridTemplateCols, minWidth: `${totalMinWidth}px` }}
+                  style={{
+                    gridTemplateColumns: gridTemplateCols,
+                    minWidth: `calc(var(--y-axis-width, 220px) + ${dayWidthSum}px)`
+                  }}
                 >
                   {/* Top-Left Corner Cell: Sticky Header + Sticky Left */}
-                  <div className="border-b border-r border-brand-border bg-brand-pale p-3 text-xs font-black text-brand uppercase text-center sticky left-0 top-0 z-40 flex items-center justify-center shadow-xs">
-                    Fleet Airframe (Y)
+                  <div className="border-b border-r border-brand-border bg-brand-pale p-3 text-[10px] md:text-xs font-black text-brand uppercase text-center sticky left-0 top-0 z-40 flex items-center justify-center shadow-xs">
+                    <span className="hidden md:inline">Fleet Airframe</span>
+                    <span className="md:hidden">Fleet</span>
                   </div>
 
                   {/* Top Row: X-axis Day Headers with single + ADD FLIGHT button per day */}
@@ -1031,7 +1035,7 @@ export default function Calendar() {
                         <div className="border-b border-r border-brand-border bg-white p-1.5 sticky left-0 z-20 flex flex-col justify-between shadow-xs h-[200px]">
                           <div className="w-full text-left rounded-xl border border-brand-border bg-white shadow-2xs overflow-hidden flex flex-col h-full">
                             {/* Photo container */}
-                            <div className="relative w-full h-[135px] bg-brand-pale overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                            <div className="relative w-full h-[110px] md:h-[135px] bg-brand-pale overflow-hidden shrink-0 flex items-center justify-center p-0.5">
                               <img
                                 src={imgUrl}
                                 alt={ac.registration}
@@ -1044,16 +1048,16 @@ export default function Calendar() {
                                 }}
                               />
                               {imgSource && !isFallback && (
-                                <span className="absolute bottom-1 right-1 text-[7.5px] font-extrabold text-white bg-black/70 backdrop-blur-xs px-1.5 py-0.5 rounded select-none shadow-sm">
+                                <span className="absolute bottom-1 right-1 text-[7.5px] font-extrabold text-white bg-black/70 backdrop-blur-xs px-1.5 py-0.5 rounded select-none shadow-sm hidden md:block">
                                   © {imgSource}
                                 </span>
                               )}
                             </div>
 
                             {/* Bottom: Registration & Model */}
-                            <div className="p-2 bg-brand-pale/50 border-t border-brand-border/60 flex items-center justify-between gap-1 text-[11px] min-w-0 flex-1">
-                              <span className="font-black text-brand tracking-wide truncate">{ac.registration}</span>
-                              <span className="font-bold text-gray-500 text-[10px] truncate">{acTypeName}</span>
+                            <div className="p-1 md:p-2 bg-brand-pale/50 border-t border-brand-border/60 flex flex-col md:flex-row md:items-center md:justify-between gap-0.5 md:gap-1 text-[10px] md:text-[11px] min-w-0 flex-1 justify-center items-center">
+                              <span className="font-black text-brand tracking-wide truncate w-full md:w-auto text-center md:text-left">{ac.registration}</span>
+                              <span className="font-bold text-gray-500 text-[9px] md:text-[10px] truncate w-full md:w-auto text-center md:text-left">{acTypeName}</span>
                             </div>
                           </div>
                         </div>
