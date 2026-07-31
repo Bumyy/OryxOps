@@ -783,7 +783,8 @@ export default function Calendar() {
                 const gt = fb.schedule.ground_time_minutes || 60, gtH = Math.max((gt / 60) * HOUR_HEIGHT, 8);
                 const s = fb.schedule, dur = Math.round((new Date(s.scheduled_arrival + "Z").getTime() - new Date(s.scheduled_departure + "Z").getTime()) / 360000) / 10;
                 const bkd = bookings[s.id] || [];
-                const activeBooking = bkd.find((b: any) => b.status === "booked");
+                const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed");
+                const isCompleted = activeBooking?.status === "completed";
                 const bookedBy = activeBooking
                   ? activeBooking.departure_pilot_callsign === activeBooking.arrival_pilot_callsign
                     ? activeBooking.departure_pilot_callsign
@@ -815,16 +816,19 @@ export default function Calendar() {
                         height: `${Math.max(ht, 10)}px`,
                         background: fb.isError ? "var(--status-error-bg)" :
                           s.status === "cancelled" ? "var(--status-cancelled-bg)" :
+                          isCompleted ? "var(--status-completed-bg)" :
                           s.status === "approved" ? "var(--status-approved-bg)" :
                           s.status === "proposed" ? "var(--status-proposed-bg)" :
                           "var(--status-draft-bg)",
                         color: fb.isError ? "var(--status-error-text)" :
                           s.status === "cancelled" ? "var(--status-cancelled-text)" :
+                          isCompleted ? "var(--status-completed-text)" :
                           s.status === "approved" ? "var(--status-approved-text)" :
                           s.status === "proposed" ? "var(--status-proposed-text)" :
                           "var(--status-draft-text)",
                         borderColor: fb.isError ? "var(--status-error-border)" :
                           s.status === "cancelled" ? "var(--status-cancelled-border)" :
+                          isCompleted ? "var(--status-completed-border)" :
                           s.status === "approved" ? "var(--status-approved-border)" :
                           s.status === "proposed" ? "var(--status-proposed-border)" :
                           "var(--status-draft-border)",
@@ -833,13 +837,13 @@ export default function Calendar() {
                       draggable
                       onDragStart={e => handleDragStart(e, s.id)}
                       onDragEnd={handleDragEnd}
-                      title={`${s.departure}→${s.arrival} | ${s.aircraft_registration} | ${s.status} | ${dur}h\nBy: ${s.created_by_name || "?"}${s.approved_by ? ` | Appr: #${s.approved_by}` : ""}${hasBooking ? `\nBooked: ${bookedBy}` : ""}${fb.isError ? '\n⚠ Mismatch' : ''}${fb.isGroundIssue ? '\n⚠ GT short' : ''}\nDrag to move`}
+                      title={`${s.departure}→${s.arrival} | ${s.aircraft_registration} | ${s.status} | ${dur}h\nBy: ${s.created_by_name || "?"}${s.approved_by ? ` | Appr: #${s.approved_by}` : ""}${hasBooking ? `\n${isCompleted ? 'Completed' : 'Booked'}: ${bookedBy}` : ""}${fb.isError ? '\n⚠ Mismatch' : ''}${fb.isGroundIssue ? '\n⚠ GT short' : ''}\nDrag to move`}
                     >
                       <div className="font-bold truncate flex items-center gap-0.5">
                         {s.aircraft_registration}
                         {s.approved_by && <span title="Approved" className="text-[8px] font-black text-emerald-800 bg-emerald-200/60 px-1 rounded">✓</span>}
                         {(() => {
-                          const activeBooking = bkd.find((b: any) => b.status === "booked");
+                          const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed");
                           if (!activeBooking) return null;
                           const pilotsToShow = [];
                           if (activeBooking.departure_pilot_id) {
@@ -903,7 +907,7 @@ export default function Calendar() {
                         })()}
                       </div>
                       <div className="truncate font-semibold">{s.departure}→{s.arrival} <span className="opacity-60">{dur}h</span></div>
-                      <div className="truncate opacity-75">{s.flight_number || `#${s.id}`} · {s.status}</div>
+                      <div className="truncate opacity-75">{s.flight_number || `#${s.id}`} · {isCompleted ? "completed" : s.status}</div>
                     </div>
                     {fb.showGroundTime && (
                       <div
@@ -1096,13 +1100,15 @@ export default function Calendar() {
                                   const arrDate = new Date(s.scheduled_arrival + "Z");
                                   const dur = Math.round((arrDate.getTime() - depDate.getTime()) / 360000) / 10;
                                   const bkd = bookings[s.id] || [];
-                                  const activeBooking = bkd.find((b: any) => b.status === "booked");
+                                  const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed");
+                                  const isCompleted = activeBooking?.status === "completed";
                                   const hasError = errorSet.has(s.id);
                                   const hasGroundIssue = groundSet.has(s.id);
 
                                   const statusKey =
                                     hasError ? "error" :
                                     s.status === "cancelled" ? "cancelled" :
+                                    isCompleted ? "completed" :
                                     s.status === "approved" ? "approved" :
                                     s.status === "proposed" ? "proposed" :
                                     "draft";
@@ -1129,6 +1135,7 @@ export default function Calendar() {
                                       className={`w-[220px] shrink-0 text-left rounded-xl border-2 border-l-4 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all cursor-pointer overflow-hidden p-3 flex flex-col justify-between gap-1.5 ${
                                         hasError ? "border-l-rose-500" :
                                         s.status === "cancelled" ? "border-l-slate-400" :
+                                        isCompleted ? "border-l-indigo-500" :
                                         s.status === "approved" ? "border-l-emerald-500" :
                                         s.status === "proposed" ? "border-l-amber-500" :
                                         "border-l-sky-500"
@@ -1151,7 +1158,7 @@ export default function Calendar() {
                                             borderColor: `var(--status-${statusKey}-border)`,
                                           }}
                                         >
-                                          {s.status}
+                                          {isCompleted ? "completed" : s.status}
                                         </span>
                                       </div>
 
@@ -1331,16 +1338,19 @@ export default function Calendar() {
               <p className="text-xs text-gray-400">Arr: {new Date(editingSchedule.scheduled_arrival + "Z").toISOString().replace("T", " ").slice(0, 16)}</p>
               {(() => { 
                 const bkd = bookings[editingSchedule.id] || []; 
-                const activeBooking = bkd.find((b: any) => b.status === "booked");
+                const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed");
                 if (!activeBooking) return null;
+                const isCompleted = activeBooking.status === "completed";
+                const label = isCompleted ? "Completed" : "Booked";
+                const colorClass = isCompleted ? "text-indigo-600" : "text-blue-600";
                 return (
-                  <div className="text-xs text-blue-600 font-semibold space-y-1 border-t border-brand-border/40 pt-2 mt-2">
+                  <div className={`text-xs ${colorClass} font-semibold space-y-1 border-t border-brand-border/40 pt-2 mt-2`}>
                     {activeBooking.departure_pilot_id === activeBooking.arrival_pilot_id ? (
-                      <p>Booked (Full Flight): {activeBooking.departure_pilot_callsign}</p>
+                      <p>{label} (Full Flight): {activeBooking.departure_pilot_callsign}</p>
                     ) : (
                       <>
-                        {activeBooking.departure_pilot_id && <p>Booked (Departure): {activeBooking.departure_pilot_callsign}</p>}
-                        {activeBooking.arrival_pilot_id && <p>Booked (Arrival): {activeBooking.arrival_pilot_callsign}</p>}
+                        {activeBooking.departure_pilot_id && <p>{label} (Departure): {activeBooking.departure_pilot_callsign}</p>}
+                        {activeBooking.arrival_pilot_id && <p>{label} (Arrival): {activeBooking.arrival_pilot_callsign}</p>}
                       </>
                     )}
                   </div>
@@ -1405,7 +1415,8 @@ export default function Calendar() {
             <div className="flex flex-col gap-3 text-xs font-bold">
               {editingSchedule.status === "approved" && (() => {
                 const bkd = bookings[editingSchedule.id] || [];
-                const activeBooking = bkd.find((b: any) => b.status === "booked");
+                const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed");
+                if (activeBooking?.status === "completed") return null;
                 const depBooked = activeBooking ? activeBooking.departure_pilot_id !== null : false;
                 const arrBooked = activeBooking ? activeBooking.arrival_pilot_id !== null : false;
                 

@@ -83,10 +83,13 @@
     --scrollbar-thumb: #ead9df;
     --y-axis-width: 100px;
 
-    /* ── Status Tokens (Light) ───────────────────────────────── */
     --status-approved-bg:      #d1fae5;
     --status-approved-text:    #065f46;
     --status-approved-border:  #6ee7b7;
+
+    --status-completed-bg:     #e0e7ff;
+    --status-completed-text:   #3730a3;
+    --status-completed-border: #c7d2fe;
 
     --status-proposed-bg:      #fef3c7;
     --status-proposed-text:    #78350f;
@@ -140,10 +143,13 @@
     --scrollbar-thumb: #3f1e29;
     --y-axis-width: 100px;
 
-    /* ── Status Tokens (Dark) ────────────────────────────────── */
     --status-approved-bg:      rgba(16, 185, 129, 0.13);
     --status-approved-text:    #86efac;
     --status-approved-border:  #166534;
+
+    --status-completed-bg:     rgba(99, 102, 241, 0.13);
+    --status-completed-text:   #c7d2fe;
+    --status-completed-border: #4f46e5;
 
     --status-proposed-bg:      rgba(245, 158, 11, 0.13);
     --status-proposed-text:    #fcd34d;
