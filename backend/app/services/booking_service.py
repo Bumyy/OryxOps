@@ -728,20 +728,19 @@ async def post_completion_webhook(
         print(f"Error posting discord webhook: {e}")
 
 
-async def lazy_check_payouts(db: AsyncSession, pilot_id: int):
+async def reconcile_all_payouts(db: AsyncSession):
     """
-    Checks all completed bookings for a pilot and applies payouts if the PIREPs are accepted (accepted=1)
-    or marks rejected if accepted=2.
+    Reconciles flight payouts for all pilots.
+    Queries all completed or rejected flight bookings and synchronizes them with their current PIREP status.
+    Supports reversing payouts (Approved -> Rejected) and paying out delayed approvals (Rejected -> Approved).
     """
     # Load dynamic rate/repu settings from database
     rates = await get_rate_settings(db)
 
+    # Fetch all bookings that are completed or rejected
     stmt = (
         select(LiveFlightBooking)
-        .where(
-            LiveFlightBooking.status == "completed",
-            (LiveFlightBooking.departure_pilot_id == pilot_id) | (LiveFlightBooking.arrival_pilot_id == pilot_id)
-        )
+        .where(LiveFlightBooking.status.in_(["completed", "rejected"]))
         .options(
             selectinload(LiveFlightBooking.schedule)
             .selectinload(LiveFlightSchedule.aircraft)
@@ -751,145 +750,150 @@ async def lazy_check_payouts(db: AsyncSession, pilot_id: int):
         )
     )
     bookings_res = await db.execute(stmt)
-    completed_bookings = bookings_res.scalars().all()
-    
-    for booking in completed_bookings:
-        # Check if salary was already paid (meaning LiveCurrencyTransaction exists for this reference_id)
-        payout_stmt = select(LiveCurrencyTransaction).where(
-            LiveCurrencyTransaction.reference_id == booking.id,
-            LiveCurrencyTransaction.transaction_type == "flight_completed"
-        )
-        payout_exists = (await db.execute(payout_stmt)).scalars().first()
-        if payout_exists:
-            continue # Already paid
-            
-        # Get the linked PIREP id
+    bookings = bookings_res.scalars().all()
+
+    for booking in bookings:
+        # Determine the active PIREP id
         is_dep_only = booking.departure_pilot_id is not None and booking.arrival_pilot_id is None
         pirep_id = booking.departure_pirep_id if is_dep_only else booking.arrival_pirep_id
         if not pirep_id:
             continue
-            
+
         # Query PIREP status
         pirep_stmt = select(Pirep).where(Pirep.id == pirep_id)
         pirep = (await db.execute(pirep_stmt)).scalar_one_or_none()
         if not pirep:
             continue
-            
-        if pirep.status == 1:
-            # 1. APPROVED! Process final payout
-            # Get approved values (in case staff edited them)
-            # Duration in seconds in db. Convert to minutes.
-            seconds = float(pirep.flighttime or 0)
-            approved_dur = int(seconds / 60) if seconds > 300 else int(seconds)
-            if approved_dur <= 0:
-                approved_dur = 60
-                
-            approved_fuel = float(pirep.fuelused or 0)
-            
-            # Recalculate final financials
-            pax = booking.pax_count or 100
-            ticket_rate = rates["econ_ticket_base_price"]
-            final_earnings = pax * ticket_rate * approved_dur
-            
-            fuel_expense = approved_fuel * rates["econ_fuel_price_rate"]
-            operating_cost = round(final_earnings * 0.70 * 1.05)
-            
-            # Diversion charge
-            arrival_airport = (pirep.arrival or (booking.schedule.arrival if booking.schedule else "OTHH")).upper()
-            scheduled_arrival = (booking.schedule.arrival or "OTHH").upper() if booking.schedule else "OTHH"
-            is_diverted = arrival_airport != scheduled_arrival
-            diversion_charge = (pax * rates["econ_diversion_charge_per_pax"]) if is_diverted else 0.0
-            
-            # Discrete landing penalty table (0-150 FPM = 0 QAR penalty)
-            fpm = int(booking.landing_fpm or 120)
-            if fpm <= 150:
-                landing_penalty = 0.0
-            elif fpm <= 250:
-                landing_penalty = 500.0
-            elif fpm <= 350:
-                landing_penalty = 2000.0
-            elif fpm <= 450:
-                landing_penalty = 6000.0
+
+        # Recalculate economics based on approved PIREP details
+        seconds = float(pirep.flighttime or 0)
+        approved_dur = int(seconds / 60) if seconds > 300 else int(seconds)
+        if approved_dur <= 0:
+            approved_dur = 60
+        approved_fuel = float(pirep.fuelused or 0)
+
+        pax = booking.pax_count or 100
+        ticket_rate = rates["econ_ticket_base_price"]
+        final_earnings = pax * ticket_rate * approved_dur
+
+        fuel_expense = approved_fuel * rates["econ_fuel_price_rate"]
+        operating_cost = round(final_earnings * 0.70 * 1.05)
+
+        arrival_airport = (pirep.arrival or (booking.schedule.arrival if booking.schedule else "OTHH")).upper()
+        scheduled_arrival = (booking.schedule.arrival or "OTHH").upper() if booking.schedule else "OTHH"
+        is_diverted = arrival_airport != scheduled_arrival
+        diversion_charge = (pax * rates["econ_diversion_charge_per_pax"]) if is_diverted else 0.0
+
+        fpm = int(booking.landing_fpm or 120)
+        if fpm <= 150:
+            landing_penalty = 0.0
+        elif fpm <= 250:
+            landing_penalty = 500.0
+        elif fpm <= 350:
+            landing_penalty = 2000.0
+        elif fpm <= 450:
+            landing_penalty = 6000.0
+        else:
+            landing_penalty = 15000.0
+
+        final_expenses = fuel_expense + landing_penalty + operating_cost + diversion_charge
+        final_profit = final_earnings - final_expenses
+
+        # Calculate expected salaries
+        is_split = booking.departure_pilot_id is not None and booking.arrival_pilot_id is not None and booking.departure_pilot_id != booking.arrival_pilot_id
+
+        if is_split:
+            pilots_to_reconcile = [
+                {"pilot_id": booking.departure_pilot_id, "share": 0.5, "suffix": "(Approved - 50% split - departure)"},
+                {"pilot_id": booking.arrival_pilot_id, "share": 0.5, "suffix": "(Approved - 50% split - arrival)"}
+            ]
+        else:
+            solo_pilot_id = booking.departure_pilot_id if booking.departure_pilot_id is not None else booking.arrival_pilot_id
+            if solo_pilot_id is not None:
+                pilots_to_reconcile = [
+                    {"pilot_id": solo_pilot_id, "share": 1.0, "suffix": "(Approved - 100% solo)"}
+                ]
             else:
-                landing_penalty = 15000.0
-                
-            final_expenses = fuel_expense + landing_penalty + operating_cost + diversion_charge
-            final_profit = final_earnings - final_expenses
-            
-            # Save final approved details
+                pilots_to_reconcile = []
+
+        has_payout_occurred = False
+        has_reversal_occurred = False
+        reconciled_salary_total = 0
+
+        for p_info in pilots_to_reconcile:
+            p_id = p_info["pilot_id"]
+            share = p_info["share"]
+            suffix = p_info["suffix"]
+
+            salary_share = int(final_profit * rates["econ_payout_share_split"]) if is_split else int(final_profit * rates["econ_payout_share_solo"])
+            min_salary = int(rates["econ_min_payout_split"]) if is_split else int(rates["econ_min_payout_solo"])
+            if salary_share < min_salary:
+                salary_share = min_salary
+
+            # Query total amount already paid/reversed to this pilot for this booking
+            tx_stmt = select(LiveCurrencyTransaction).where(
+                LiveCurrencyTransaction.pilot_id == p_id,
+                LiveCurrencyTransaction.reference_id == booking.id,
+                LiveCurrencyTransaction.transaction_type.in_(["flight_completed", "flight_reversal"])
+            )
+            txs = (await db.execute(tx_stmt)).scalars().all()
+            net_paid = sum(tx.amount for tx in txs)
+
+            if pirep.status == 1:  # Approved
+                if net_paid <= 0:
+                    # Pay them
+                    await record_ledger_rows(
+                        db=db,
+                        pilot_id=p_id,
+                        booking_id=booking.id,
+                        revenue=int(final_earnings * share),
+                        expenses=int(final_expenses * share),
+                        salary=salary_share,
+                        reputation=int((booking.reputation_score or 4.0) * 20.0),
+                        desc_suffix=suffix
+                    )
+                    has_payout_occurred = True
+                    reconciled_salary_total += salary_share
+            elif pirep.status == 2:  # Rejected
+                if net_paid > 0:
+                    # Deduct / reverse payment
+                    db.add(LiveCurrencyTransaction(
+                        pilot_id=p_id,
+                        amount=-net_paid,
+                        transaction_type="flight_reversal",
+                        reference_id=booking.id,
+                        description=f"Reversed flight salary payout for booking #{booking.id} (flight rejected)"
+                    ))
+                    # Adjust wallet
+                    wallet_stmt = select(LiveCurrency).where(LiveCurrency.pilot_id == p_id)
+                    wallet = (await db.execute(wallet_stmt)).scalar_one_or_none()
+                    if wallet:
+                        wallet.balance -= net_paid
+                        wallet.total_earned -= net_paid
+                    has_reversal_occurred = True
+                    reconciled_salary_total += net_paid
+
+        # Update final booking status
+        if pirep.status == 1:
+            booking.status = "completed"
             booking.earnings = final_earnings
             booking.expenses = final_expenses
-            
-            # Calculate salary and write ledger rows
-            is_split = booking.departure_pilot_id is not None and booking.arrival_pilot_id is not None and booking.departure_pilot_id != booking.arrival_pilot_id
-            
-            if is_split:
-                # Departure Salary share
-                dep_salary = int(final_profit * rates["econ_payout_share_split"]) if final_profit > 0 else int(rates["econ_min_payout_split"])
-                if dep_salary < int(rates["econ_min_payout_split"]):
-                    dep_salary = int(rates["econ_min_payout_split"])
-                # Arrival Salary share
-                arr_salary = int(final_profit * rates["econ_payout_share_split"]) if final_profit > 0 else int(rates["econ_min_payout_split"])
-                if arr_salary < int(rates["econ_min_payout_split"]):
-                    arr_salary = int(rates["econ_min_payout_split"])
-                    
-                # Write ledger for departure
-                await record_ledger_rows(
-                    db=db,
-                    pilot_id=booking.departure_pilot_id,
-                    booking_id=booking.id,
-                    revenue=int(final_earnings * 0.5),
-                    expenses=int(final_expenses * 0.5),
-                    salary=dep_salary,
-                    reputation=int((booking.reputation_score or 4.0) * 20.0),
-                    desc_suffix="(Approved - 50% split - departure)"
-                )
-                
-                # Write ledger for arrival
-                await record_ledger_rows(
-                    db=db,
-                    pilot_id=booking.arrival_pilot_id,
-                    booking_id=booking.id,
-                    revenue=int(final_earnings * 0.5),
-                    expenses=int(final_expenses * 0.5),
-                    salary=arr_salary,
-                    reputation=int((booking.reputation_score or 4.0) * 20.0),
-                    desc_suffix="(Approved - 50% split - arrival)"
-                )
-                
-                airline_profit = final_profit - dep_salary - arr_salary
-            else:
-                solo_pilot_id = booking.arrival_pilot_id if booking.arrival_pilot_id else booking.departure_pilot_id
-                solo_salary = int(final_profit * rates["econ_payout_share_solo"]) if final_profit > 0 else int(rates["econ_min_payout_solo"])
-                if solo_salary < int(rates["econ_min_payout_solo"]):
-                    solo_salary = int(rates["econ_min_payout_solo"])
-                    
-                await record_ledger_rows(
-                    db=db,
-                    pilot_id=solo_pilot_id,
-                    booking_id=booking.id,
-                    revenue=int(final_earnings),
-                    expenses=int(final_expenses),
-                    salary=solo_salary,
-                    reputation=int((booking.reputation_score or 4.0) * 20.0),
-                    desc_suffix="(Approved - 100% solo)"
-                )
-                
-                airline_profit = final_profit - solo_salary
-                
-            # Update global treasury
+        elif pirep.status == 2:
+            booking.status = "rejected"
+
+        # Update global treasury setting on payout or reversal
+        if has_payout_occurred or has_reversal_occurred:
+            airline_profit = final_profit - reconciled_salary_total
             balance_setting_stmt = select(LiveSetting).where(LiveSetting.setting_key == "airline_balance")
             setting = (await db.execute(balance_setting_stmt)).scalar_one_or_none()
             if setting:
                 current_bal = float(setting.setting_value or 5000000)
-                setting.setting_value = str(int(current_bal + airline_profit))
-                
-            await db.commit()
-            
-        elif pirep.status == 2:
-            # 2. REJECTED! Update booking status to rejected
-            booking.status = "rejected"
-            await db.commit()
+                if has_payout_occurred:
+                    setting.setting_value = str(int(current_bal + airline_profit))
+                elif has_reversal_occurred:
+                    setting.setting_value = str(int(current_bal - airline_profit))
+
+    await db.commit()
 
 
 async def record_ledger_rows(
@@ -903,25 +907,7 @@ async def record_ledger_rows(
     desc_suffix: str
 ):
     """Inserts ledger rows into live_currency_transactions and updates pilot wallet."""
-    # 1. Gross Revenue -> admin_grant
-    db.add(LiveCurrencyTransaction(
-        pilot_id=pilot_id,
-        amount=int(revenue),
-        transaction_type="admin_grant",
-        reference_id=booking_id,
-        description=f"Flight revenue {desc_suffix}"
-    ))
-
-    # 2. Gross Expenses -> admin_remove
-    db.add(LiveCurrencyTransaction(
-        pilot_id=pilot_id,
-        amount=int(-expenses),
-        transaction_type="admin_remove",
-        reference_id=booking_id,
-        description=f"Operational expenses {desc_suffix}"
-    ))
-
-    # 3. Pilot Salary -> flight_completed
+    # Only write the Pilot Salary Payout transaction to the ledger
     db.add(LiveCurrencyTransaction(
         pilot_id=pilot_id,
         amount=int(salary),
@@ -930,16 +916,7 @@ async def record_ledger_rows(
         description=f"Flight salary payout {desc_suffix}"
     ))
 
-    # 4. Flight Reputation -> lift_boost
-    db.add(LiveCurrencyTransaction(
-        pilot_id=pilot_id,
-        amount=int(reputation),
-        transaction_type="lift_boost",
-        reference_id=booking_id,
-        description=f"Flight reputation score {desc_suffix}"
-    ))
-
-    # 5. Credit Pilot Wallet
+    # Credit Pilot Wallet
     wallet_stmt = select(LiveCurrency).where(LiveCurrency.pilot_id == pilot_id)
     wallet = (await db.execute(wallet_stmt)).scalar_one_or_none()
     if not wallet:
@@ -948,6 +925,7 @@ async def record_ledger_rows(
         
     wallet.balance += int(salary)
     wallet.total_earned += int(salary)
+
 
 
 async def mark_no_show(db: AsyncSession, booking_id: int) -> LiveFlightBooking | None:

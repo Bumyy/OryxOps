@@ -22,7 +22,7 @@ from app.services.booking_service import (
     mark_no_show,
     take_over_booking,
     dispatch_booking,
-    lazy_check_payouts,
+    reconcile_all_payouts,
 )
 from app.services.pilot_utils import get_pilot_avatar
 
@@ -102,8 +102,8 @@ async def list_bookings(
     schedule_ids: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    if pilot_id:
-        await lazy_check_payouts(db, pilot_id)
+    # Reconcile payouts globally for all pilots
+    await reconcile_all_payouts(db)
 
     bookings = await get_bookings(db, pilot_id, schedule_id, status, group_id)
 

@@ -149,7 +149,6 @@ export default function App() {
           <Route path="/fleet/:id" element={<PilotAccessRoute><AircraftDetail /></PilotAccessRoute>} />
           <Route path="/bookings" element={<PilotAccessRoute><Bookings /></PilotAccessRoute>} />
           <Route path="/operations" element={<PilotAccessRoute><Operations /></PilotAccessRoute>} />
-          <Route path="/operations/track" element={<PilotAccessRoute><LiveTracker /></PilotAccessRoute>} />
           <Route path="/transfers" element={<PilotAccessRoute><Transfers /></PilotAccessRoute>} />
           <Route path="/shop" element={<PilotAccessRoute><Shop /></PilotAccessRoute>} />
           <Route path="/handbook" element={<Handbook />} />
@@ -157,6 +156,7 @@ export default function App() {
 
           {/* Admin Routes - Requires Admin Permission or Executive Callsign */}
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+          <Route path="/admin/track" element={<AdminRoute><LiveTracker /></AdminRoute>} />
           <Route path="/admin/pilots" element={<AdminRoute><AdminPilots /></AdminRoute>} />
           <Route path="/admin/groups" element={<AdminRoute><AdminGroups /></AdminRoute>} />
           <Route path="/admin/aircraft" element={<AdminRoute><AdminAircraft /></AdminRoute>} />

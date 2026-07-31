@@ -74,34 +74,75 @@ export default function LiveTracker() {
   const isFirstLoad = useRef(true);
   const idleTimerRef = useRef<any>(null);
 
-  // Determine booking ID: search query parameter or fallback to active user booking
+  // Active bookings in the system (all flying dispatched flights)
+  const [activeBookings, setActiveBookings] = useState<any[]>([]);
+
+  // Determine booking ID: search query parameter
   const bookingIdParam = searchParams.get("booking_id");
   const [resolvedBookingId, setResolvedBookingId] = useState<number | null>(
     bookingIdParam ? parseInt(bookingIdParam) : null
   );
 
-  // Fetch user's active booking if booking ID is not passed
+  // Load all active bookings (status == "booked" and dispatched) for the selector list
   useEffect(() => {
-    if (bookingIdParam) return;
-    
-    const fetchActiveBooking = async () => {
-      if (!user?.id) return;
+    const fetchActiveBookings = async () => {
       try {
-        const bookings = await api.get<any[]>(`/bookings?pilot_id=${user.id}&status=booked`);
-        const active = bookings.find((b) => b.status === "booked");
-        if (active) {
-          setResolvedBookingId(active.id);
-        } else {
-          setError("No active booked flight found to track. Go to Flight Operations to dispatch a booking.");
-          setLoading(false);
-        }
+        const bookings = await api.get<any[]>("/bookings?status=booked");
+        const dispatched = bookings.filter((b) => b.dispatched_at);
+        setActiveBookings(dispatched);
       } catch (err: any) {
-        setError(err.message || "Failed to load active booking.");
-        setLoading(false);
+        console.error("Failed to load active bookings:", err);
       }
     };
-    fetchActiveBooking();
-  }, [user, bookingIdParam]);
+    fetchActiveBookings();
+    
+    // Poll the active bookings list every 30 seconds
+    const interval = setInterval(fetchActiveBookings, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update resolvedBookingId and clean up states when search param updates
+  useEffect(() => {
+    if (bookingIdParam) {
+      setResolvedBookingId(parseInt(bookingIdParam));
+      setLoading(true);
+      setError(null);
+      setTelemetry(null);
+      isFirstLoad.current = true;
+    } else {
+      setResolvedBookingId(null);
+      setTelemetry(null);
+      setError("Please select an active flight to track.");
+      setLoading(false);
+    }
+  }, [bookingIdParam]);
+
+  // Clean up Leaflet map elements when resolvedBookingId changes to prevent overlap
+  useEffect(() => {
+    if (mapInstance.current) {
+      if (aircraftMarker.current) {
+        aircraftMarker.current.remove();
+        aircraftMarker.current = null;
+      }
+      if (depMarker.current) {
+        depMarker.current.remove();
+        depMarker.current = null;
+      }
+      if (arrMarker.current) {
+        arrMarker.current.remove();
+        arrMarker.current = null;
+      }
+      if (flownPolyline.current) {
+        flownPolyline.current.remove();
+        flownPolyline.current = null;
+      }
+      if (planPolyline.current) {
+        planPolyline.current.remove();
+        planPolyline.current = null;
+      }
+    }
+    isFirstLoad.current = true;
+  }, [resolvedBookingId]);
 
   // Activity tracker for Idle Detection (15 mins timeout)
   const resetIdleTimer = () => {
@@ -335,12 +376,12 @@ export default function LiveTracker() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <button
-            onClick={() => navigate("/operations")}
+            onClick={() => navigate("/admin")}
             className="text-xs font-bold text-gray-500 hover:text-brand flex items-center gap-1 mb-2 cursor-pointer transition-all"
           >
-            ← Back to Flight Operations
+            ← Back to Admin
           </button>
-          <h1 className="text-4xl font-extrabold text-brand tracking-tight">Live Flight Tracker</h1>
+          <h1 className="text-4xl font-extrabold text-brand tracking-tight">Live Telemetry Tracker</h1>
           <p className="text-gray-500 text-sm mt-0.5">Enroute tracking telemetry powered by Infinite Flight Live API.</p>
         </div>
 
@@ -359,11 +400,49 @@ export default function LiveTracker() {
         )}
       </div>
 
+      {/* Selector panel for Admin */}
+      <div className="bg-white dark:bg-slate-900 border border-brand-border/60 rounded-3xl p-5 shadow-xs max-w-xl flex flex-col gap-2 no-print">
+        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Active Dispatched Flights</label>
+        {activeBookings.length === 0 ? (
+          <div className="text-sm text-gray-400 italic">No pilots are currently enroute.</div>
+        ) : (
+          <select
+            value={resolvedBookingId || ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val) {
+                navigate(`/admin/track?booking_id=${val}`);
+              } else {
+                navigate(`/admin/track`);
+              }
+            }}
+            className="w-full p-3.5 rounded-2xl border border-brand-border bg-slate-50 dark:bg-slate-800 text-sm font-bold focus:outline-none focus:border-brand"
+          >
+            <option value="">-- Select a flight to track --</option>
+            {activeBookings.map((b) => (
+              <option key={b.id} value={b.id}>
+                ✈️ {b.flight_number} ({b.flight_departure} ➔ {b.flight_arrival}) - Pilot Callsign: {b.departure_pilot_callsign || b.arrival_pilot_callsign || "Unknown"}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
       {/* Main UI Layout */}
       {loading ? (
         <div className="bg-white dark:bg-slate-900 border border-brand-border/60 rounded-3xl p-12 text-center flex flex-col items-center justify-center space-y-4 shadow-sm h-[600px]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand" />
           <p className="text-gray-500 text-sm font-semibold">Establishing telemetry connection...</p>
+        </div>
+      ) : !resolvedBookingId ? (
+        <div className="bg-white dark:bg-slate-900 border border-brand-border/60 rounded-3xl p-12 text-center text-gray-500 shadow-sm flex flex-col items-center justify-center space-y-3 h-[400px]">
+          <div className="w-16 h-16 rounded-full bg-brand/10 text-brand flex items-center justify-center text-3xl mb-2">
+            📡
+          </div>
+          <p className="text-base font-bold text-gray-800 dark:text-gray-200">No Flight Selected</p>
+          <p className="text-xs text-gray-400 max-w-sm mx-auto">
+            Choose an active dispatched flight from the dropdown menu above to begin tracking enroute telemetry.
+          </p>
         </div>
       ) : error ? (
         <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/40 rounded-3xl p-12 text-center text-gray-500 shadow-sm">
@@ -373,10 +452,10 @@ export default function LiveTracker() {
           <p className="text-base font-bold text-gray-800 dark:text-gray-200">Tracking Offline</p>
           <p className="text-xs text-gray-400 mt-2 max-w-md mx-auto">{error}</p>
           <button
-            onClick={() => navigate("/operations")}
+            onClick={() => navigate("/admin")}
             className="mt-6 bg-brand hover:bg-brand-dark text-white font-black text-xs px-6 py-3 rounded-2xl shadow transition-all cursor-pointer"
           >
-            Return to Operations
+            Go to Admin Dashboard
           </button>
         </div>
       ) : telemetry ? (
