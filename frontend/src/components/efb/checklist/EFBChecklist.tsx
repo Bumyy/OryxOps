@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAppSelector } from "../../../store/hooks";
+import { safeRender, safeString } from "../../../utils/safeRender";
 
 export interface EFBChecklistProps {
   compiledChecklist: any[];
@@ -572,9 +573,9 @@ export default function EFBChecklist({
                               <tbody className="divide-y divide-gray-100 font-mono">
                                 {rows.map((row: string[], rIdx: number) => (
                                   <tr key={rIdx} className="hover:bg-gray-50/50">
-                                    {row.map((cell: string, cIdx: number) => (
+                                    {row.map((cell: any, cIdx: number) => (
                                       <td key={cIdx} className="p-2.5 text-gray-700">
-                                        {cell}
+                                        {safeRender(cell)}
                                       </td>
                                     ))}
                                   </tr>
@@ -604,11 +605,11 @@ export default function EFBChecklist({
                               <span className={`text-sm font-bold transition-colors truncate ${
                                 isChecked ? "text-gray-400 line-through font-semibold" : "text-gray-800"
                               }`}>
-                                {item.text}
+                                {safeRender(item.text)}
                               </span>
                               {item.remarks && (
                                 <span className="text-[10px] text-gray-400 font-bold mt-0.5 tracking-wide">
-                                  {item.remarks}
+                                  {safeRender(item.remarks)}
                                 </span>
                               )}
                             </div>
@@ -619,10 +620,10 @@ export default function EFBChecklist({
                                 ? "bg-gray-50 text-gray-300 border-gray-150"
                                 : "bg-brand-pale text-brand border-brand-border"
                             }`}>
-                              {item.value}
+                              {safeRender(item.value)}
                             </span>
                             <button
-                              onClick={() => announceChecklistItem(item.text, item.value)}
+                              onClick={() => announceChecklistItem(safeString(item.text), safeString(item.value))}
                               className={`p-2 rounded-xl transition-all border ${
                                 isChecked
                                   ? "text-gray-300 border-transparent bg-transparent"

@@ -12,6 +12,7 @@ import EFBCharts from "../components/efb/charts/EFBCharts";
 import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchBookings, dispatchBooking, completeBooking, cancelBooking } from "../store/slices/bookingSlice";
+import { safeRender, safeString } from "../utils/safeRender";
 
 
 export default function EFB() {
@@ -216,25 +217,27 @@ export default function EFB() {
     return `${h}h ${m}m`;
   };
 
-  const formatTimestampToTime = (timestampStr?: string) => {
-    if (!timestampStr) return "—";
-    const ts = parseInt(timestampStr);
+  const formatTimestampToTime = (timestampStr?: any) => {
+    const str = safeString(timestampStr);
+    if (!str) return "—";
+    const ts = parseInt(str, 10);
     if (isNaN(ts)) return "—";
     return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) + ' UTC';
   };
 
-  const formatWeight = (value?: string, unit?: string) => {
-    if (!value) return "—";
-    const displayUnit = unit ? ` ${unit.toUpperCase()}` : "";
-    return `${value}${displayUnit}`;
+  const formatWeight = (value?: any, unit?: string) => {
+    const str = safeString(value);
+    if (!str) return "—";
+    const displayUnit = unit && typeof unit === "string" ? ` ${unit.toUpperCase()}` : "";
+    return `${str}${displayUnit}`;
   };
 
   // Dynamic Variable Calculations for Checklist
   const getCalculatedLoad = () => {
     if (!ofpData) return manualLoad;
-    const payload = parseFloat(ofpData.weights?.payload);
-    const maxTow = parseFloat(ofpData.weights?.max_tow);
-    const oew = parseFloat(ofpData.weights?.oew);
+    const payload = parseFloat(safeString(ofpData.weights?.payload));
+    const maxTow = parseFloat(safeString(ofpData.weights?.max_tow));
+    const oew = parseFloat(safeString(ofpData.weights?.oew));
     if (!isNaN(payload) && !isNaN(maxTow) && !isNaN(oew) && maxTow - oew > 0) {
       return Math.min(100, Math.max(0, Math.round((payload / (maxTow - oew)) * 100)));
     }
@@ -245,8 +248,8 @@ export default function EFB() {
 
   const getFlightDirection = () => {
     if (!ofpData) return calculatedDirection;
-    const depLon = parseFloat(ofpData.origin?.pos_long);
-    const arrLon = parseFloat(ofpData.destination?.pos_long);
+    const depLon = parseFloat(safeString(ofpData.origin?.pos_long));
+    const arrLon = parseFloat(safeString(ofpData.destination?.pos_long));
     if (isNaN(depLon) || isNaN(arrLon)) return "east";
     let diff = arrLon - depLon;
     if (Math.abs(diff) > 180) {
@@ -343,19 +346,19 @@ export default function EFB() {
     const perf = getPerformanceData();
     const placeholders: Record<string, string> = {
       load_percentage: String(activeLoad),
-      cruise_altitude: perf.cruise_altitude,
-      takeoff_flaps: perf.takeoff_flaps,
-      n1_target: perf.n1_target,
-      vr_speed: perf.vr_speed,
-      va_speed: perf.va_speed,
-      initial_climb_vs: perf.initial_climb_vs,
-      vs_5k: perf.vs_5k,
-      vs_15k: perf.vs_15k,
-      vs_24k: perf.vs_24k,
-      initial_speed: perf.initial_speed,
-      accel_speed_10k: perf.accel_speed_10k,
-      mach_transition_alt: perf.mach_transition_alt,
-      mach_speed: perf.mach_speed
+      cruise_altitude: safeString(perf.cruise_altitude, "FL350"),
+      takeoff_flaps: safeString(perf.takeoff_flaps, "1"),
+      n1_target: safeString(perf.n1_target, "90%"),
+      vr_speed: safeString(perf.vr_speed, "140"),
+      va_speed: safeString(perf.va_speed, "145"),
+      initial_climb_vs: safeString(perf.initial_climb_vs, "2200"),
+      vs_5k: safeString(perf.vs_5k, "1800"),
+      vs_15k: safeString(perf.vs_15k, "1400"),
+      vs_24k: safeString(perf.vs_24k, "1000"),
+      initial_speed: safeString(perf.initial_speed, "250"),
+      accel_speed_10k: safeString(perf.accel_speed_10k, "280"),
+      mach_transition_alt: safeString(perf.mach_transition_alt, "FL280"),
+      mach_speed: safeString(perf.mach_speed, "0.80")
     };
 
     return checklistTemplate.checklist.map((section: any, sIdx: number) => {

@@ -1,7 +1,8 @@
 import React from "react";
+import { safeRender, safeString } from "../../../utils/safeRender";
 
 export const getSimBriefAircraftType = (type: string | undefined): string => {
-  const clean = (type || "").trim().toUpperCase();
+  const clean = safeString(type).toUpperCase();
   const mapping: Record<string, string> = {
     "A330": "A333",
     "A350": "A359",
@@ -66,7 +67,7 @@ function BriefingField({
         className={`text-sm font-bold leading-tight ${mono ? "font-mono" : ""} ${highlight ? "text-yellow-400 dark:text-yellow-300" : ""}`}
         style={highlight ? {} : { color: "var(--text-main)" }}
       >
-        {value || "—"}
+        {safeRender(value)}
       </span>
     </div>
   );
@@ -101,7 +102,7 @@ function MetricRow({
         }`}
         style={accent ? {} : { color: "var(--text-main)" }}
       >
-        {value || "—"}
+        {safeRender(value)}
       </span>
     </div>
   );
