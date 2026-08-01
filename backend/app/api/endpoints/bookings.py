@@ -295,5 +295,8 @@ async def download_pay_slip_pdf(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate pay slip PDF: {str(e)}")
+        import traceback
+        logger.error(f"Error generating PDF for booking #{booking_id}: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
 
