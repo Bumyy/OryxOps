@@ -18,6 +18,7 @@ logger.info(f"Loaded CORS origins: {origins}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.qatarivirtual\.xyz|http://localhost:.*|http://127\.0\.0\.1:.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
