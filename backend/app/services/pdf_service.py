@@ -507,49 +507,10 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int, pilot_id: 
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(salary_box)
-    story.append(Spacer(1, 10))
-
-    # ─── AUTHORIZATION & FLEET MANAGER SIGNATURE ─────────────────────────────
-    sig_path = os.path.join(assets_dir, "fleet_manager_signature.png")
-    if not os.path.exists(sig_path):
-        sig_path = os.path.join(root_dir, "frontend", "public", "fleet_manager_signature.png")
-
-    sig_img = None
-    if os.path.exists(sig_path):
-        try:
-            sig_img = Image(sig_path, width=1.4 * inch, height=0.45 * inch)
-            sig_img.hAlign = 'RIGHT'
-        except Exception:
-            sig_img = None
-
-    sig_cell = []
-    if sig_img:
-        sig_cell.append(sig_img)
-        sig_cell.append(Spacer(1, 1))
-    
-    sig_cell.append(HRFlowable(width="100%", thickness=0.8, color=MAROON, spaceAfter=2))
-    sig_cell.append(Paragraph("Fleet Operations Manager", ParagraphStyle('SigRole', fontName='Helvetica-Bold', fontSize=8, textColor=MAROON, alignment=2, leading=10)))
-    sig_cell.append(Paragraph("Qatari Virtual Operations Center", ParagraphStyle('SigSub', fontName='Helvetica', fontSize=7, textColor=MUTED_TEXT, alignment=2, leading=9)))
-
-    auth_info = [
-        Paragraph("<b>OFFICIAL DISPATCH & PAYROLL VERIFICATION</b>", ParagraphStyle('AuthHead', fontName='Helvetica-Bold', fontSize=8, textColor=MAROON, leading=11)),
-        Spacer(1, 2),
-        Paragraph("Approved & verified under Qatari Virtual Airline Operating Regulations.", ParagraphStyle('AuthBody', fontName='Helvetica', fontSize=7.5, textColor=MUTED_TEXT, leading=10)),
-    ]
-
-    sig_table = Table([[auth_info, sig_cell]], colWidths=[CONTENT_W * 0.60, CONTENT_W * 0.40])
-    sig_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    story.append(sig_table)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 14))
 
     # ─── FOOTER ──────────────────────────────────────────────────────────────
-    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER_GRAY, spaceAfter=4))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER_GRAY, spaceAfter=6))
     story.append(Paragraph("Thank you for flying with Qatari Virtual ✈", styles['thank_you']))
 
     doc.build(story)
