@@ -278,12 +278,13 @@ async def take_over_booking_route(
 @router.get("/{booking_id}/pdf")
 async def download_pay_slip_pdf(
     booking_id: int,
+    pilot_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     from fastapi.responses import Response
     from app.services.pdf_service import build_pay_slip_pdf_bytes
     try:
-        pdf_bytes = await build_pay_slip_pdf_bytes(db, booking_id)
+        pdf_bytes = await build_pay_slip_pdf_bytes(db, booking_id, pilot_id=pilot_id)
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",

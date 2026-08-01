@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Fragment } from "react";
+import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   fetchSchedules, createSchedule, updateSchedule, deleteSchedule,
@@ -347,12 +347,66 @@ export default function Calendar() {
     return blocks;
   }, [filteredSchedules, errorSet, groundSet]);
 
+  const isPastDay = (colIdx: number) => {
+    const dt = new Date(weekStart + "T00:00:00Z");
+    dt.setUTCDate(dt.getUTCDate() + colIdx);
+    const today = new Date();
+    const todayStr = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
+    const cellStr = dt.toISOString().split("T")[0];
+    return cellStr < todayStr;
+  };
+
+  const qualifiedTypeIds = useMemo(() => {
+    const set = new Set<number>();
+    (currentPilot?.careers ?? []).forEach((c: any) => {
+      if (c.selected_aircraft_ids) {
+        c.selected_aircraft_ids.split(",").forEach((id: string) => {
+          const n = parseInt(id.trim(), 10);
+          if (!isNaN(n)) set.add(n);
+        });
+      }
+    });
+    return set;
+  }, [currentPilot]);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isCurrentWeek && scrollContainerRef.current) {
+      const today = new Date();
+      const utcDayIndex = today.getUTCDay() === 0 ? 6 : today.getUTCDay() - 1;
+      const targetDayIndex = Math.max(0, utcDayIndex - 1);
+      const targetElem = scrollContainerRef.current.querySelector(`[data-day-col="${targetDayIndex}"]`) as HTMLElement;
+      if (targetElem) {
+        const yAxisWidth = window.innerWidth >= 768 ? 220 : 100;
+        const scrollPos = Math.max(0, targetElem.offsetLeft - yAxisWidth);
+        scrollContainerRef.current.scrollLeft = scrollPos;
+      }
+    }
+  }, [weekStart, isCurrentWeek, loading, viewMode]);
+
   function refreshSchedules() { if (activeGroup) { dispatch(fetchSchedules({ group_id: activeGroup, week_start: weekStart, status: "all" })); } }
 
   async function openPopup(day: number, hour: number, preselectedAcId?: number) {
+    if (isPastDay(day)) {
+      alert("Cannot schedule flights for past dates.");
+      return;
+    }
     const pid = preselectedAcId ?? (filterAircraftId > 0 ? filterAircraftId : 0);
+
+    if (pid > 0 && qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin) {
+      const targetAc = airframes.find(a => a.id === pid);
+      if (targetAc && !qualifiedTypeIds.has(targetAc.aircraft_type_id)) {
+        const assignedNames = Array.from(qualifiedTypeIds)
+          .map(id => types.find(t => t.id === id)?.name)
+          .filter(Boolean)
+          .join(", ");
+        alert(`Aircraft Qualification Locked:\n\nYou are qualified to schedule [${assignedNames || "assigned aircraft"}]. You cannot draft flights for ${targetAc.registration}.`);
+        return;
+      }
+    }
+
     setSelAircraftId(pid); setSelRouteId(0); setSelTime(`${String(hour).padStart(2, "0")}:00`); setSelGroundTime(60); setSelOverrideDep(""); setAvailableRoutes([]); setEditingSchedule(null);
-    // If a specific aircraft is pre-selected, skip straight to step 2
     if (pid > 0) {
       setCreateStep(2);
     } else {
@@ -379,6 +433,10 @@ export default function Calendar() {
 
   async function doCreate() {
     if (!activeGroup || !selAircraftId || !selRouteId || !popup) return;
+    if (isPastDay(popup.day)) {
+      alert("Cannot schedule flights for past dates.");
+      return;
+    }
     if (selOverrideDep && selOverrideDep.trim().length !== 4) {
       alert("Override Dep ICAO must be a 4-letter uppercase code (e.g. EGLL).");
       return;
@@ -388,8 +446,28 @@ export default function Calendar() {
     const ws = new Date(weekStart + "T00:00:00Z"); ws.setUTCDate(ws.getUTCDate() + popup.day);
     const dd = new Date(`${ws.toISOString().split("T")[0]}T${selTime}:00Z`);
     const ad = new Date(dd.getTime() + r.duration * 1000);
-    await dispatch(createSchedule({ group_id: activeGroup, aircraft_id: selAircraftId, route_id: r.id, departure: depIcao, arrival: r.arr, flight_number: r.fltnum?.split(",")[0]?.trim() || null, scheduled_departure: dd.toISOString().slice(0, 19), scheduled_arrival: ad.toISOString().slice(0, 19), week_start: weekStart, ground_time_minutes: selGroundTime }));
-    setPopup(null); setSelOverrideDep(""); refreshSchedules();
+
+    const res = await dispatch(createSchedule({
+      group_id: activeGroup,
+      aircraft_id: selAircraftId,
+      route_id: r.id,
+      departure: depIcao,
+      arrival: r.arr,
+      flight_number: r.fltnum?.split(",")[0]?.trim() || null,
+      scheduled_departure: dd.toISOString().slice(0, 19),
+      scheduled_arrival: ad.toISOString().slice(0, 19),
+      week_start: weekStart,
+      ground_time_minutes: selGroundTime
+    }));
+
+    if (createSchedule.fulfilled.match(res)) {
+      setPopup(null);
+      setSelOverrideDep("");
+      refreshSchedules();
+    } else {
+      const errMsg = (res.payload as string) || res.error?.message || "Failed to create schedule";
+      alert("Schedule Creation Failed:\n\n" + errMsg);
+    }
   }
 
   function handleDragStart(e: React.DragEvent, id: number) { e.dataTransfer.setData("scheduleId", String(id)); e.dataTransfer.effectAllowed = "move"; const el = e.currentTarget as HTMLElement; el.style.opacity = "0.15"; requestAnimationFrame(() => { el.style.pointerEvents = "none"; }); }
@@ -697,7 +775,7 @@ export default function Calendar() {
           )}
           {viewMode === "calendar" ? (
           /* CALENDAR GRID VIEW */
-          <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-auto max-h-[75vh] -mx-2 md:mx-0">
+          <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-auto max-h-[75vh] -mx-2 md:mx-0" ref={scrollContainerRef}>
             <div className="grid grid-cols-[45px_repeat(7,minmax(85px,1fr))] md:grid-cols-[70px_repeat(7,minmax(120px,1fr))] relative z-0 min-w-[700px] md:min-w-[900px]" style={{ minHeight: HEADER_HEIGHT + 24 * HOUR_HEIGHT }}>
               {/* UTC Top-Left Corner Cell */}
               <div className="border-b border-r border-brand-border bg-brand-pale p-2 text-[10px] font-bold text-gray-500 text-center sticky left-0 top-0 z-40 flex items-center justify-center" style={{ height: HEADER_HEIGHT }}>UTC</div>
@@ -707,7 +785,7 @@ export default function Calendar() {
                 const dt = new Date(weekStart + "T00:00:00Z");
                 dt.setUTCDate(dt.getUTCDate() + i);
                 return (
-                  <div key={`h-${d}`} className="border-b border-r border-brand-border bg-brand-pale p-2 text-[10px] font-bold text-gray-500 text-center sticky top-0 z-30 flex items-center justify-center" style={{ height: HEADER_HEIGHT }}>
+                  <div key={`h-${d}`} data-day-col={i} className="border-b border-r border-brand-border bg-brand-pale p-2 text-[10px] font-bold text-gray-500 text-center sticky top-0 z-30 flex items-center justify-center" style={{ height: HEADER_HEIGHT }}>
                     {d} {dt.getUTCDate()}/{dt.getUTCMonth() + 1}
                   </div>
                 );
@@ -719,9 +797,27 @@ export default function Calendar() {
                   <div className="border-b border-r border-brand-border p-1 text-[9px] text-gray-500 text-center font-mono bg-brand-pale flex items-center justify-center sticky left-0 z-20" style={{ height: HOUR_HEIGHT }}>
                     {String(h).padStart(2, "0")}:00
                   </div>
-                  {days.map((_, di) => (
-                    <div key={`cell-${di}-${h}`} onClick={() => openPopup(di, h)} onDragOver={handleDragOver} onDrop={e => handleDrop(e, di, h)} className="border-b border-r border-brand-border cursor-pointer hover:bg-brand-hover-bg/40 transition-colors" style={{ height: HOUR_HEIGHT }} />
-                  ))}
+                  {days.map((_, di) => {
+                    const isPast = isPastDay(di);
+                    return (
+                      <div
+                        key={`cell-${di}-${h}`}
+                        onClick={() => {
+                          if (isPast) {
+                            alert("Cannot schedule flights for past dates.");
+                            return;
+                          }
+                          openPopup(di, h);
+                        }}
+                        onDragOver={isPast ? undefined : handleDragOver}
+                        onDrop={isPast ? undefined : (e => handleDrop(e, di, h))}
+                        className={`border-b border-r border-brand-border transition-colors ${
+                          isPast ? "bg-gray-100/30 cursor-not-allowed" : "cursor-pointer hover:bg-brand-hover-bg/40"
+                        }`}
+                        style={{ height: HOUR_HEIGHT }}
+                      />
+                    );
+                  })}
                 </Fragment>
               ))}
 
@@ -929,7 +1025,7 @@ export default function Calendar() {
           </div>
         ) : (
           /* LIST VIEW: Aircraft Matrix Grid (Y-axis: Fleet Airframe | X-axis: Dates Mon-Sun) */
-          <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-auto max-h-[75vh] -mx-2 md:mx-0">
+          <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-auto max-h-[75vh] -mx-2 md:mx-0" ref={scrollContainerRef}>
             {(() => {
               const listAirframes = filterAircraftId > 0
                 ? airframes.filter(a => Number(a.id) === Number(filterAircraftId))
@@ -992,6 +1088,7 @@ export default function Calendar() {
                     return (
                       <div
                         key={`listh-${d}`}
+                        data-day-col={colIdx}
                         className={`border-b border-r border-brand-border p-2.5 text-center sticky top-0 z-30 flex flex-col items-center justify-between gap-1.5 transition-colors ${
                           isToday ? "bg-brand/10 text-brand" : "bg-brand-pale text-gray-600"
                         }`}
@@ -1008,14 +1105,24 @@ export default function Calendar() {
                           )}
                         </div>
 
-                        {/* Single + ADD FLIGHT Button in Top Header */}
-                        <button
-                          onClick={() => openPopup(colIdx, 12)}
-                          className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg border border-dashed border-brand-border text-brand/60 hover:text-brand hover:border-brand hover:bg-brand/5 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer"
-                        >
-                          <span className="text-xs font-black">+</span>
-                          <span>ADD FLIGHT</span>
-                        </button>
+                        {/* Single + ADD FLIGHT Button or Locked Badge for Past Dates */}
+                        {isPastDay(colIdx) ? (
+                          <div
+                            className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg border border-brand-border/40 text-gray-400/60 text-[9px] font-extrabold uppercase tracking-wider cursor-not-allowed select-none bg-brand-pale/40"
+                            title="Cannot schedule flights for past dates"
+                          >
+                            <span>🔒</span>
+                            <span>LOCKED</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => openPopup(colIdx, 12)}
+                            className="w-full flex items-center justify-center gap-1 py-1 px-2 rounded-lg border border-dashed border-brand-border text-brand/60 hover:text-brand hover:border-brand hover:bg-brand/5 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                          >
+                            <span className="text-xs font-black">+</span>
+                            <span>ADD FLIGHT</span>
+                          </button>
+                        )}
                       </div>
                     );
                   })}

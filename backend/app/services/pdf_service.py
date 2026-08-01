@@ -47,7 +47,7 @@ def _section_heading(title: str, style) -> list:
     return [Spacer(1, 8), Paragraph(title, style), HRFlowable(width="100%", thickness=0.5, color=BORDER_GRAY, spaceAfter=6)]
 
 
-async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
+async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int, pilot_id: int | None = None) -> bytes:
     """Fetches booking data from DB and returns rendered PDF as bytes."""
     stmt = (
         select(LiveFlightBooking)
@@ -63,19 +63,31 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
     sched_res = await db.execute(select(LiveFlightSchedule).where(LiveFlightSchedule.id == booking.schedule_id))
     sched = sched_res.scalars().first()
 
-    dep_pilot = None
-    if booking.departure_pilot_id:
-        dep_pilot_res = await db.execute(select(Pilot).where(Pilot.id == booking.departure_pilot_id))
-        dep_pilot = dep_pilot_res.scalars().first()
+    # Determine target pilot for pay slip (departure pilot vs arrival pilot)
+    target_pilot_id = None
+    if pilot_id in (booking.departure_pilot_id, booking.arrival_pilot_id):
+        target_pilot_id = pilot_id
+    else:
+        target_pilot_id = booking.departure_pilot_id or booking.arrival_pilot_id
 
-    arr_pilot = None
-    if booking.arrival_pilot_id and booking.arrival_pilot_id != booking.departure_pilot_id:
-        arr_pilot_res = await db.execute(select(Pilot).where(Pilot.id == booking.arrival_pilot_id))
-        arr_pilot = arr_pilot_res.scalars().first()
+    is_target_arrival = (target_pilot_id == booking.arrival_pilot_id) and (booking.arrival_pilot_id != booking.departure_pilot_id)
 
+    primary_pilot = None
+    if target_pilot_id:
+        p_res = await db.execute(select(Pilot).where(Pilot.id == target_pilot_id))
+        primary_pilot = p_res.scalars().first()
+
+    other_pilot_id = booking.departure_pilot_id if is_target_arrival else booking.arrival_pilot_id
+    other_pilot = None
+    if other_pilot_id and other_pilot_id != target_pilot_id:
+        op_res = await db.execute(select(Pilot).where(Pilot.id == other_pilot_id))
+        other_pilot = op_res.scalars().first()
+
+    # Fetch PIREP for target pilot
     dep_pirep = None
-    if booking.departure_pirep_id:
-        pirep_res = await db.execute(select(Pirep).where(Pirep.id == booking.departure_pirep_id))
+    pirep_id_to_fetch = (booking.arrival_pirep_id if is_target_arrival else booking.departure_pirep_id) or booking.departure_pirep_id or booking.arrival_pirep_id
+    if pirep_id_to_fetch:
+        pirep_res = await db.execute(select(Pirep).where(Pirep.id == pirep_id_to_fetch))
         dep_pirep = pirep_res.scalars().first()
 
     live_ac = None
@@ -89,12 +101,12 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
 
     # Pilot Career Details
     career_path_name = "Standard Operations"
-    rank_name = f"Grade {dep_pilot.grade}" if dep_pilot and dep_pilot.grade else "Pilot"
+    rank_name = f"Grade {primary_pilot.grade}" if primary_pilot and primary_pilot.grade else "Pilot"
 
-    if dep_pilot:
+    if primary_pilot:
         pc_res = await db.execute(
             select(LivePilotCareer)
-            .where(LivePilotCareer.pilot_id == dep_pilot.id)
+            .where(LivePilotCareer.pilot_id == primary_pilot.id)
             .order_by(desc(LivePilotCareer.id))
             .limit(1)
         )
@@ -139,15 +151,29 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
     rep_score = float(booking.reputation_score or 0.0)
     dispatched_str = booking.dispatched_at.strftime("%d %b %Y, %H:%M UTC") if booking.dispatched_at else "N/A"
 
-    callsign_str = dep_pilot.callsign if dep_pilot and dep_pilot.callsign else "QRV000"
-    pilot_name = dep_pilot.name if dep_pilot else "Unknown"
-    flight_mode_str = "Solo Flight (Full Leg)" if is_solo else f"Split Flight (Landing: {arr_pilot.name if arr_pilot else 'N/A'})"
-    reviewer_id = dep_pirep.acceptedid if dep_pirep and dep_pirep.acceptedid else "Auto-Approved"
+    callsign_str = primary_pilot.callsign if primary_pilot and primary_pilot.callsign else "QRV000"
+    pilot_name = primary_pilot.name if primary_pilot else "Unknown"
+    
+    if is_solo:
+        flight_mode_str = "Solo Flight (Full Leg)"
+    elif is_target_arrival:
+        flight_mode_str = f"Split Flight (Departure: {other_pilot.name if other_pilot else 'N/A'})"
+    else:
+        flight_mode_str = f"Split Flight (Landing: {other_pilot.name if other_pilot else 'N/A'})"
+    
+    reviewer_name = "Auto-Approved"
+    if dep_pirep and dep_pirep.acceptedid and dep_pirep.acceptedid != 0:
+        rev_res = await db.execute(select(Pilot).where(Pilot.id == dep_pirep.acceptedid))
+        rev_pilot = rev_res.scalars().first()
+        if rev_pilot:
+            reviewer_name = f"{rev_pilot.name} ({rev_pilot.callsign})" if rev_pilot.callsign else rev_pilot.name
+        else:
+            reviewer_name = f"Staff #{dep_pirep.acceptedid}"
 
     # ─── Document Setup ──────────────────────────────────────────────────────
     buffer = io.BytesIO()
     PAGE_W, PAGE_H = letter
-    MARGIN = 0.45 * inch
+    MARGIN = 0.35 * inch
     CONTENT_W = PAGE_W - 2 * MARGIN
 
     doc = SimpleDocTemplate(
@@ -215,13 +241,34 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
 
     story = []
 
-    # ─── HEADER (CENTERED, NO LOGO) ──────────────────────────────────────────
-    story.append(Paragraph("ORYXOPS", styles['brand_title']))
-    story.append(Paragraph("QATARI VIRTUAL", styles['brand_subtitle']))
-    story.append(Spacer(1, 10))
+    # ─── HEADER (COLOR LOGO) ──────────────────────────────────────────────────
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    assets_dir = os.path.join(os.path.dirname(this_dir), "assets")
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(this_dir)))
+
+    logo_path = os.path.join(assets_dir, "oryxops_logo_colored.png")
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(root_dir, "frontend", "public", "oryxops_logo_colored.png")
+
+    logo_img = None
+    if os.path.exists(logo_path):
+        try:
+            logo_img = Image(logo_path, width=2.4 * inch, height=0.65 * inch)
+            logo_img.hAlign = 'CENTER'
+        except Exception:
+            logo_img = None
+
+    if logo_img:
+        story.append(logo_img)
+        story.append(Spacer(1, 6))
+    else:
+        story.append(Paragraph("ORYXOPS", styles['brand_title']))
+        story.append(Paragraph("QATARI VIRTUAL", styles['brand_subtitle']))
+        story.append(Spacer(1, 6))
+
     story.append(Paragraph("PILOT FLIGHT PAY SLIP", styles['doc_title_centered']))
     story.append(Paragraph(f"Season Operations  ·  Booking Leg #{booking.id}", styles['airline_centered']))
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 8))
 
     # Reference info block (horizontal, 3-column table)
     ref_data = [
@@ -255,19 +302,19 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
         [
             Paragraph(f"<b>{pilot_name}</b>", styles['val']),
             Paragraph(f"<b>{callsign_str}</b>", styles['val']),
-            Paragraph(f"#{dep_pilot.id if dep_pilot else 'N/A'}", styles['val']),
+            Paragraph(f"#{primary_pilot.id if primary_pilot else 'N/A'}", styles['val']),
             Paragraph(rank_name, styles['val']),
         ],
         [
-            Paragraph("SIMBRIEF ID", styles['tbl_header']),
             Paragraph("CAREER PATH", styles['tbl_header']),
             Paragraph("FLIGHT MODE", styles['tbl_header']),
             Paragraph("", styles['tbl_header']),
+            Paragraph("", styles['tbl_header']),
         ],
         [
-            Paragraph(str(dep_pilot.simbrief_id) if dep_pilot and dep_pilot.simbrief_id else "—", styles['val']),
             Paragraph(career_path_name, styles['val']),
             Paragraph(flight_mode_str, styles['val']),
+            Paragraph("", styles['val']),
             Paragraph("", styles['val']),
         ],
     ]
@@ -280,17 +327,17 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
         ('LINEBELOW', (0, 1), (-1, 1), 0.5, BORDER_GRAY),
         ('LINEBELOW', (0, 2), (-1, 2), 0.5, BORDER_GRAY),
         ('BOX', (0, 0), (-1, -1), 0.8, BORDER_GRAY),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     story.append(crew_table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
 
     # ─── FLIGHT OPERATIONS RECORD ────────────────────────────────────────────
     story.append(Paragraph("FLIGHT OPERATIONS RECORD", styles['section']))
-    story.append(HRFlowable(width="100%", thickness=0.4, color=BORDER_GRAY, spaceAfter=6))
+    story.append(HRFlowable(width="100%", thickness=0.4, color=BORDER_GRAY, spaceAfter=4))
 
     dep_icao = sched.departure if sched else "???"
     arr_icao = sched.arrival if sched else "???"
@@ -301,6 +348,8 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
     livery = ac_type.liveryname if ac_type and hasattr(ac_type, 'liveryname') and ac_type.liveryname else "Standard Livery"
     pax = booking.pax_count or 0
     fuel = dep_pirep.fuelused if dep_pirep and dep_pirep.fuelused else 0
+
+    pirep_id_display = f"#{dep_pirep.id}" if dep_pirep and dep_pirep.id else (f"#{pirep_id_to_fetch}" if pirep_id_to_fetch else "—")
 
     ops_data = [
         [
@@ -316,39 +365,37 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
             Paragraph(ac_reg, styles['val']),
         ],
         [
+            Paragraph("PIREP ID", styles['tbl_header']),
             Paragraph("LIVERY", styles['tbl_header']),
             Paragraph("PASSENGERS", styles['tbl_header']),
             Paragraph("FUEL BURNED", styles['tbl_header']),
-            Paragraph("", styles['tbl_header']), # Spanned
         ],
         [
+            Paragraph(f"<b>{pirep_id_display}</b>", styles['val']),
             Paragraph(livery, styles['val']),
             Paragraph(f"{pax} Pax", styles['val']),
             Paragraph(f"{fuel:,} kg", styles['val']),
-            Paragraph("", styles['val']), # Spanned
         ],
     ]
     ops_table = Table(ops_data, colWidths=[col_w, col_w, col_w, col_w])
     ops_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), BG_HEADER_ROW),
         ('BACKGROUND', (0, 2), (-1, 2), BG_HEADER_ROW),
-        ('SPAN', (2, 2), (3, 2)),
-        ('SPAN', (2, 3), (3, 3)),
         ('LINEBELOW', (0, 0), (-1, 0), 0.5, BORDER_GRAY),
         ('LINEBELOW', (0, 1), (-1, 1), 0.5, BORDER_GRAY),
         ('LINEBELOW', (0, 2), (-1, 2), 0.5, BORDER_GRAY),
         ('BOX', (0, 0), (-1, -1), 0.8, BORDER_GRAY),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     story.append(ops_table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
 
     # ─── PERFORMANCE METRICS ─────────────────────────────────────────────────
     story.append(Paragraph("PERFORMANCE METRICS", styles['section']))
-    story.append(HRFlowable(width="100%", thickness=0.4, color=BORDER_GRAY, spaceAfter=6))
+    story.append(HRFlowable(width="100%", thickness=0.4, color=BORDER_GRAY, spaceAfter=4))
 
     perf_data = [
         [
@@ -360,7 +407,7 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
         [
             Paragraph(f"<b>{fpm} FPM</b>", styles['val']),
             Paragraph(smoothness_label, styles['val']),
-            Paragraph(f"Staff #{reviewer_id}", styles['val']),
+            Paragraph(reviewer_name, styles['val']),
             Paragraph(f"<b>{rep_score:.2f} / 5.00</b>", styles['val']),
         ],
     ]
@@ -369,17 +416,17 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
         ('BACKGROUND', (0, 0), (-1, 0), BG_HEADER_ROW),
         ('LINEBELOW', (0, 0), (-1, 0), 0.5, BORDER_GRAY),
         ('BOX', (0, 0), (-1, -1), 0.8, BORDER_GRAY),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     story.append(perf_table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
 
     # ─── FINANCIAL STATEMENT (DUAL CURRENCY QAR & USD) ──────────────────────
     story.append(Paragraph("FINANCIAL STATEMENT", styles['section']))
-    story.append(HRFlowable(width="100%", thickness=0.4, color=BORDER_GRAY, spaceAfter=6))
+    story.append(HRFlowable(width="100%", thickness=0.4, color=BORDER_GRAY, spaceAfter=4))
 
     share_label = "10% — Solo (Full Leg)" if is_solo else "5% — Split (Half Leg)"
     
@@ -429,13 +476,13 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
         ('LINEBELOW', (0, 3), (-1, 3), 1, colors.HexColor("#D1D5DB")),
         ('LINEBELOW', (0, 4), (-1, 4), 0.5, BORDER_GRAY),
         ('BOX', (0, 0), (-1, -1), 0.8, BORDER_GRAY),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     story.append(fin_table)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 8))
 
     # ─── SALARY TOTAL BOX (DUAL CURRENCY) ────────────────────────────────────
     sal_label = Paragraph(
@@ -453,25 +500,56 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int) -> bytes:
     salary_box.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 1.5, MAROON),
         ('LINEAFTER', (0, 0), (0, 0), 0.5, BORDER_GRAY),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(salary_box)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 10))
+
+    # ─── AUTHORIZATION & FLEET MANAGER SIGNATURE ─────────────────────────────
+    sig_path = os.path.join(assets_dir, "fleet_manager_signature.png")
+    if not os.path.exists(sig_path):
+        sig_path = os.path.join(root_dir, "frontend", "public", "fleet_manager_signature.png")
+
+    sig_img = None
+    if os.path.exists(sig_path):
+        try:
+            sig_img = Image(sig_path, width=1.4 * inch, height=0.45 * inch)
+            sig_img.hAlign = 'RIGHT'
+        except Exception:
+            sig_img = None
+
+    sig_cell = []
+    if sig_img:
+        sig_cell.append(sig_img)
+        sig_cell.append(Spacer(1, 1))
+    
+    sig_cell.append(HRFlowable(width="100%", thickness=0.8, color=MAROON, spaceAfter=2))
+    sig_cell.append(Paragraph("Fleet Operations Manager", ParagraphStyle('SigRole', fontName='Helvetica-Bold', fontSize=8, textColor=MAROON, alignment=2, leading=10)))
+    sig_cell.append(Paragraph("Qatari Virtual Operations Center", ParagraphStyle('SigSub', fontName='Helvetica', fontSize=7, textColor=MUTED_TEXT, alignment=2, leading=9)))
+
+    auth_info = [
+        Paragraph("<b>OFFICIAL DISPATCH & PAYROLL VERIFICATION</b>", ParagraphStyle('AuthHead', fontName='Helvetica-Bold', fontSize=8, textColor=MAROON, leading=11)),
+        Spacer(1, 2),
+        Paragraph("Approved & verified under Qatari Virtual Airline Operating Regulations.", ParagraphStyle('AuthBody', fontName='Helvetica', fontSize=7.5, textColor=MUTED_TEXT, leading=10)),
+    ]
+
+    sig_table = Table([[auth_info, sig_cell]], colWidths=[CONTENT_W * 0.60, CONTENT_W * 0.40])
+    sig_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(sig_table)
+    story.append(Spacer(1, 8))
 
     # ─── FOOTER ──────────────────────────────────────────────────────────────
-    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER_GRAY, spaceAfter=8))
-    
-    footer_text = (
-        "This document is system-generated by <b>OryxOps — Qatari Virtual Operations Center</b>.<br/>"
-        "All values are sourced live from the operations database. "
-        "Salary is credited to Pilot QAR Wallet upon PIREP approval."
-    )
-    story.append(Paragraph(footer_text, styles['footer']))
-    story.append(Spacer(1, 6))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER_GRAY, spaceAfter=4))
     story.append(Paragraph("Thank you for flying with Qatari Virtual ✈", styles['thank_you']))
 
     doc.build(story)

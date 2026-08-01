@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchBookings, cancelBooking } from "../store/slices/bookingSlice";
-import { api } from "../api/client";
+import { api, BASE_URL } from "../api/client";
 import { useCurrency } from "../hooks/useCurrency";
 
 export default function Bookings() {
@@ -359,7 +359,7 @@ export default function Bookings() {
               </div>
               <div className="flex items-center gap-2">
                 <a
-                  href={`http://localhost:8000/api/bookings/${selectedPaySlipBooking.id}/pdf`}
+                  href={`${BASE_URL}/bookings/${selectedPaySlipBooking.id}/pdf${user?.id ? `?pilot_id=${user.id}` : ''}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 text-xs font-black text-white bg-brand hover:bg-brand-dark px-3.5 py-2 rounded-xl transition-all shadow-md shadow-brand/20 cursor-pointer"
@@ -378,17 +378,27 @@ export default function Bookings() {
             {/* Panel 1: Crew & Fleet Profile */}
             <div className="space-y-2">
               <h4 className="text-[10px] font-black text-brand uppercase tracking-wider">👤 Crew & Fleet Profile</h4>
-              <div className="grid grid-cols-2 gap-3 bg-brand-pale/40 border border-brand-border/50 p-4 rounded-2xl text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-brand-pale/40 border border-brand-border/50 p-4 rounded-2xl text-xs">
                 <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Departure Pilot</span>
-                  <p className="font-extrabold text-gray-800">{selectedPaySlipBooking.departure_pilot_callsign || "Vacant"}</p>
+                  <span className="text-[9px] font-bold text-gray-400 uppercase">
+                    {selectedPaySlipBooking.arrival_pilot_id === user?.id && selectedPaySlipBooking.arrival_pilot_id !== selectedPaySlipBooking.departure_pilot_id
+                      ? "Arrival Pilot (You)"
+                      : "Departure Pilot"}
+                  </span>
+                  <p className="font-extrabold text-gray-800">
+                    {selectedPaySlipBooking.arrival_pilot_id === user?.id && selectedPaySlipBooking.arrival_pilot_id !== selectedPaySlipBooking.departure_pilot_id
+                      ? selectedPaySlipBooking.arrival_pilot_callsign || "Vacant"
+                      : selectedPaySlipBooking.departure_pilot_callsign || "Vacant"}
+                  </p>
                 </div>
                 <div>
                   <span className="text-[9px] font-bold text-gray-400 uppercase">Flight Mode</span>
                   <p className="font-extrabold text-gray-800">
                     {selectedPaySlipBooking.departure_pilot_id === selectedPaySlipBooking.arrival_pilot_id || !selectedPaySlipBooking.arrival_pilot_id
                       ? "Solo Flight (100% Leg Share)"
-                      : "Split Flight Leg"}
+                      : selectedPaySlipBooking.arrival_pilot_id === user?.id
+                        ? `Split Flight Leg (Departure: ${selectedPaySlipBooking.departure_pilot_callsign || "N/A"})`
+                        : `Split Flight Leg (Landing: ${selectedPaySlipBooking.arrival_pilot_callsign || "N/A"})`}
                   </p>
                 </div>
                 <div>
@@ -410,6 +420,14 @@ export default function Bookings() {
             <div className="space-y-2">
               <h4 className="text-[10px] font-black text-brand uppercase tracking-wider">🛫 Flight Operations Record</h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 border border-brand-border/40 p-4 rounded-2xl text-xs">
+                <div>
+                  <span className="text-[9px] font-bold text-gray-400 uppercase">PIREP ID</span>
+                  <p className="font-extrabold text-brand-dark">
+                    {selectedPaySlipBooking.departure_pirep_id || selectedPaySlipBooking.arrival_pirep_id
+                      ? `#${selectedPaySlipBooking.departure_pirep_id || selectedPaySlipBooking.arrival_pirep_id}`
+                      : "—"}
+                  </p>
+                </div>
                 <div>
                   <span className="text-[9px] font-bold text-gray-400 uppercase">Flight Number</span>
                   <p className="font-extrabold text-gray-800">{selectedPaySlipBooking.flight_number || "—"}</p>
@@ -500,8 +518,29 @@ export default function Bookings() {
               </div>
             </div>
 
-            <div className="text-center pt-2 text-[9px] text-gray-400 font-medium">
-              This is an official document issued by Qatari Virtual Operations Center.
+            {/* Fleet Manager Authorization & Signature */}
+            <div className="flex items-end justify-between border-t border-brand-border/60 pt-4 mt-2">
+              <div className="text-[10px] text-gray-500 max-w-sm space-y-1">
+                <p className="font-black text-brand uppercase tracking-wider text-[9px]">Official Dispatch & Payroll Verification</p>
+                <p className="text-[9px] text-gray-400 leading-tight">
+                  Approved & verified under Qatari Virtual Airline Operating Regulations.
+                </p>
+              </div>
+              <div className="text-right">
+                <img 
+                  src="https://cdn.qatarivirtual.xyz/Signatures/ayush.png" 
+                  alt="Fleet Manager Signature" 
+                  className="h-9 w-auto object-contain ml-auto mb-1" 
+                />
+                <div className="border-t border-brand/60 pt-1 mt-1">
+                  <p className="text-[9px] font-bold text-brand uppercase">Fleet Operations Manager</p>
+                  <p className="text-[8px] font-medium text-gray-400">Qatari Virtual Operations Center</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center pt-2 text-[9.5px] text-brand-dark font-bold">
+              Thank you for flying with Qatari Virtual ✈
             </div>
           </div>
         </div>

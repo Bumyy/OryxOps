@@ -388,8 +388,8 @@ async def dispatch_booking(db: AsyncSession, booking_id: int, pilot_id: int) -> 
         # Outbound: Passenger load based on global average reputation
         pax = int(capacity * load_factor * variance)
     else:
-        # Inbound: Passenger load based on global average reputation + Return Flight reduced pax (70-90%)
-        pax = int(capacity * load_factor * variance * random.uniform(0.70, 0.90))
+        # Inbound: Passenger load based on global average reputation + Return Flight reduced pax (90-100%)
+        pax = int(capacity * load_factor * variance * random.uniform(0.90, 1.00))
 
     pax = max(10, min(capacity, pax))  # Clamp between 10 and max capacity
     
@@ -454,9 +454,10 @@ async def complete_booking(
         arrival_airport = actual_arrival.strip().upper()
 
     # Determine flight time and multiplier for PIREP
-    pirep_flight_time = flight_time_minutes
+    multiplier = 1.5
+    pirep_flight_time = flight_time_minutes * multiplier
     if is_dual_pilot:
-        pirep_flight_time = flight_time_minutes / 2.0
+        pirep_flight_time = (flight_time_minutes / 2.0) * multiplier
 
     # Determine flightnum (frame name)
     frame_name = "CM"
