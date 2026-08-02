@@ -12,7 +12,7 @@ app = FastAPI(title="QRV Live API", version="0.1.0")
 import logging
 
 logger = logging.getLogger("uvicorn")
-origins = [origin.strip().strip("'\"") for origin in settings.cors_origins.split(",") if origin.strip()]
+origins = [origin.strip().strip("'\"").rstrip("/") for origin in settings.cors_origins.split(",") if origin.strip()]
 logger.info(f"Loaded CORS origins: {origins}")
 
 app.add_middleware(
@@ -22,6 +22,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "Content-Type"],
 )
 
 app.include_router(api_router, prefix="/api")
