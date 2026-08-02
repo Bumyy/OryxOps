@@ -81,17 +81,10 @@ async def check_group_access(db: AsyncSession, group_id: int, pilot: Pilot):
     perm_result = await db.execute(
         select(Permission).where(
             Permission.userid == pilot.id,
-            Permission.name.in_(["admin", "opsmanage"]),
+            Permission.name == "admin",
         ).limit(1)
     )
     if perm_result.scalar_one_or_none() is not None:
-        return
-
-    # Check if pilot is staff/admin via StaffRole table
-    staff_result = await db.execute(
-        select(StaffRole).where(StaffRole.user_id == pilot.id).limit(1)
-    )
-    if staff_result.scalar_one_or_none() is not None:
         return
 
     raise HTTPException(status_code=403, detail="Not authorized for this group's operations")
@@ -479,4 +472,49 @@ async def buy_proposal_token(
     await db.commit()
 
     return {"detail": f"Successfully purchased {slot_type}-haul proposal token.", "balance": currency.balance}
+
+
+async def _check_pilot_is_staff(db: AsyncSession, pilot: Pilot) -> bool:
+    from app.models.live_models import Permission
+    clean_callsign = pilot.callsign.strip().upper() if pilot.callsign else ""
+    if clean_callsign in ["QRV001", "QRV002", "QRV003", "QRV004"]:
+        return True
+    perm_res = await db.execute(
+        select(Permission).where(
+            Permission.userid == pilot.id,
+            Permission.name == "admin",
+        ).limit(1)
+    )
+    return perm_res.scalar_one_or_none() is not None
+
+
+@router.get("/pending-notifications")
+async def get_pending_notifications_endpoint(
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_pilot),
+):
+    from app.services.schedule_service import get_pending_notification_counts
+    is_staff = await _check_pilot_is_staff(db, pilot)
+    return get_pending_notification_counts(pilot.id, is_staff)
+
+
+@router.post("/notify-staff")
+async def notify_staff_endpoint(
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_pilot),
+):
+    from app.services.schedule_service import flush_staff_proposal_notification
+    count = await flush_staff_proposal_notification(db, pilot.id)
+    return {"detail": f"Notification sent to staff for {count} proposal(s).", "count": count}
+
+
+@router.post("/notify-pilots")
+async def notify_pilots_endpoint(
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_staff),
+):
+    from app.services.schedule_service import flush_pilot_approval_notifications
+    count = await flush_pilot_approval_notifications(db)
+    return {"detail": f"Notification sent to pilots for {count} approval(s).", "count": count}
+
 

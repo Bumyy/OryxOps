@@ -68,6 +68,34 @@ export default function Calendar() {
     }
   });
   const [quota, setQuota] = useState<any>(null);
+  const [notifyingStaff, setNotifyingStaff] = useState(false);
+  const [notifyingPilots, setNotifyingPilots] = useState(false);
+
+  const handleNotifyStaff = async () => {
+    setNotifyingStaff(true);
+    try {
+      const res = await api.post<{ detail: string; count: number }>("/schedules/notify-staff");
+      alert(res.detail || "Notification sent to Staff on Discord!");
+      window.dispatchEvent(new Event("refresh_notifications"));
+    } catch (err: any) {
+      alert("Failed to notify staff: " + (err?.response?.data?.detail || err.message));
+    } finally {
+      setNotifyingStaff(false);
+    }
+  };
+
+  const handleNotifyPilots = async () => {
+    setNotifyingPilots(true);
+    try {
+      const res = await api.post<{ detail: string; count: number }>("/schedules/notify-pilots");
+      alert(res.detail || "Notifications sent to Pilots on Discord!");
+      window.dispatchEvent(new Event("refresh_notifications"));
+    } catch (err: any) {
+      alert("Failed to notify pilots: " + (err?.response?.data?.detail || err.message));
+    } finally {
+      setNotifyingPilots(false);
+    }
+  };
 
   const fetchQuota = async () => {
     try {
@@ -385,7 +413,12 @@ export default function Calendar() {
     }
   }, [weekStart, isCurrentWeek, loading, viewMode]);
 
-  function refreshSchedules() { if (activeGroup) { dispatch(fetchSchedules({ group_id: activeGroup, week_start: weekStart, status: "all" })); } }
+  function refreshSchedules() {
+    if (activeGroup) {
+      dispatch(fetchSchedules({ group_id: activeGroup, week_start: weekStart, status: "all" }));
+      window.dispatchEvent(new Event("refresh_notifications"));
+    }
+  }
 
   async function openPopup(day: number, hour: number, preselectedAcId?: number) {
     if (isPastDay(day)) {
@@ -614,6 +647,17 @@ export default function Calendar() {
                 List View
               </button>
             </div>
+
+            {/* Notify Staff Button */}
+            <button
+              onClick={handleNotifyStaff}
+              disabled={notifyingStaff}
+              className="bg-brand text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm hover:bg-brand-light transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Send notification to Staff on Discord about your submitted proposals"
+            >
+              <span>🚀</span>
+              <span>{notifyingStaff ? "Sending..." : "Notify Staff"}</span>
+            </button>
           </div>
         </div>
       )}
@@ -664,9 +708,19 @@ export default function Calendar() {
               className="rounded-xl bg-green-600 text-white font-bold text-xs px-4 py-2 hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
               </svg>
               Approve Proposed Flights
+            </button>
+
+            <button
+              onClick={handleNotifyPilots}
+              disabled={notifyingPilots}
+              className="rounded-xl bg-emerald-600 text-white font-bold text-xs px-4 py-2 hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Click to send Discord notification to pilots with their approved flights"
+            >
+              <span>🚀</span>
+              <span>{notifyingPilots ? "Notifying..." : "Notify Pilots"}</span>
             </button>
           </div>
         </div>

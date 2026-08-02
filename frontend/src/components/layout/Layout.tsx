@@ -126,6 +126,60 @@ export default function Layout() {
   );
   const [handbookSections, setHandbookSections] = useState<any[]>([]);
 
+  const [pendingProposals, setPendingProposals] = useState<number>(0);
+  const [pendingApprovals, setPendingApprovals] = useState<number>(0);
+  const [notifyingStaff, setNotifyingStaff] = useState<boolean>(false);
+  const [notifyingPilots, setNotifyingPilots] = useState<boolean>(false);
+
+  const fetchNotificationCounts = async () => {
+    try {
+      const res = await api.get<{ pending_proposals: number; pending_approvals: number }>("/schedules/pending-notifications");
+      if (res) {
+        setPendingProposals(res.pending_proposals || 0);
+        setPendingApprovals(res.pending_approvals || 0);
+      }
+    } catch {
+      // ignore background errors
+    }
+  };
+
+  useEffect(() => {
+    fetchNotificationCounts();
+    const interval = setInterval(fetchNotificationCounts, 8000);
+    const handleRefresh = () => fetchNotificationCounts();
+    window.addEventListener("refresh_notifications", handleRefresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("refresh_notifications", handleRefresh);
+    };
+  }, []);
+
+  const handleNotifyStaff = async () => {
+    setNotifyingStaff(true);
+    try {
+      const res = await api.post<{ detail: string; count: number }>("/schedules/notify-staff");
+      alert(res.detail || "Notification sent to Staff on Discord!");
+      setPendingProposals(0);
+    } catch (err: any) {
+      alert("Failed to notify staff: " + (err?.response?.data?.detail || err.message));
+    } finally {
+      setNotifyingStaff(false);
+    }
+  };
+
+  const handleNotifyPilots = async () => {
+    setNotifyingPilots(true);
+    try {
+      const res = await api.post<{ detail: string; count: number }>("/schedules/notify-pilots");
+      alert(res.detail || "Notifications sent to Pilots on Discord!");
+      setPendingApprovals(0);
+    } catch (err: any) {
+      alert("Failed to notify pilots: " + (err?.response?.data?.detail || err.message));
+    } finally {
+      setNotifyingPilots(false);
+    }
+  };
+
   useEffect(() => {
     const loadHandbook = async () => {
       try {
@@ -662,6 +716,30 @@ export default function Layout() {
 
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            {pendingProposals > 0 && (
+              <button
+                onClick={handleNotifyStaff}
+                disabled={notifyingStaff}
+                className="bg-brand hover:bg-brand-light text-white font-black text-xs px-3.5 py-1.5 rounded-full shadow-md transition-all flex items-center gap-1.5 cursor-pointer animate-pulse"
+                title="Click to notify Staff on Discord about your submitted proposals"
+              >
+                <span>🚀</span>
+                <span>{notifyingStaff ? "Sending..." : `Notify Staff (${pendingProposals})`}</span>
+              </button>
+            )}
+
+            {pendingApprovals > 0 && isExecutive && (
+              <button
+                onClick={handleNotifyPilots}
+                disabled={notifyingPilots}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-1.5 rounded-full shadow-md transition-all flex items-center gap-1.5 cursor-pointer animate-pulse"
+                title="Click to notify Pilots on Discord about approved schedules"
+              >
+                <span>🚀</span>
+                <span>{notifyingPilots ? "Sending..." : `Notify Pilots (${pendingApprovals} Approved)`}</span>
+              </button>
+            )}
+
             <button
               onClick={() => setCurrency(currency === "QAR" ? "USD" : "QAR")}
               className="text-gray-500 hover:text-brand transition-colors px-2.5 py-1.5 rounded-xl hover:bg-brand-hover-bg flex items-center justify-center cursor-pointer font-mono text-xs font-bold border border-brand-border gap-1"

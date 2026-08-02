@@ -32,8 +32,7 @@ from app.services.pilot_utils import get_pilot_avatar
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 def map_booking_to_out(b: LiveFlightBooking) -> BookingOut:
-    is_dep_only = b.departure_pilot_id is not None and b.arrival_pilot_id is None
-    active_pirep = b.departure_pirep if is_dep_only else b.arrival_pirep
+    active_pirep = b.departure_pirep or b.arrival_pirep
     pirep_accepted = active_pirep.status if active_pirep else 0
 
     actual_time = 0

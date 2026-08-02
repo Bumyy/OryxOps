@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -12,7 +13,129 @@ from app.models.live_models import (
     LiveGroupAircraft,
     LiveScheduleWave,
     Route,
+    Pilot,
 )
+from app.services.discord_service import (
+    send_staff_proposal_webhook,
+    send_pilot_approval_webhook,
+)
+
+# ── IN-MEMORY NOTIFICATION QUEUE STATE ──
+_pending_proposals: dict[int, set[int]] = {}  # pilot_id -> set of schedule_ids
+_pending_proposal_timers: dict[int, asyncio.Task] = {}
+
+_pending_approvals: set[int] = set()  # set of schedule_ids
+_pending_approval_timer: asyncio.Task | None = None
+
+
+def queue_proposal_notification(pilot_id: int, schedule_id: int):
+    if pilot_id not in _pending_proposals:
+        _pending_proposals[pilot_id] = set()
+    _pending_proposals[pilot_id].add(schedule_id)
+    if pilot_id not in _pending_proposal_timers or _pending_proposal_timers[pilot_id].done():
+        _pending_proposal_timers[pilot_id] = asyncio.create_task(_auto_flush_proposals_after_delay(pilot_id, 300))
+
+
+def queue_approval_notification(schedule_id: int, pilot_id: int | None = None):
+    if pilot_id and pilot_id in _pending_proposals:
+        _pending_proposals[pilot_id].discard(schedule_id)
+    _pending_approvals.add(schedule_id)
+    global _pending_approval_timer
+    if _pending_approval_timer is None or _pending_approval_timer.done():
+        _pending_approval_timer = asyncio.create_task(_auto_flush_approvals_after_delay(300))
+
+
+async def _auto_flush_proposals_after_delay(pilot_id: int, delay_seconds: int = 300):
+    await asyncio.sleep(delay_seconds)
+    if pilot_id in _pending_proposals and _pending_proposals[pilot_id]:
+        from app.db.session import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            await flush_staff_proposal_notification(db, pilot_id)
+
+
+async def _auto_flush_approvals_after_delay(delay_seconds: int = 300):
+    await asyncio.sleep(delay_seconds)
+    if _pending_approvals:
+        from app.db.session import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            await flush_pilot_approval_notifications(db)
+
+
+async def flush_staff_proposal_notification(db: AsyncSession, pilot_id: int) -> int:
+    schedule_ids = list(_pending_proposals.pop(pilot_id, set()))
+    if not schedule_ids:
+        return 0
+
+    task = _pending_proposal_timers.pop(pilot_id, None)
+    if task and not task.done():
+        task.cancel()
+
+    pilot_res = await db.execute(select(Pilot).where(Pilot.id == pilot_id))
+    pilot = pilot_res.scalar_one_or_none()
+    if not pilot:
+        return 0
+
+    stmt = (
+        select(LiveFlightSchedule)
+        .where(LiveFlightSchedule.id.in_(schedule_ids))
+        .options(
+            selectinload(LiveFlightSchedule.aircraft).selectinload(LiveAircraft.aircraft_type),
+            selectinload(LiveFlightSchedule.group),
+        )
+    )
+    res = await db.execute(stmt)
+    schedules = list(res.scalars().all())
+
+    if schedules:
+        await send_staff_proposal_webhook(db, pilot, schedules)
+
+    return len(schedules)
+
+
+async def flush_pilot_approval_notifications(db: AsyncSession) -> int:
+    global _pending_approvals, _pending_approval_timer
+    schedule_ids = list(_pending_approvals)
+    _pending_approvals.clear()
+
+    if _pending_approval_timer and not _pending_approval_timer.done():
+        _pending_approval_timer.cancel()
+    _pending_approval_timer = None
+
+    if not schedule_ids:
+        return 0
+
+    stmt = (
+        select(LiveFlightSchedule)
+        .where(LiveFlightSchedule.id.in_(schedule_ids))
+        .options(
+            selectinload(LiveFlightSchedule.aircraft).selectinload(LiveAircraft.aircraft_type),
+            selectinload(LiveFlightSchedule.group),
+        )
+    )
+    res = await db.execute(stmt)
+    schedules = list(res.scalars().all())
+
+    by_pilot: dict[int, list[LiveFlightSchedule]] = {}
+    for s in schedules:
+        if s.created_by:
+            by_pilot.setdefault(s.created_by, []).append(s)
+
+    total_count = 0
+    for pilot_id, p_schedules in by_pilot.items():
+        p_res = await db.execute(select(Pilot).where(Pilot.id == pilot_id))
+        pilot = p_res.scalar_one_or_none()
+        if pilot and p_schedules:
+            await send_pilot_approval_webhook(db, pilot, p_schedules)
+            total_count += len(p_schedules)
+
+    return total_count
+
+
+def get_pending_notification_counts(pilot_id: int, is_staff: bool) -> dict[str, int]:
+    return {
+        "pending_proposals": len(_pending_proposals.get(pilot_id, set())),
+        "pending_approvals": len(_pending_approvals) if is_staff else 0,
+    }
 
 
 async def get_schedules(
@@ -265,6 +388,10 @@ async def update_schedule_status(
         effective_pilot_id = pilot_id or schedule.created_by
         if effective_pilot_id:
             await check_and_process_proposal_slot(db, effective_pilot_id, schedule.week_start, schedule)
+            queue_proposal_notification(effective_pilot_id, schedule.id)
+
+    if status == "approved" and schedule.status != "approved":
+        queue_approval_notification(schedule.id, schedule.created_by)
 
     # Refund token if moving from proposed/approved back to draft (rejection)
     if status == "draft" and schedule.status in ["proposed", "approved"]:
@@ -304,6 +431,7 @@ async def bulk_approve_schedules(
     for schedule in schedules:
         schedule.status = "approved"
         schedule.approved_by = approved_by
+        queue_approval_notification(schedule.id, schedule.created_by)
         count += 1
     await db.commit()
     return count

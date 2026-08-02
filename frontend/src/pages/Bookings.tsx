@@ -14,37 +14,48 @@ export default function Bookings() {
 
   const [activeTab, setActiveTab] = useState<"bookings" | "logs">("bookings");
   const [selectedPaySlipBooking, setSelectedPaySlipBooking] = useState<any | null>(null);
-  const [downloadingPdfId, setDownloadingPdfId] = useState<number | null>(null);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState<boolean>(false);
 
-  const handleDownloadPdf = async (bookingId: number) => {
-    try {
-      setDownloadingPdfId(bookingId);
-      const token = localStorage.getItem("token");
-      const headers: Record<string, string> = {};
-      if (token && token !== "undefined" && token !== "null") {
-        headers["Authorization"] = `Bearer ${token}`;
+  useEffect(() => {
+    if (!selectedPaySlipBooking) {
+      if (pdfBlobUrl) {
+        window.URL.revokeObjectURL(pdfBlobUrl);
+        setPdfBlobUrl(null);
       }
-
-      const pdfUrl = `${BASE_URL}/bookings/${bookingId}/pdf${user?.id ? `?pilot_id=${user.id}` : ''}`;
-      const response = await fetch(pdfUrl, { headers });
-      if (!response.ok) throw new Error("Failed to download PDF");
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `PaySlip_Leg_${bookingId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("PDF download error:", err);
-      alert("Failed to download PDF. Please try again.");
-    } finally {
-      setDownloadingPdfId(null);
+      return;
     }
-  };
+
+    setPdfLoading(true);
+    const token = localStorage.getItem("token");
+    const headers: Record<string, string> = {};
+    if (token && token !== "undefined" && token !== "null") {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const pdfUrl = `${BASE_URL}/bookings/${selectedPaySlipBooking.id}/pdf${user?.id ? `?pilot_id=${user.id}` : ''}`;
+
+    fetch(pdfUrl, { headers })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load PDF");
+        return res.blob();
+      })
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        setPdfBlobUrl(url);
+        setPdfLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setPdfLoading(false);
+      });
+
+    return () => {
+      if (pdfBlobUrl) {
+        window.URL.revokeObjectURL(pdfBlobUrl);
+      }
+    };
+  }, [selectedPaySlipBooking, user?.id]);
 
   const [rates, setRates] = useState<Record<string, number>>({
     econ_payout_share_solo: 0.10,
@@ -353,12 +364,14 @@ export default function Bookings() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => setSelectedPaySlipBooking(b)}
-                    className="w-full flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark text-white px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-md shadow-brand/10 cursor-pointer"
-                  >
-                    📄 View Pilot Pay Slip
-                  </button>
+                  {b.pirep_accepted === 1 && (
+                    <button
+                      onClick={() => setSelectedPaySlipBooking(b)}
+                      className="w-full flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark text-white px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-md shadow-brand/10 cursor-pointer"
+                    >
+                      📄 View Pilot Pay Slip
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -375,35 +388,29 @@ export default function Bookings() {
 
       {/* PAY SLIP MODAL */}
       {selectedPaySlipBooking && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-white rounded-3xl border border-brand-border shadow-2xl max-w-2xl w-full p-6 md:p-8 space-y-6 relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl border border-brand-border shadow-2xl max-w-4xl w-full p-4 md:p-6 space-y-4 relative max-h-[95vh] flex flex-col">
             {/* Header Banner */}
-            <div className="flex justify-between items-start border-b border-brand-border/60 pb-4">
+            <div className="flex justify-between items-center border-b border-brand-border/60 pb-3">
               <div className="flex items-center gap-3">
-                <img src="/oryxops_logo_colored.webp" alt="OryxOps Logo" className="h-10 w-auto object-contain" />
+                <img src="/oryxops_logo_colored.webp" alt="OryxOps Logo" className="h-9 w-auto object-contain" />
                 <div>
-                  <h3 className="font-extrabold text-lg text-brand-dark tracking-tight">PILOT FLIGHT PAY SLIP</h3>
+                  <h3 className="font-extrabold text-base text-brand-dark tracking-tight">PILOT FLIGHT PAY SLIP</h3>
                   <p className="text-[10px] font-mono text-gray-400">
                     Ref: #PS-{String(selectedPaySlipBooking.id).padStart(4, '0')}-{selectedPaySlipBooking.departure_pilot_callsign || "QRV"}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleDownloadPdf(selectedPaySlipBooking.id)}
-                  disabled={downloadingPdfId === selectedPaySlipBooking.id}
-                  className="flex items-center gap-1.5 text-xs font-black text-white bg-brand hover:bg-brand-dark px-3.5 py-2 rounded-xl transition-all shadow-md shadow-brand/20 cursor-pointer disabled:opacity-50"
-                >
-                  {downloadingPdfId === selectedPaySlipBooking.id ? (
-                    <>
-                      <span className="inline-block animate-spin text-sm">⏳</span>
-                      <span>Downloading...</span>
-                    </>
-                  ) : (
-                    <>📥 Download PDF</>
-                  )}
-                </button>
+                {pdfBlobUrl && (
+                  <a
+                    href={pdfBlobUrl}
+                    download={`PaySlip_Leg_${selectedPaySlipBooking.id}.pdf`}
+                    className="flex items-center gap-1.5 text-xs font-black text-white bg-brand hover:bg-brand-dark px-3.5 py-2 rounded-xl transition-all shadow-md shadow-brand/20 cursor-pointer"
+                  >
+                    📥 Download PDF
+                  </a>
+                )}
                 <button
                   onClick={() => setSelectedPaySlipBooking(null)}
                   className="text-gray-400 hover:text-gray-600 p-2 rounded-full cursor-pointer text-lg font-bold"
@@ -413,150 +420,34 @@ export default function Bookings() {
               </div>
             </div>
 
-            {/* Panel 1: Crew & Fleet Profile */}
-            <div className="space-y-2">
-              <h4 className="text-[10px] font-black text-brand uppercase tracking-wider">👤 Crew & Fleet Profile</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-brand-pale/40 border border-brand-border/50 p-4 rounded-2xl text-xs">
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">
-                    {selectedPaySlipBooking.arrival_pilot_id === user?.id && selectedPaySlipBooking.arrival_pilot_id !== selectedPaySlipBooking.departure_pilot_id
-                      ? "Arrival Pilot (You)"
-                      : "Departure Pilot"}
-                  </span>
-                  <p className="font-extrabold text-gray-800">
-                    {selectedPaySlipBooking.arrival_pilot_id === user?.id && selectedPaySlipBooking.arrival_pilot_id !== selectedPaySlipBooking.departure_pilot_id
-                      ? selectedPaySlipBooking.arrival_pilot_callsign || "Vacant"
-                      : selectedPaySlipBooking.departure_pilot_callsign || "Vacant"}
-                  </p>
+            {/* Embedded Live PDF Canvas */}
+            <div className="w-full h-[680px] bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 relative flex-grow">
+              {pdfLoading ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-xs space-y-3">
+                  <span className="loading loading-spinner loading-lg text-brand"></span>
+                  <p className="text-xs font-extrabold text-brand-dark animate-pulse">Compiling Official Pay Slip PDF...</p>
+                  <p className="text-[10px] text-gray-400">Rendering high-fidelity layout & metrics</p>
                 </div>
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Flight Mode</span>
-                  <p className="font-extrabold text-gray-800">
-                    {selectedPaySlipBooking.departure_pilot_id === selectedPaySlipBooking.arrival_pilot_id || !selectedPaySlipBooking.arrival_pilot_id
-                      ? "Solo Flight (100% Leg Share)"
-                      : selectedPaySlipBooking.arrival_pilot_id === user?.id
-                        ? `Split Flight Leg (Departure: ${selectedPaySlipBooking.departure_pilot_callsign || "N/A"})`
-                        : `Split Flight Leg (Landing: ${selectedPaySlipBooking.arrival_pilot_callsign || "N/A"})`}
-                  </p>
+              ) : pdfBlobUrl ? (
+                <iframe
+                  src={pdfBlobUrl}
+                  className="w-full h-full border-0 bg-white"
+                  title="Pay Slip PDF Preview"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-2">
+                  <p className="text-sm font-bold text-rose-600">Failed to load PDF preview.</p>
+                  <button
+                    onClick={() => setSelectedPaySlipBooking({ ...selectedPaySlipBooking })}
+                    className="text-xs text-brand font-bold underline cursor-pointer"
+                  >
+                    Retry
+                  </button>
                 </div>
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Aircraft Registration</span>
-                  <p className="font-extrabold text-gray-800">{selectedPaySlipBooking.aircraft_registration} ({selectedPaySlipBooking.aircraft_icao})</p>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Dispatched Date</span>
-                  <p className="font-extrabold text-gray-800">
-                    {selectedPaySlipBooking.dispatched_at
-                      ? new Date(selectedPaySlipBooking.dispatched_at).toLocaleString("en-GB", { timeZone: "UTC" })
-                      : "N/A"}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Panel 2: Flight Operations Record */}
-            <div className="space-y-2">
-              <h4 className="text-[10px] font-black text-brand uppercase tracking-wider">🛫 Flight Operations Record</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 border border-brand-border/40 p-4 rounded-2xl text-xs">
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">PIREP ID</span>
-                  <p className="font-extrabold text-brand-dark">
-                    {selectedPaySlipBooking.departure_pirep_id || selectedPaySlipBooking.arrival_pirep_id
-                      ? `#${selectedPaySlipBooking.departure_pirep_id || selectedPaySlipBooking.arrival_pirep_id}`
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Flight Number</span>
-                  <p className="font-extrabold text-gray-800">{selectedPaySlipBooking.flight_number || "—"}</p>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Route Leg</span>
-                  <p className="font-extrabold text-gray-800">{selectedPaySlipBooking.flight_departure} ➔ {selectedPaySlipBooking.flight_arrival}</p>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Passenger Load</span>
-                  <p className="font-extrabold text-gray-800">{selectedPaySlipBooking.pax_count ?? "—"} Pax</p>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Fuel Burned</span>
-                  <p className="font-extrabold text-gray-800">
-                    {selectedPaySlipBooking.fuel_burned ? `${selectedPaySlipBooking.fuel_burned.toLocaleString()} kg` : "—"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Airborne Duration</span>
-                  <p className="font-extrabold text-gray-800">
-                    {selectedPaySlipBooking.flight_time_minutes
-                      ? `${Math.floor(selectedPaySlipBooking.flight_time_minutes / 60)}h ${selectedPaySlipBooking.flight_time_minutes % 60}m`
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Status</span>
-                  <span className="text-[9px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md inline-block mt-0.5">
-                    Approved & Paid
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Panel 3: Performance & Reputation Metrics */}
-            <div className="space-y-2">
-              <h4 className="text-[10px] font-black text-brand uppercase tracking-wider">⭐ Performance & Reputation</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-emerald-50/50 border border-emerald-200/60 p-4 rounded-2xl text-xs">
-                <div>
-                  <span className="text-[9px] font-bold text-emerald-900 uppercase">Touchdown Rate</span>
-                  <p className="font-extrabold text-emerald-950 mt-0.5">
-                    {selectedPaySlipBooking.landing_fpm ? `${selectedPaySlipBooking.landing_fpm} FPM` : "—"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-emerald-900 uppercase">Punctuality</span>
-                  <p className="font-extrabold text-emerald-950 mt-0.5">On Schedule</p>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-emerald-900 uppercase">Leg Rating</span>
-                  <p className="font-extrabold text-emerald-950 mt-0.5">
-                    {selectedPaySlipBooking.reputation_score ? `${selectedPaySlipBooking.reputation_score.toFixed(2)} / 5.0 ★` : "—"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Panel 4: Pilot Financial Salary Statement */}
-            <div className="space-y-2">
-              <h4 className="text-[10px] font-black text-brand uppercase tracking-wider">💳 Financial Salary Statement</h4>
-              <div className="bg-white rounded-2xl border border-brand-border/60 overflow-hidden text-xs">
-                <div className="p-4 space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 font-bold">Gross Airline Leg Revenue</span>
-                    <span className="font-black text-emerald-700">+{formatAmount(selectedPaySlipBooking.earnings || 0)}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-t border-gray-100 pt-2">
-                    <span className="text-gray-600 font-bold">Total Airline Operating Expenses</span>
-                    <span className="font-black text-rose-700">-{formatAmount(selectedPaySlipBooking.expenses || 0)}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-t border-dashed border-brand-border/40 pt-2 font-black text-gray-800">
-                    <span>Net Flight Leg Profit</span>
-                    <span className={((selectedPaySlipBooking.earnings || 0) - (selectedPaySlipBooking.expenses || 0)) > 0 ? "text-emerald-700" : "text-red-700"}>
-                      {formatAmount((selectedPaySlipBooking.earnings || 0) - (selectedPaySlipBooking.expenses || 0))}
-                    </span>
-                  </div>
-                  <div className="bg-emerald-50 border border-emerald-200/80 p-3 rounded-xl flex justify-between items-center mt-3">
-                    <div>
-                      <div className="text-[10px] font-black text-emerald-900 uppercase tracking-wider">Net Salary Credited To Wallet</div>
-                      <div className="text-[8.5px] text-emerald-700 font-medium">Verified & Deposited to Pilot Ledger</div>
-                    </div>
-                    <div className="text-lg font-black text-emerald-700">
-                      +{formatAmount(calculatePilotSalary(selectedPaySlipBooking))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center pt-2 text-[9.5px] text-brand-dark font-bold border-t border-brand-border/40">
+            <div className="text-center text-[9.5px] text-brand-dark font-bold">
               Thank you for flying with Qatari Virtual ✈
             </div>
           </div>

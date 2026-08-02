@@ -43,7 +43,7 @@ async def get_current_staff(
     pilot=Depends(get_current_pilot),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.live_models import Permission, StaffRole
+    from app.models.live_models import Permission
 
     clean_callsign = pilot.callsign.strip().upper() if pilot.callsign else ""
     if clean_callsign in ["QRV001", "QRV002", "QRV003", "QRV004"]:
@@ -52,16 +52,10 @@ async def get_current_staff(
     result = await db.execute(
         select(Permission).where(
             Permission.userid == pilot.id,
-            Permission.name.in_(["admin", "opsmanage"]),
+            Permission.name == "admin",
         ).limit(1)
     )
     if result.scalar_one_or_none() is not None:
-        return pilot
-
-    role_res = await db.execute(
-        select(StaffRole).where(StaffRole.user_id == pilot.id).limit(1)
-    )
-    if role_res.scalar_one_or_none() is not None:
         return pilot
 
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
