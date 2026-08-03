@@ -401,8 +401,9 @@ async def delete_wave_route(
 async def auto_generate_schedules_route(
     data: AutoScheduleRequest,
     db: AsyncSession = Depends(get_db),
-    pilot: Pilot = Depends(get_current_staff),
+    pilot: Pilot = Depends(get_current_pilot),
 ):
+    await check_group_access(db, data.group_id, pilot)
     try:
         count = await generate_auto_schedules(
             db,

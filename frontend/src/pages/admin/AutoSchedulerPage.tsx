@@ -90,7 +90,7 @@ export default function AutoSchedulerPage() {
       });
 
       setSuccessMsg(
-        `Successfully generated ${res.proposed_count} proposed flight legs (outbound & return return flights) for aircraft ${selectedAircraft?.registration}! Redirecting to calendar...`
+        `Successfully generated ${res.proposed_count} draft flight legs (outbound & return flights) for aircraft ${selectedAircraft?.registration}! Redirecting to calendar...`
       );
       
       // Redirect to calendar after 3 seconds

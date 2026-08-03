@@ -531,31 +531,7 @@ async def generate_auto_schedules(
     except Exception:
         raise ValueError("Invalid start_time format. Must be a valid ISO datetime (e.g. YYYY-MM-DDTHH:MM).")
 
-    # 3. Calculate weeks to check based on start date and spacing
-    weeks_to_check = set()
-    for idx in range(num_roundtrips):
-        trip_date = (start_time + timedelta(days=idx * 2)).date()
-        trip_monday = trip_date - timedelta(days=trip_date.weekday())
-        weeks_to_check.add(trip_monday)
-
-    # 4. Check for existing schedules in these weeks for this aircraft
-    existing_result = await db.execute(
-        select(LiveFlightSchedule)
-        .where(
-            LiveFlightSchedule.aircraft_id == aircraft_id,
-            LiveFlightSchedule.week_start.in_(list(weeks_to_check)),
-            LiveFlightSchedule.status != "cancelled"
-        )
-    )
-    existing_schedules = list(existing_result.scalars().all())
-    if existing_schedules:
-        unique_weeks = sorted(list({str(s.week_start) for s in existing_schedules}))
-        raise ValueError(
-            f"Aircraft {ac.registration} already has flight leg(s) "
-            f"scheduled for the week(s) of {', '.join(unique_weeks)}. Please clear them first."
-        )
-
-    # 5. Find candidate routes for this aircraft type departing from/arriving at OTHH
+    # 3. Find candidate routes for this aircraft type departing from/arriving at OTHH
     ac_type_id = ac.aircraft_type_id
     outbound_result = await db.execute(
         select(Route)
@@ -587,7 +563,7 @@ async def generate_auto_schedules(
     if not route_pairs:
         raise ValueError(f"No certified round-trip routes found from OTHH for aircraft type {ac.aircraft_type.name if ac.aircraft_type else 'unknown'}.")
 
-    # 6. Apply custom flight duration filters
+    # 4. Apply custom flight duration filters
     if min_hours is not None and min_hours > 0:
         route_pairs = [p for p in route_pairs if p[0].duration >= min_hours * 3600]
     if max_hours is not None and max_hours > 0:
@@ -599,7 +575,7 @@ async def generate_auto_schedules(
             f"matching the custom duration constraint (Min: {min_hours or 0}h, Max: {max_hours or 0}h)."
         )
         
-    # 6. Filter route pairs based on haul preference (threshold: 3 hours = 10800 seconds)
+    # 5. Filter route pairs based on haul preference (threshold: 3 hours = 10800 seconds)
     short_pairs = [p for p in route_pairs if p[0].duration <= 10800]
     long_pairs = [p for p in route_pairs if p[0].duration > 10800]
     
@@ -631,7 +607,7 @@ async def generate_auto_schedules(
         if not selected_pairs:
             selected_pairs = [random.choice(route_pairs) for _ in range(num_roundtrips)]
             
-    # 7. Generate schedule records spaced 2 days apart starting from start_time
+    # 6. Generate schedule records spaced 2 days apart starting from start_time
     total_created = 0
     for idx in range(num_roundtrips):
         if idx >= len(selected_pairs):
@@ -652,7 +628,7 @@ async def generate_auto_schedules(
         inbound_dep_time = outbound_arr_time + timedelta(minutes=ground_time)
         inbound_arr_time = inbound_dep_time + timedelta(seconds=inbound.duration)
         
-        # Create outbound flight leg
+        # Create outbound flight leg (saved as draft)
         outbound_leg = LiveFlightSchedule(
             group_id=group_id,
             aircraft_id=ac.id,
@@ -663,13 +639,13 @@ async def generate_auto_schedules(
             scheduled_departure=outbound_dep_time,
             scheduled_arrival=outbound_arr_time,
             ground_time_minutes=ground_time,
-            status="proposed",
+            status="draft",
             created_by=creator_id,
             week_start=trip_week_start
         )
         db.add(outbound_leg)
         
-        # Create inbound flight leg
+        # Create inbound flight leg (saved as draft)
         inbound_leg = LiveFlightSchedule(
             group_id=group_id,
             aircraft_id=ac.id,
@@ -680,13 +656,16 @@ async def generate_auto_schedules(
             scheduled_departure=inbound_dep_time,
             scheduled_arrival=inbound_arr_time,
             ground_time_minutes=60,
-            status="proposed",
+            status="draft",
             created_by=creator_id,
             week_start=trip_week_start
         )
         db.add(inbound_leg)
         
         total_created += 2
+
+    await db.commit()
+    return total_created
 
     await db.commit()
     return total_created

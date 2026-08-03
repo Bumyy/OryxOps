@@ -71,6 +71,58 @@ export default function Calendar() {
   const [notifyingStaff, setNotifyingStaff] = useState(false);
   const [notifyingPilots, setNotifyingPilots] = useState(false);
 
+  // Auto-Scheduler Modal State
+  const [autoScheduleModalOpen, setAutoScheduleModalOpen] = useState(false);
+  const [autoAircraftId, setAutoAircraftId] = useState<number>(0);
+  const [autoNumRoundtrips, setAutoNumRoundtrips] = useState<number>(3);
+  const [autoHaulPreference, setAutoHaulPreference] = useState<"mixed" | "short" | "long">("mixed");
+  const [autoMinHours, setAutoMinHours] = useState<number>(0);
+  const [autoMaxHours, setAutoMaxHours] = useState<number>(0);
+  const [autoStartTime, setAutoStartTime] = useState<string>(() => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    if (d < new Date()) {
+      d.setUTCDate(d.getUTCDate() + 7);
+    }
+    d.setUTCHours(8, 0, 0, 0);
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const hours = String(d.getUTCHours()).padStart(2, '0');
+    const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  });
+  const [autoGenerating, setAutoGenerating] = useState(false);
+  const [autoErrorMsg, setAutoErrorMsg] = useState<string | null>(null);
+
+  const handleAutoGenerateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeGroup || !autoAircraftId || !autoStartTime) return;
+
+    setAutoGenerating(true);
+    setAutoErrorMsg(null);
+
+    try {
+      const res = await api.post<{ proposed_count: number }>("/schedules/auto-generate", {
+        group_id: activeGroup,
+        aircraft_id: autoAircraftId,
+        num_roundtrips: autoNumRoundtrips,
+        haul_preference: autoHaulPreference,
+        start_time: autoStartTime,
+        min_hours: autoMinHours > 0 ? autoMinHours : null,
+        max_hours: autoMaxHours > 0 ? autoMaxHours : null,
+      });
+
+      alert(`Successfully generated ${res.proposed_count} draft flight legs!`);
+      setAutoScheduleModalOpen(false);
+      refreshSchedules();
+    } catch (err: any) {
+      setAutoErrorMsg(err.message || err?.response?.data?.detail || "Failed to generate schedule.");
+    } finally {
+      setAutoGenerating(false);
+    }
+  };
+
   const handleNotifyStaff = async () => {
     setNotifyingStaff(true);
     try {
@@ -519,7 +571,25 @@ export default function Calendar() {
   return (
     <div className="w-full px-2 md:px-6 py-3 md:py-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <h1 className="text-3xl md:text-5xl font-bold text-brand">Schedule Calendar</h1>
+        <div>
+          <h1 className="text-3xl md:text-5xl font-bold text-brand">Schedule Calendar</h1>
+          <p className="text-xs text-gray-500 font-medium mt-1">View, draft, and manage flight schedules for active flying groups</p>
+        </div>
+        {activeGroup && (
+          <button
+            onClick={() => {
+              setAutoAircraftId(0);
+              setAutoErrorMsg(null);
+              setAutoScheduleModalOpen(true);
+            }}
+            className="rounded-2xl bg-gradient-to-r from-brand-dark to-brand text-white font-bold text-xs md:text-sm px-5 py-3 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <svg className="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            <span>Auto-Schedule (Draft)</span>
+          </button>
+        )}
       </div>
 
       {/* BOX 1: Navigation & Control Box */}
@@ -1197,7 +1267,7 @@ export default function Calendar() {
                     return (
                       <Fragment key={`acrow-${ac.id}`}>
                         {/* Sticky Left Y-axis Cell: Aircraft Card */}
-                        <div className="border-b border-r border-brand-border bg-white p-1.5 sticky left-0 z-20 flex flex-col justify-between shadow-xs h-[200px]">
+                        <div className="border-b border-r border-brand-border bg-white p-1.5 sticky left-0 z-20 flex flex-col justify-between shadow-xs min-h-[220px] h-[220px]">
                           <div className="w-full text-left rounded-xl border border-brand-border bg-white shadow-2xs overflow-hidden flex flex-col h-full">
                             {/* Photo container */}
                             <div className="relative w-full h-[110px] md:h-[135px] bg-brand-pale overflow-hidden shrink-0 flex items-center justify-center p-0.5">
@@ -1249,7 +1319,7 @@ export default function Calendar() {
                           return (
                             <div
                               key={`cell-${ac.id}-${colIdx}`}
-                              className={`border-b border-r border-brand-border p-2.5 flex flex-row gap-2.5 items-stretch h-[200px] transition-colors relative overflow-hidden ${
+                              className={`border-b border-r border-brand-border p-2 flex flex-row gap-2 items-stretch min-h-[220px] h-[220px] transition-colors relative overflow-hidden ${
                                 isToday ? "bg-brand/[0.015]" : "bg-white"
                               }`}
                             >
@@ -1293,7 +1363,7 @@ export default function Calendar() {
                                     <button
                                       key={s.id}
                                       onClick={() => setEditingSchedule(s)}
-                                      className={`w-[220px] shrink-0 text-left rounded-xl border-2 border-l-4 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all cursor-pointer overflow-hidden p-3 flex flex-col justify-between gap-1.5 ${
+                                      className={`w-[220px] shrink-0 text-left rounded-xl border-2 border-l-4 shadow-xs hover:shadow-md transition-all cursor-pointer overflow-hidden p-2.5 flex flex-col justify-between h-full min-h-0 space-y-1 ${
                                         hasError ? "border-l-rose-500" :
                                         s.status === "cancelled" ? "border-l-slate-400" :
                                         isCompleted ? "border-l-indigo-500" :
@@ -1325,14 +1395,14 @@ export default function Calendar() {
 
                                       {/* Route */}
                                       <div className={`flex items-center gap-2 ${textColor}`}>
-                                        <span className="text-base font-black tracking-wide text-gray-900">{s.departure}</span>
+                                        <span className="text-sm md:text-base font-black tracking-wide text-gray-900">{s.departure}</span>
                                         <span className="text-xs text-brand font-bold">✈</span>
-                                        <span className="text-base font-black tracking-wide text-gray-900">{s.arrival}</span>
+                                        <span className="text-sm md:text-base font-black tracking-wide text-gray-900">{s.arrival}</span>
                                       </div>
 
                                       {/* Flight Duration */}
-                                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-600">
-                                        <svg className="w-3.5 h-3.5 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-600">
+                                        <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                                           <circle cx="12" cy="12" r="9"/>
                                           <path strokeLinecap="round" d="M12 7v5l3 2"/>
                                         </svg>
@@ -1341,7 +1411,7 @@ export default function Calendar() {
 
                                       {/* Warnings */}
                                       {(hasError || hasGroundIssue) && (
-                                        <div className="flex items-center gap-1 text-[10px] font-bold">
+                                        <div className="flex items-center gap-1 text-[9.5px] font-bold">
                                           {hasError ? (
                                             <span className="text-rose-600 font-extrabold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">⚠ Mismatch</span>
                                           ) : (
@@ -1351,45 +1421,50 @@ export default function Calendar() {
                                       )}
 
                                       {/* DEP & ARR Timings */}
-                                      <div className="text-[11px] font-bold font-mono text-gray-600 space-y-0.5 border-t border-brand-border/40 pt-1.5">
+                                      <div className="text-[10px] font-bold font-mono text-gray-600 space-y-0.5 border-t border-brand-border/40 pt-1">
                                         <div className="flex justify-between items-center">
-                                          <span className="text-[9px] font-black text-gray-400 uppercase">DEP</span>
+                                          <span className="text-[8.5px] font-black text-gray-400 uppercase">DEP</span>
                                           <span className="font-extrabold">{depStr}</span>
                                         </div>
                                         <div className="flex justify-between items-center">
-                                          <span className="text-[9px] font-black text-gray-400 uppercase">ARR</span>
+                                          <span className="text-[8.5px] font-black text-gray-400 uppercase">ARR</span>
                                           <span className="font-extrabold">{arrStr}</span>
                                         </div>
                                       </div>
 
                                       {/* Pilot Booking Info */}
-                                      <div className="pt-1.5 border-t border-brand-border/40">
+                                      <div className="pt-1 border-t border-brand-border/40 shrink-0">
                                         {activeBooking ? (
                                           <div className="flex items-center justify-between gap-1 min-w-0">
-                                            <div className="flex items-center gap-1.5 min-w-0">
+                                            <div className="flex items-center gap-1 min-w-0">
                                               {pilotsToShow.map((p, idx) => (
-                                                <div key={idx} className="flex items-center gap-1.5 min-w-0" title={`Booked by ${p.callsign}`}>
-                                                  <span className="relative flex-shrink-0 w-4.5 h-4.5 inline-flex select-none">
+                                                <div key={idx} className="flex items-center gap-1 min-w-0" title={`Booked by ${p.callsign} (${p.label})`}>
+                                                  <span className="relative flex-shrink-0 w-4 h-4 inline-flex select-none">
                                                     {p.avatar ? (
                                                       <img src={p.avatar} alt={p.callsign} className="w-full h-full rounded-full object-cover border border-blue-400" />
                                                     ) : (
-                                                      <span className="w-full h-full rounded-full bg-blue-100 border border-blue-400 text-blue-900 text-[8px] font-black inline-flex items-center justify-center">
+                                                      <span className="w-full h-full rounded-full bg-blue-100 border border-blue-400 text-blue-900 text-[7px] font-black inline-flex items-center justify-center">
                                                         {p.callsign[0]?.toUpperCase() || "?"}
                                                       </span>
                                                     )}
                                                   </span>
-                                                  <span className="text-[11px] font-black text-blue-700 truncate">{p.callsign}</span>
+                                                  <span className="text-[10px] font-black text-blue-700 truncate">{p.callsign}</span>
+                                                  {pilotsToShow.length > 1 && (
+                                                    <span className="text-[7.5px] font-extrabold text-blue-600 bg-blue-50 px-1 py-0.2 rounded border border-blue-200 uppercase">
+                                                      {p.label}
+                                                    </span>
+                                                  )}
                                                 </div>
                                               ))}
                                             </div>
-                                            <span className="text-[9px] font-black text-blue-800 bg-blue-100 px-1.5 py-0.5 rounded uppercase shrink-0 border border-blue-200">
-                                              {pilotsToShow[0]?.label || "Booked"}
+                                            <span className="text-[8.5px] font-black text-blue-800 bg-blue-100 px-1.5 py-0.5 rounded uppercase shrink-0 border border-blue-200">
+                                              {pilotsToShow.length > 1 ? "DUAL" : (pilotsToShow[0]?.label || "Booked")}
                                             </span>
                                           </div>
                                         ) : (
                                           <div className="flex items-center justify-between text-gray-400 text-xs">
-                                            <span className="text-[11px] font-medium italic">Unbooked</span>
-                                            <span className="text-[9px] font-bold uppercase bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">Open</span>
+                                            <span className="text-[10px] font-medium italic">Unbooked</span>
+                                            <span className="text-[8.5px] font-bold uppercase bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">Open</span>
                                           </div>
                                         )}
                                       </div>
@@ -2192,6 +2267,231 @@ export default function Calendar() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* AUTO-SCHEDULER MODAL */}
+      {autoScheduleModalOpen && (() => {
+        const activeGroupObj = groups.find(g => g.id === activeGroup);
+        const groupAirframes = airframes.filter(a => {
+          if (qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin) {
+            return qualifiedTypeIds.has(a.aircraft_type_id);
+          }
+          return true;
+        });
+
+        const selectedAc = groupAirframes.find(a => a.id === autoAircraftId);
+        const selectedAcType = selectedAc ? types.find(t => t.id === selectedAc.aircraft_type_id) : null;
+        const selectedAcImg = selectedAc ? (aircraftImages as any)[String(selectedAc.aircraft_type_id)] : null;
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto"
+            onClick={() => setAutoScheduleModalOpen(false)}
+          >
+            <div
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-xl my-8 overflow-hidden border border-brand-border"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-brand-dark to-brand px-6 py-5 flex items-center justify-between text-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                    <svg className="w-5 h-5 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black leading-tight">Auto Route Scheduler</h3>
+                    <p className="text-white/70 text-xs font-semibold">Group: {activeGroupObj?.name || "Active Group"}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAutoScheduleModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-lg transition-all cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleAutoGenerateSubmit} className="p-6 space-y-5">
+                {autoErrorMsg && (
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>{autoErrorMsg}</span>
+                  </div>
+                )}
+
+                <div className="bg-brand-pale/50 border border-brand/10 rounded-2xl p-4 text-xs text-gray-600 font-medium leading-relaxed">
+                  Generate draft round-trips for your group aircraft. Generated flights will be saved as <strong className="text-brand font-bold">Drafts</strong>, allowing you to review and propose them whenever you're ready using your proposal tokens.
+                </div>
+
+                {/* Aircraft Select */}
+                <div>
+                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
+                    Select Airframe (Aircraft)
+                  </label>
+                  <select
+                    value={autoAircraftId}
+                    onChange={e => setAutoAircraftId(Number(e.target.value))}
+                    required
+                    className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-gray-800 focus:outline-none focus:border-brand cursor-pointer"
+                  >
+                    <option value={0}>Choose an airframe…</option>
+                    {groupAirframes.map(a => {
+                      const t = types.find(ty => ty.id === a.aircraft_type_id);
+                      return (
+                        <option key={a.id} value={a.id}>
+                          {a.registration} — {t?.name || "Unknown Model"} (Parked: {a.current_airport})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Selected Aircraft Preview */}
+                {selectedAc && (
+                  <div className="p-3 rounded-2xl bg-gray-50 border border-brand-border flex items-center gap-3">
+                    <div className="w-16 h-10 rounded-xl overflow-hidden shrink-0 bg-gray-100">
+                      {selectedAcImg ? (
+                        <img
+                          src={selectedAcImg.url}
+                          alt={selectedAcType?.name || selectedAc.registration}
+                          className="w-full h-full object-cover"
+                          style={{ objectPosition: selectedAcImg.objectPosition || "center 40%" }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">✈</div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-brand">{selectedAc.registration}</p>
+                      <p className="text-[11px] text-gray-500 font-semibold">{selectedAcType?.name || "Unknown"} · Location: {selectedAc.current_airport}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Roundtrips */}
+                <div>
+                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
+                    Number of Round-Trips
+                  </label>
+                  <select
+                    value={autoNumRoundtrips}
+                    onChange={e => setAutoNumRoundtrips(Number(e.target.value))}
+                    required
+                    className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-gray-800 focus:outline-none focus:border-brand cursor-pointer"
+                  >
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <option key={n} value={n}>
+                        {n} Round-trip{n > 1 ? "s" : ""} ({n * 2} flight legs)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Haul Preference */}
+                <div>
+                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
+                    Flight Length Preference
+                  </label>
+                  <div className="grid grid-cols-3 gap-2 bg-brand-pale border border-brand-border/40 rounded-xl p-1">
+                    {(["mixed", "short", "long"] as const).map(pref => (
+                      <button
+                        key={pref}
+                        type="button"
+                        onClick={() => setAutoHaulPreference(pref)}
+                        className={`py-2 rounded-lg text-xs font-bold transition-all capitalize cursor-pointer ${
+                          autoHaulPreference === pref
+                            ? "bg-brand text-white shadow-sm"
+                            : "text-gray-500 hover:text-brand"
+                        }`}
+                      >
+                        {pref === "mixed" ? "Balanced Mix" : `${pref} Haul`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Duration Filters */}
+                <div className="bg-gray-50 border border-brand-border rounded-2xl p-4 space-y-2">
+                  <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Custom Route Duration Filters (Optional)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Min Duration (Hours)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={24}
+                        value={autoMinHours || ""}
+                        onChange={e => setAutoMinHours(Number(e.target.value))}
+                        placeholder="e.g. 6"
+                        className="w-full border border-brand-border rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-brand bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Max Duration (Hours)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={24}
+                        value={autoMaxHours || ""}
+                        onChange={e => setAutoMaxHours(Number(e.target.value))}
+                        placeholder="e.g. 12"
+                        className="w-full border border-brand-border rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-brand bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Start Date & Time */}
+                <div>
+                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
+                    First Flight Start Date & Time (UTC)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={autoStartTime}
+                    onChange={e => setAutoStartTime(e.target.value)}
+                    required
+                    className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-gray-800 focus:outline-none focus:border-brand cursor-pointer"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1.5">
+                    Subsequent round-trips will be spaced out automatically 2 days apart starting from this date.
+                  </p>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="pt-3 border-t border-brand-border flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAutoScheduleModalOpen(false)}
+                    className="flex-1 py-3 rounded-2xl border border-brand-border text-gray-500 font-bold text-sm hover:bg-gray-50 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={autoGenerating || !autoAircraftId}
+                    className="flex-[2] py-3 rounded-2xl bg-gradient-to-r from-brand-dark to-brand text-white font-bold text-sm hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {autoGenerating ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Generating Drafts...
+                      </>
+                    ) : (
+                      "Generate Draft Flights"
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         );
