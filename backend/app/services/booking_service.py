@@ -1,6 +1,6 @@
 import random
 import httpx
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -729,19 +729,25 @@ async def post_completion_webhook(
         print(f"Error posting discord webhook: {e}")
 
 
-async def reconcile_all_payouts(db: AsyncSession):
+async def reconcile_all_payouts(db: AsyncSession, days: int = 30):
     """
     Reconciles flight payouts for all pilots.
-    Queries all completed or rejected flight bookings and synchronizes them with their current PIREP status.
+    Queries completed or rejected flight bookings from the last 30 days (by default)
+    and synchronizes them with their current PIREP status.
     Supports reversing payouts (Approved -> Rejected) and paying out delayed approvals (Rejected -> Approved).
     """
     # Load dynamic rate/repu settings from database
     rates = await get_rate_settings(db)
 
-    # Fetch all bookings that are completed or rejected
+    cutoff_date = datetime.utcnow() - timedelta(days=days)
+
+    # Fetch bookings from last 30 days that are completed or rejected
     stmt = (
         select(LiveFlightBooking)
-        .where(LiveFlightBooking.status.in_(["completed", "rejected"]))
+        .where(
+            LiveFlightBooking.status.in_(["completed", "rejected"]),
+            LiveFlightBooking.booked_at >= cutoff_date,
+        )
         .options(
             selectinload(LiveFlightBooking.schedule)
             .selectinload(LiveFlightSchedule.aircraft)

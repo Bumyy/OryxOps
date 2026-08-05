@@ -64,6 +64,10 @@ async def get_pilot_detail(db: AsyncSession, pilot_id: int) -> dict | None:
         select(LiveCurrency).where(LiveCurrency.pilot_id == pilot_id)
     )
     token = token_result.scalar_one_or_none()
+    if not token:
+        token = LiveCurrency(pilot_id=pilot_id, balance=0, total_earned=0, total_spent=0)
+        db.add(token)
+        await db.flush()
 
     group_result = await db.execute(
         select(LiveFlyingGroup)

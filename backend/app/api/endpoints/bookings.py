@@ -51,6 +51,8 @@ def map_booking_to_out(b: LiveFlightBooking) -> BookingOut:
     actual_arrival = None
     diverted = False
     
+    is_dep_only = b.departure_pilot_id is not None and b.arrival_pilot_id is None
+
     # Determine the actual arrival from the filed PIREP
     if b.arrival_pirep:
         actual_arrival = b.arrival_pirep.arrival

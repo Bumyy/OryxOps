@@ -15,6 +15,7 @@ from app.models.live_models import (
     LiveGroupAircraft,
     LiveGroupPilot,
     LivePilotCareer,
+    LiveCurrency,
     Pilot,
     AwardGranted,
 )
@@ -139,6 +140,11 @@ async def enroll_pilot(
     )
     db.add(career)
 
+    # Initialize wallet if not exists
+    curr_res = await db.execute(select(LiveCurrency).where(LiveCurrency.pilot_id == data.pilot_id))
+    if not curr_res.scalar_one_or_none():
+        db.add(LiveCurrency(pilot_id=data.pilot_id, balance=0, total_earned=0, total_spent=0))
+
     await db.commit()
     await db.refresh(career)
 
@@ -252,6 +258,11 @@ async def enroll_pilot_by_callsign(
         current_rank_id=rank.id,
     )
     db.add(career)
+
+    # Initialize wallet if not exists
+    curr_res = await db.execute(select(LiveCurrency).where(LiveCurrency.pilot_id == pilot.id))
+    if not curr_res.scalar_one_or_none():
+        db.add(LiveCurrency(pilot_id=pilot.id, balance=0, total_earned=0, total_spent=0))
 
     await db.commit()
     await db.refresh(career)
