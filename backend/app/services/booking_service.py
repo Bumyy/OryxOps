@@ -964,3 +964,40 @@ async def take_over_booking(
     await db.commit()
     await db.refresh(booking)
     return booking
+
+
+async def rebook_delayed(
+    db: AsyncSession,
+    booking: LiveFlightBooking,
+    new_pilot_id: int,
+    booking_type: str = "both",
+) -> LiveFlightBooking | None:
+    schedule = booking.schedule
+    if not schedule or not schedule.scheduled_departure or not schedule.scheduled_arrival:
+        return None
+
+    now = datetime.utcnow()
+    old_departure = schedule.scheduled_departure
+    old_arrival = schedule.scheduled_arrival
+    orig_duration = old_arrival - old_departure
+
+    schedule.scheduled_departure = now
+    schedule.scheduled_arrival = now + orig_duration
+    db.add(schedule)
+
+    booking.departure_pilot_id = None
+    booking.arrival_pilot_id = None
+    booking.released_at = None
+    booking.released_by = None
+    booking.if_flight_id = None
+    booking.dispatched_at = None
+    booking.status = "booked"
+
+    if booking_type in ("departure", "both"):
+        booking.departure_pilot_id = new_pilot_id
+    if booking_type in ("arrival", "both"):
+        booking.arrival_pilot_id = new_pilot_id
+
+    await db.commit()
+    await db.refresh(booking)
+    return booking

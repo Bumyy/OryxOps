@@ -392,6 +392,9 @@ class LiveFlightSchedule(Base):
     week_start = Column(Date, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     if_schedule_id = Column(String(36), nullable=True)
+    actual_departure = Column(DateTime, nullable=True)
+    actual_arrival = Column(DateTime, nullable=True)
+    if_session_id = Column(String(36), nullable=True)
     proposal_cost_qar = Column(Integer, nullable=False, default=0)
 
     group = relationship("LiveFlyingGroup", back_populates="flight_schedules")
@@ -421,12 +424,16 @@ class LiveFlightBooking(Base):
     earnings = Column(Float, nullable=True)
     expenses = Column(Float, nullable=True)
     status = Column(String(20), nullable=False, default="booked")
+    released_at = Column(DateTime, nullable=True)
+    released_by = Column(Integer, ForeignKey("pilots.id"), nullable=True)
+    if_flight_id = Column(String(36), nullable=True)
 
     schedule = relationship("LiveFlightSchedule", back_populates="bookings")
     departure_pilot = relationship("Pilot", foreign_keys=[departure_pilot_id])
     arrival_pilot = relationship("Pilot", foreign_keys=[arrival_pilot_id])
     departure_pirep = relationship("Pirep", foreign_keys=[departure_pirep_id])
     arrival_pirep = relationship("Pirep", foreign_keys=[arrival_pirep_id])
+    released_by_pilot = relationship("Pilot", foreign_keys=[released_by])
 
 
 class LiveSetting(Base):

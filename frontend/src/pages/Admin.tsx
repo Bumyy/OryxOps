@@ -1802,10 +1802,109 @@ export function SettingsTab() {
         )}
       </div>
 
+      {/* IF Live Tracking Status */}
+      <TrackingPanel />
+
       {/* Embedded Leg Economics Simulator & Pax Boarding Simulator */}
       <div className="flex flex-col gap-6">
         <LegSimulatorPanel />
         <PaxSimulatorPanel />
+      </div>
+    </div>
+  );
+}
+
+
+export function TrackingPanel() {
+  const [trackStatus, setTrackStatus] = useState<any>(null);
+  const [trackLoading, setTrackLoading] = useState(false);
+  const [trackMsg, setTrackMsg] = useState("");
+
+  const fetchStatus = async () => {
+    try {
+      const res = await api.get<any>("/tracking/status");
+      setTrackStatus(res);
+    } catch {
+      setTrackStatus(null);
+    }
+  };
+
+  useEffect(() => { fetchStatus(); }, []);
+
+  const handleSync = async () => {
+    setTrackLoading(true);
+    setTrackMsg("");
+    try {
+      const res = await api.post<any>("/tracking/sync");
+      setTrackStatus(res);
+      setTrackMsg("Sync completed.");
+    } catch (e: any) {
+      setTrackMsg(e.message || "Sync failed");
+    }
+    setTrackLoading(false);
+  };
+
+  return (
+    <div className="card bg-base-100 border border-brand-border shadow-sm">
+      <div className="card-body p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="card-title text-xl font-bold text-brand m-0">IF Live Tracking</h3>
+          <span className={`badge ${trackStatus?.last_sync_at ? "badge-success" : "badge-ghost"} badge-sm font-bold`}>
+            {trackStatus?.last_sync_at ? "Active" : "Idle"}
+          </span>
+        </div>
+
+        {trackStatus && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="stat bg-base-200 rounded-xl p-3">
+              <div className="stat-title text-[9px]">Last Sync</div>
+              <div className="stat-value text-xs">
+                {trackStatus.last_sync_at ? new Date(trackStatus.last_sync_at).toLocaleTimeString("en-GB") : "Never"}
+              </div>
+            </div>
+            <div className="stat bg-primary/5 rounded-xl p-3">
+              <div className="stat-title text-[9px]">Active Flights</div>
+              <div className="stat-value text-lg text-primary">{trackStatus.active_flights_on_server ?? "—"}</div>
+            </div>
+            <div className="stat bg-success/10 rounded-xl p-3">
+              <div className="stat-title text-[9px]">Dispatched</div>
+              <div className="stat-value text-lg text-success">{trackStatus.dispatched_this_cycle ?? "—"}</div>
+            </div>
+            <div className="stat bg-error/10 rounded-xl p-3">
+              <div className="stat-title text-[9px]">No-Shows</div>
+              <div className="stat-value text-lg text-error">{trackStatus.no_shows_this_cycle ?? "—"}</div>
+            </div>
+          </div>
+        )}
+
+        {trackStatus?.last_error && (
+          <div className="alert alert-error text-xs">{trackStatus.last_error}</div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={handleSync}
+            disabled={trackLoading}
+            className="btn btn-primary btn-sm"
+          >
+            {trackLoading ? <span className="loading loading-spinner loading-xs" /> : null}
+            {trackLoading ? "Syncing..." : "Force Sync Now"}
+          </button>
+          <button
+            onClick={fetchStatus}
+            className="btn btn-outline btn-sm"
+          >
+            Refresh Status
+          </button>
+        </div>
+
+        {trackMsg && (
+          <div className="alert text-sm">{trackMsg}</div>
+        )}
+
+        <p className="text-[10px] text-gray-400">
+          Automatically syncs every 60 seconds. Matches IF Expert server flights to booked schedules by callsign.
+        </p>
       </div>
     </div>
   );

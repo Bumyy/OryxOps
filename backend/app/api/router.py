@@ -15,6 +15,7 @@ from app.api.endpoints import (
     routes,
     schedules,
     settings,
+    tracking,
     transfers,
     handbook,
     bidding,
@@ -37,7 +38,6 @@ api_router.include_router(efb.router)
 api_router.include_router(charts.router)
 api_router.include_router(admin.router)
 api_router.include_router(if_live.router)
+api_router.include_router(tracking.router)
 api_router.include_router(handbook.router)
 api_router.include_router(bidding.router)
-
-

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { fetchBookings, cancelBooking } from "../store/slices/bookingSlice";
+import { fetchBookings, cancelBooking, dispatchBooking, rebookBooking } from "../store/slices/bookingSlice";
+import type { FlightProgress } from "../store/slices/bookingSlice";
 import { api, BASE_URL } from "../api/client";
 import { useCurrency } from "../hooks/useCurrency";
 
@@ -16,6 +17,8 @@ export default function Bookings() {
   const [selectedPaySlipBooking, setSelectedPaySlipBooking] = useState<any | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState<boolean>(false);
+  const [progressData, setProgressData] = useState<Record<number, FlightProgress>>({});
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!selectedPaySlipBooking) {
@@ -91,6 +94,33 @@ export default function Bookings() {
     refetch();
   }, [user, activeTab]);
 
+  useEffect(() => {
+    if (activeTab !== "bookings") return;
+    const dispatchedIds = bookings.filter(b => b.status === "dispatched" || !!b.dispatched_at).map(b => b.id);
+    if (dispatchedIds.length === 0) return;
+
+    const poll = () => {
+      dispatchedIds.forEach(id => {
+        api.get<FlightProgress>(`/bookings/${id}/progress`).then((data: any) => {
+          setProgressData(prev => ({ ...prev, [id]: data }));
+        }).catch(() => {});
+      });
+    };
+    poll();
+    progressTimer.current = setInterval(poll, 30000);
+    return () => { if (progressTimer.current) clearInterval(progressTimer.current); };
+  }, [bookings, activeTab]);
+
+  const handleRebook = async (bookingId: number) => {
+    if (!confirm("Rebook this flight with current time as the new departure?")) return;
+    const res = await dispatch(rebookBooking(bookingId));
+    if (rebookBooking.fulfilled.match(res)) {
+      refetch();
+    } else {
+      alert("Failed to rebook: " + (res.error?.message || "Unknown error"));
+    }
+  };
+
   const handleCancel = async (id: number) => {
     if (confirm("Are you sure you want to cancel this booking?")) {
       const res = await dispatch(cancelBooking(id));
@@ -163,6 +193,52 @@ export default function Bookings() {
           {bookings.map((b) => {
             const isSolo = b.departure_pilot_id === b.arrival_pilot_id;
             const isDispatched = !!b.dispatched_at;
+            const isNoShow = b.status === "no_show";
+            const prog = progressData[b.id];
+
+            if (isNoShow) {
+              return (
+                <div key={b.id} className="card border-2 border-error shadow-sm overflow-hidden">
+                  <div className="alert alert-error rounded-none border-0 px-4 py-2 text-sm font-bold uppercase">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse" />
+                      No Show — Released for Re-booking
+                    </div>
+                  </div>
+                  <div className="card-body flex flex-col md:flex-row gap-4 justify-between items-start">
+                    <div className="space-y-3 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xl font-black text-error uppercase tracking-tight">
+                          {b.flight_departure} → {b.flight_arrival}
+                        </span>
+                        {b.flight_number && (
+                          <span className="badge badge-error badge-soft text-xs">{b.flight_number}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 font-bold">
+                        Aircraft: <span className="text-gray-700">{b.aircraft_registration} ({b.aircraft_icao})</span>
+                      </p>
+                      {b.flight_scheduled_dep && (
+                        <p className="text-[10px] text-gray-400">
+                          Was scheduled: {new Date(b.flight_scheduled_dep).toLocaleString("en-GB", { timeZone: "UTC", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} UTC
+                        </p>
+                      )}
+                      <div className="alert text-error bg-error/10 border-error/20 text-xs font-bold rounded-xl py-2 px-3">
+                        Pilot did not show — schedule released for other pilots
+                      </div>
+                    </div>
+                    <div className="w-full md:w-auto flex flex-col items-stretch md:items-end gap-3 min-w-[220px]">
+                      <button
+                        onClick={() => handleRebook(b.id)}
+                        className="btn btn-warning btn-wide text-white"
+                      >
+                        🔄 Rebook with Delay
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div
@@ -176,12 +252,78 @@ export default function Bookings() {
                 {/* Status ribbon */}
                 <div className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${
                   isDispatched
-                    ? "bg-emerald-50 text-emerald-700 border-b border-emerald-200"
-                    : "bg-amber-50 text-amber-700 border-b border-amber-200"
+                    ? "bg-success/10 text-success border-b border-success/20"
+                    : "bg-warning/10 text-warning border-b border-warning/20"
                 }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${isDispatched ? "bg-emerald-500 animate-pulse" : "bg-amber-400"}`} />
-                  {isDispatched ? "✈️ Dispatched — Flight in Progress" : "⏳ Awaiting Dispatch"}
+                  <span className={`w-1.5 h-1.5 rounded-full ${isDispatched ? (prog?.active_on_server ? "bg-success animate-pulse" : "bg-yellow-400") : "bg-warning"}`} />
+                  {isDispatched
+                    ? (prog?.active_on_server ? "Dispatched — Live Tracking Active" : "Dispatched — Not on Server (may be offline)")
+                    : "Awaiting Dispatch"}
                 </div>
+
+                {/* Progress tracking widget */}
+                {isDispatched && prog && (
+                  <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 to-sky-50 border-b border-emerald-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`badge ${prog.active_on_server ? "badge-success" : "badge-warning"} badge-sm font-bold uppercase`}>
+                          {prog.active_on_server ? "Active on Expert Server" : "Offline"}
+                        </span>
+                        <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wide">
+                          Live Tracking
+                        </span>
+                      </div>
+                      {prog.last_report && (
+                        <span className="text-[9px] text-gray-400">
+                          Last report: {prog.last_report}
+                        </span>
+                      )}
+                    </div>
+
+                    {prog.progress_pct !== null && (
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-[10px] font-bold">
+                          <span className="text-gray-500">Progress</span>
+                          <span className="text-emerald-700">{prog.progress_pct}%</span>
+                        </div>
+                        <progress className="progress progress-success w-full h-2.5" value={prog.progress_pct} max="100" />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mt-3">
+                      {prog.speed !== null && (
+                        <div className="stat py-1 px-0 text-center">
+                          <div className="stat-title text-[8px]">GS</div>
+                          <div className="stat-value text-xs">{prog.speed} <span className="text-[9px]">kt</span></div>
+                        </div>
+                      )}
+                      {prog.altitude !== null && (
+                        <div className="stat py-1 px-0 text-center">
+                          <div className="stat-title text-[8px]">ALT</div>
+                          <div className="stat-value text-xs">{prog.altitude.toLocaleString()} <span className="text-[9px]">ft</span></div>
+                        </div>
+                      )}
+                      {prog.heading !== null && (
+                        <div className="stat py-1 px-0 text-center">
+                          <div className="stat-title text-[8px]">HDG</div>
+                          <div className="stat-value text-xs">{prog.heading}°</div>
+                        </div>
+                      )}
+                      {prog.distance_remaining_nm !== null && (
+                        <div className="stat py-1 px-0 text-center">
+                          <div className="stat-title text-[8px]">Remain</div>
+                          <div className="stat-value text-xs">{prog.distance_remaining_nm} <span className="text-[9px]">nm</span></div>
+                        </div>
+                      )}
+                      {prog.eta_minutes !== null && (
+                        <div className="stat py-1 px-0 text-center">
+                          <div className="stat-title text-[8px]">ETA</div>
+                          <div className="stat-value text-xs text-success">{prog.eta_minutes} <span className="text-[9px]">min</span></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="p-6 flex flex-col md:flex-row gap-6 justify-between items-start">
                   {/* Left side: route details */}
@@ -191,9 +333,7 @@ export default function Bookings() {
                         {b.flight_departure} ➔ {b.flight_arrival}
                       </span>
                       {b.flight_number && (
-                        <span className="text-[10px] font-extrabold text-brand bg-brand-pale border border-brand-border/60 px-2 py-0.5 rounded-md">
-                          {b.flight_number}
-                        </span>
+                        <span className="badge badge-primary badge-soft text-xs">{b.flight_number}</span>
                       )}
                     </div>
 
@@ -203,22 +343,22 @@ export default function Bookings() {
 
                     <div className="flex gap-2 flex-wrap">
                       {isSolo ? (
-                        <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100/50 border border-emerald-200/50 px-2 py-0.5 rounded-md">
+                        <span className="badge badge-success badge-soft text-xs gap-1">
                           👤 Solo Flight
                         </span>
                       ) : (
                         <>
-                          <span className="text-[9px] font-bold text-sky-800 bg-sky-100/50 border border-sky-200/50 px-2 py-0.5 rounded-md">
+                          <span className="badge badge-info badge-soft text-xs gap-1">
                             🛫 Takeoff: {b.departure_pilot_callsign || "Vacant"}
                           </span>
-                          <span className="text-[9px] font-bold text-purple-800 bg-purple-100/50 border border-purple-200/50 px-2 py-0.5 rounded-md">
+                          <span className="badge badge-secondary badge-soft text-xs gap-1">
                             🛬 Landing: {b.arrival_pilot_callsign || "Vacant"}
                           </span>
                         </>
                       )}
                       {b.pax_count !== null && b.pax_count !== undefined && (
-                        <span className="text-[9px] font-bold text-violet-800 bg-violet-100/60 border border-violet-200/60 px-2 py-0.5 rounded-md">
-                          👥 {b.pax_count} Pax Manifest
+                        <span className="badge badge-accent badge-soft text-xs gap-1">
+                          👥 {b.pax_count} Pax
                         </span>
                       )}
                     </div>
@@ -234,18 +374,19 @@ export default function Bookings() {
                   <div className="w-full md:w-auto flex flex-col items-stretch md:items-end gap-3 min-w-[220px]">
                     <button
                       onClick={() => navigate("/operations")}
-                      className="flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark text-white px-5 py-3 rounded-2xl text-sm font-black transition-all shadow-md shadow-brand/20 cursor-pointer"
+                      className="btn btn-primary btn-wide"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 3l6 9-6 9" />
                       </svg>
                       {isDispatched ? "Open Flight Ops → File PIREP" : "Open Flight Ops → Dispatch"}
+                    
                     </button>
 
                     {(user?.id === b.departure_pilot_id || user?.id === b.arrival_pilot_id) && (
                       <button
                         onClick={() => handleCancel(b.id)}
-                        className="text-xs font-bold text-red-500 hover:text-red-700 hover:underline text-center cursor-pointer py-1"
+                        className="btn btn-ghost btn-xs text-error"
                       >
                         ❌ Cancel Booking
                       </button>
@@ -367,7 +508,7 @@ export default function Bookings() {
                   {b.pirep_accepted === 1 && (
                     <button
                       onClick={() => setSelectedPaySlipBooking(b)}
-                      className="w-full flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark text-white px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-md shadow-brand/10 cursor-pointer"
+                      className="btn btn-primary btn-sm btn-wide"
                     >
                       📄 View Pilot Pay Slip
                     </button>
@@ -406,14 +547,14 @@ export default function Bookings() {
                   <a
                     href={pdfBlobUrl}
                     download={`PaySlip_Leg_${selectedPaySlipBooking.id}.pdf`}
-                    className="flex items-center gap-1.5 text-xs font-black text-white bg-brand hover:bg-brand-dark px-3.5 py-2 rounded-xl transition-all shadow-md shadow-brand/20 cursor-pointer"
+                    className="btn btn-primary btn-xs"
                   >
                     📥 Download PDF
                   </a>
                 )}
                 <button
                   onClick={() => setSelectedPaySlipBooking(null)}
-                  className="text-gray-400 hover:text-gray-600 p-2 rounded-full cursor-pointer text-lg font-bold"
+                  className="btn btn-ghost btn-sm btn-circle"
                 >
                   ✕
                 </button>

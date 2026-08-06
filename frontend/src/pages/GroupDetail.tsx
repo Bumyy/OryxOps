@@ -1,16 +1,29 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchGroupDetail } from "../store/slices/groupSlice";
+import { api } from "../api/client";
 import aircraftImages from "../assets/aircraft_images.json";
 
 export default function GroupDetail() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const { currentGroup } = useAppSelector((s) => s.group);
+  const [opsStats, setOpsStats] = useState<{ dispatched: number; no_show: number; booked: number } | null>(null);
 
   useEffect(() => {
     if (id) dispatch(fetchGroupDetail(Number(id)));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    api.get<any[]>(`/bookings?group_id=${id}`).then(bs => {
+      setOpsStats({
+        dispatched: bs.filter((b: any) => b.status === "dispatched").length,
+        no_show: bs.filter((b: any) => b.status === "no_show").length,
+        booked: bs.filter((b: any) => b.status === "booked").length,
+      });
+    }).catch(() => setOpsStats(null));
   }, [id]);
 
   if (!currentGroup) {
@@ -97,6 +110,29 @@ export default function GroupDetail() {
           </div>
         </div>
       </div>
+
+      {/* Operations Status */}
+      {opsStats && (opsStats.dispatched > 0 || opsStats.no_show > 0 || opsStats.booked > 0) && (
+        <div className="card bg-base-100 border border-brand-border shadow-sm mb-8">
+          <div className="card-body p-5">
+            <h3 className="card-title text-sm font-black text-brand m-0">Live Operations</h3>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="stat bg-success/10 rounded-xl p-3">
+                <div className="stat-title text-[10px]">In Flight</div>
+                <div className="stat-value text-lg text-success">{opsStats.dispatched}</div>
+              </div>
+              <div className="stat bg-error/10 rounded-xl p-3">
+                <div className="stat-title text-[10px]">No Shows</div>
+                <div className="stat-value text-lg text-error">{opsStats.no_show}</div>
+              </div>
+              <div className="stat bg-warning/10 rounded-xl p-3">
+                <div className="stat-title text-[10px]">Awaiting</div>
+                <div className="stat-value text-lg text-warning">{opsStats.booked}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Roster Section */}
       <div className="mb-10">

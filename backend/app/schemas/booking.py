@@ -36,6 +36,11 @@ class BookingOut(BaseModel):
     actual_arrival: str | None = None
     diverted: bool = False
 
+    # Auto-tracked IF times
+    actual_departure: str | None = None
+    actual_arrival_if: str | None = None
+    auto_flight_time_minutes: int | None = None
+
     model_config = {"from_attributes": True}
 
 

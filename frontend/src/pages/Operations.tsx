@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchBookings, dispatchBooking, cancelBooking, completeBooking } from "../store/slices/bookingSlice";
+import type { FlightProgress } from "../store/slices/bookingSlice";
 import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
 import { api } from "../api/client";
 import { getSimBriefAircraftType } from "../components/efb/briefing/EFBBriefing";
@@ -77,11 +78,32 @@ export default function Operations() {
   const [pirepArrival, setPirepArrival] = useState("");
   const [submittingPirep, setSubmittingPirep] = useState(false);
 
+  const [opProgress, setOpProgress] = useState<FlightProgress | null>(null);
+  const opProgressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     if (user?.id) {
       dispatch(fetchBookings({ pilot_id: user.id, status: "booked" }));
     }
   }, [user, dispatch]);
+
+  useEffect(() => {
+    if (!activeBooking || !isDispatched) return;
+    const poll = () => {
+      api.get<FlightProgress>(`/bookings/${activeBooking.id}/progress`).then(setOpProgress).catch(() => {});
+    };
+    poll();
+    opProgressTimer.current = setInterval(poll, 15000);
+    return () => { if (opProgressTimer.current) clearInterval(opProgressTimer.current); };
+  }, [activeBooking?.id, isDispatched]);
+
+  useEffect(() => {
+    if (activeBooking?.auto_flight_time_minutes) {
+      const mins = activeBooking.auto_flight_time_minutes;
+      setPirepHours(String(Math.floor(mins / 60)));
+      setPirepMinutes(String(mins % 60));
+    }
+  }, [activeBooking?.auto_flight_time_minutes]);
 
   const refetchBookings = () => {
     if (user?.id) dispatch(fetchBookings({ pilot_id: user.id, status: "booked" }));
@@ -275,7 +297,7 @@ export default function Operations() {
                   <button
                     onClick={handleDispatchFlight}
                     disabled={dispatching}
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-60 text-white font-black px-6 py-3.5 rounded-2xl text-sm transition-all shadow-md cursor-pointer"
+                    className="btn btn-warning btn-wide text-white"
                   >
                     {dispatching ? "Dispatching..." : "🚀 Dispatch Flight"}
                   </button>
@@ -287,7 +309,7 @@ export default function Operations() {
                 {(isDeparturePilot || isArrivalPilot) && (
                   <button
                     onClick={handleCancelFlight}
-                    className="text-[10px] text-red-500 font-bold hover:underline text-center cursor-pointer"
+                    className="btn btn-ghost btn-xs text-error"
                   >
                     Cancel Booking
                   </button>
@@ -311,11 +333,81 @@ export default function Operations() {
                 <button
                   onClick={handleAnnounceStatus}
                   disabled={announcing}
-                  className="w-full sm:w-auto shrink-0 bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white font-black px-5 py-3 rounded-2xl text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  className="btn btn-secondary btn-sm"
                 >
                   {announcing ? "Broadcasting..." : announced ? "✓ Status Posted to #fleet-logs" : "📢 Send Webhook Status"}
                 </button>
               </div>
+
+              {/* Live Tracking Card */}
+              {opProgress && (
+                <div className="card border border-success/30 ring-1 ring-success/20 shadow-sm">
+                  <div className="card-title px-6 py-3 bg-gradient-to-r from-success/10 to-info/10 border-b border-success/20 flex items-center justify-between m-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`badge ${opProgress.active_on_server ? "badge-success" : "badge-warning"} badge-sm gap-1 font-bold uppercase`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${opProgress.active_on_server ? "bg-success animate-pulse" : "bg-warning"}`} />
+                        {opProgress.active_on_server ? "Live Tracking Active" : "Aircraft Offline"}
+                      </span>
+                    </div>
+                    {opProgress.callsign && (
+                      <span className="badge badge-ghost font-mono text-xs">{opProgress.callsign}</span>
+                    )}
+                  </div>
+                  <div className="card-body p-6 space-y-4">
+                    {opProgress.progress_pct !== null && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-bold">
+                          <span className="text-gray-500">Flight Progress</span>
+                          <span className="text-success">{opProgress.progress_pct}%</span>
+                        </div>
+                        <progress className="progress progress-success w-full h-3" value={opProgress.progress_pct} max="100" />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="stat bg-info/5 rounded-xl p-3">
+                        <div className="stat-title text-[9px]">Ground Speed</div>
+                        <div className="stat-value text-lg">{opProgress.speed ?? "—"} <span className="text-[11px] font-normal">kt</span></div>
+                      </div>
+                      <div className="stat bg-info/5 rounded-xl p-3">
+                        <div className="stat-title text-[9px]">Altitude</div>
+                        <div className="stat-value text-lg">{opProgress.altitude?.toLocaleString() ?? "—"} <span className="text-[11px] font-normal">ft</span></div>
+                      </div>
+                      <div className="stat bg-info/5 rounded-xl p-3">
+                        <div className="stat-title text-[9px]">Heading</div>
+                        <div className="stat-value text-lg">{opProgress.heading ?? "—"}°</div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="stat bg-warning/10 rounded-xl p-3">
+                        <div className="stat-title text-[9px]">Distance Left</div>
+                        <div className="stat-value text-lg text-warning">{opProgress.distance_remaining_nm ?? "—"} <span className="text-[11px] font-normal">nm</span></div>
+                      </div>
+                      <div className="stat bg-success/10 rounded-xl p-3">
+                        <div className="stat-title text-[9px]">ETA</div>
+                        <div className="stat-value text-lg text-success">{opProgress.eta_minutes ?? "—"} <span className="text-[11px] font-normal">min</span></div>
+                      </div>
+                      <div className={`stat rounded-xl p-3 ${opProgress.on_ground ? "bg-error/10" : "bg-base-200"}`}>
+                        <div className="stat-title text-[9px]">On Ground</div>
+                        <div className={`stat-value text-lg ${opProgress.on_ground ? "text-error" : "text-base-content/50"}`}>{opProgress.on_ground ? "YES" : "NO"}</div>
+                      </div>
+                    </div>
+
+                    {opProgress.total_distance_nm && (
+                      <p className="text-[10px] text-gray-400 text-center">
+                        Total route: {opProgress.total_distance_nm} nm · {opProgress.distance_remaining_nm !== null ? `${opProgress.distance_remaining_nm} nm remaining` : ""}
+                      </p>
+                    )}
+
+                    {opProgress.last_report && (
+                      <p className="text-[9px] text-gray-400 text-center">
+                        Last data: {opProgress.last_report}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -331,17 +423,17 @@ export default function Operations() {
                       href={`https://www.simbrief.com/system/dispatch.php?orig=${activeBooking.flight_departure}&dest=${activeBooking.flight_arrival}&pax=${activeBooking.pax_count || 150}&type=${getSimBriefAircraftType(activeBooking.aircraft_icao)}&flt=${activeBooking.flight_number?.replace(/\D/g, "") || "100"}&airline=${activeBooking.flight_number?.replace(/\d/g, "") || "QR"}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2 bg-[#E74C3C] hover:bg-[#C0392B] text-white font-black py-3 rounded-2xl text-xs transition-all shadow-sm text-center"
+                      className="btn btn-error btn-wide"
                     >
-                      🔗 Generate SimBrief Dispatch Plan
+                      🔗 SimBrief Dispatch
                     </a>
                     <a
                       href={`https://www.flightaware.com/live/findflight?origin=${activeBooking.flight_departure}&destination=${activeBooking.flight_arrival}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-black py-3 rounded-2xl text-xs transition-all shadow-sm text-center"
+                      className="btn btn-info btn-wide text-white"
                     >
-                      🌐 FlightAware live tracker
+                      🌐 FlightAware Tracker
                     </a>
                   </div>
                 </div>
@@ -378,7 +470,7 @@ export default function Operations() {
                     </div>
                     <button
                       type="submit"
-                      className="col-span-2 bg-brand-pale border border-brand/20 text-brand font-black py-2.5 rounded-xl text-xs hover:bg-brand/5 transition-all cursor-pointer"
+                      className="btn btn-ghost btn-sm col-span-2"
                     >
                       Calculate Estimate
                     </button>
@@ -392,7 +484,7 @@ export default function Operations() {
                       </div>
                       <button
                         onClick={handleCopyFuel}
-                        className="bg-brand text-white font-bold text-[10px] px-3 py-2 rounded-lg hover:bg-brand-dark transition-all cursor-pointer"
+                        className="btn btn-primary btn-xs"
                       >
                         Copy to PIREP
                       </button>
@@ -435,6 +527,17 @@ export default function Operations() {
                           />
                         </div>
                       </div>
+                      {activeBooking?.auto_flight_time_minutes && (
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="badge badge-success badge-xs gap-1">
+                            Auto-tracked
+                          </span>
+                          <span className="text-[9px] text-gray-400">
+                            Detected from IF: {Math.floor(activeBooking.auto_flight_time_minutes / 60)}h {activeBooking.auto_flight_time_minutes % 60}m
+                            {activeBooking.actual_departure && <> · Departed {new Date(activeBooking.actual_departure).toLocaleTimeString("en-GB", { timeZone: "UTC" })} UTC</>}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -497,7 +600,7 @@ export default function Operations() {
                     <button
                       type="submit"
                       disabled={submittingPirep}
-                      className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 disabled:opacity-60 text-white font-black py-3 rounded-2xl text-sm transition-all shadow-md cursor-pointer"
+                      className="btn btn-success btn-wide text-white"
                     >
                       {submittingPirep ? "Submitting PIREP..." : "✅ File PIREP & Finish Leg"}
                     </button>

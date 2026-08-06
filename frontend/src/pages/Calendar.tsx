@@ -1003,8 +1003,10 @@ export default function Calendar() {
                 const gt = fb.schedule.ground_time_minutes || 60, gtH = Math.max((gt / 60) * HOUR_HEIGHT, 8);
                 const s = fb.schedule, dur = Math.round((new Date(s.scheduled_arrival + "Z").getTime() - new Date(s.scheduled_departure + "Z").getTime()) / 360000) / 10;
                 const bkd = bookings[s.id] || [];
-                const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed");
+                const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed" || b.status === "dispatched" || b.status === "no_show");
                 const isCompleted = activeBooking?.status === "completed";
+                const isDispatched = activeBooking?.status === "dispatched";
+                const isNoShow = activeBooking?.status === "no_show";
                 const bookedBy = activeBooking
                   ? activeBooking.departure_pilot_callsign === activeBooking.arrival_pilot_callsign
                     ? activeBooking.departure_pilot_callsign
@@ -1032,38 +1034,44 @@ export default function Calendar() {
                       className={`w-full rounded-t-lg px-1.5 py-1 text-[8px] leading-tight cursor-pointer overflow-hidden border border-b-0 pointer-events-auto font-extrabold ${
                         s.status === "cancelled" ? "line-through opacity-70 font-semibold" : ""
                       } hover:z-20 hover:ring-2 hover:ring-brand/30 transition-all shadow-sm`}
-                      style={{
-                        height: `${Math.max(ht, 10)}px`,
-                        background: fb.isError ? "var(--status-error-bg)" :
-                          s.status === "cancelled" ? "var(--status-cancelled-bg)" :
-                          isCompleted ? "var(--status-completed-bg)" :
-                          s.status === "approved" ? "var(--status-approved-bg)" :
-                          s.status === "proposed" ? "var(--status-proposed-bg)" :
-                          "var(--status-draft-bg)",
-                        color: fb.isError ? "var(--status-error-text)" :
-                          s.status === "cancelled" ? "var(--status-cancelled-text)" :
-                          isCompleted ? "var(--status-completed-text)" :
-                          s.status === "approved" ? "var(--status-approved-text)" :
-                          s.status === "proposed" ? "var(--status-proposed-text)" :
-                          "var(--status-draft-text)",
-                        borderColor: fb.isError ? "var(--status-error-border)" :
-                          s.status === "cancelled" ? "var(--status-cancelled-border)" :
-                          isCompleted ? "var(--status-completed-border)" :
-                          s.status === "approved" ? "var(--status-approved-border)" :
-                          s.status === "proposed" ? "var(--status-proposed-border)" :
-                          "var(--status-draft-border)",
-                      }}
+                        style={{
+                          height: `${Math.max(ht, 10)}px`,
+                          background: fb.isError ? "var(--status-error-bg)" :
+                            s.status === "cancelled" ? "var(--status-cancelled-bg)" :
+                            isDispatched ? "#065f46" :
+                            isNoShow ? "#fef2f2" :
+                            isCompleted ? "var(--status-completed-bg)" :
+                            s.status === "approved" ? "var(--status-approved-bg)" :
+                            s.status === "proposed" ? "var(--status-proposed-bg)" :
+                            "var(--status-draft-bg)",
+                          color: fb.isError ? "var(--status-error-text)" :
+                            s.status === "cancelled" ? "var(--status-cancelled-text)" :
+                            isDispatched ? "#ffffff" :
+                            isNoShow ? "#991b1b" :
+                            isCompleted ? "var(--status-completed-text)" :
+                            s.status === "approved" ? "var(--status-approved-text)" :
+                            s.status === "proposed" ? "var(--status-proposed-text)" :
+                            "var(--status-draft-text)",
+                          borderColor: fb.isError ? "var(--status-error-border)" :
+                            s.status === "cancelled" ? "var(--status-cancelled-border)" :
+                            isDispatched ? "#047857" :
+                            isNoShow ? "#fecaca" :
+                            isCompleted ? "var(--status-completed-border)" :
+                            s.status === "approved" ? "var(--status-approved-border)" :
+                            s.status === "proposed" ? "var(--status-proposed-border)" :
+                            "var(--status-draft-border)",
+                        }}
                       onClick={e => { e.stopPropagation(); setEditingSchedule(s); }}
                       draggable
                       onDragStart={e => handleDragStart(e, s.id)}
                       onDragEnd={handleDragEnd}
-                      title={`${s.departure}→${s.arrival} | ${s.aircraft_registration} | ${s.status} | ${dur}h\nBy: ${s.created_by_name || "?"}${s.approved_by ? ` | Appr: #${s.approved_by}` : ""}${hasBooking ? `\n${isCompleted ? 'Completed' : 'Booked'}: ${bookedBy}` : ""}${fb.isError ? '\n⚠ Mismatch' : ''}${fb.isGroundIssue ? '\n⚠ GT short' : ''}\nDrag to move`}
+                      title={`${s.departure}→${s.arrival} | ${s.aircraft_registration} | ${isDispatched ? "In flight" : isNoShow ? "No show" : s.status} | ${dur}h\nBy: ${s.created_by_name || "?"}${s.approved_by ? ` | Appr: #${s.approved_by}` : ""}${hasBooking ? `\n${isDispatched ? 'In flight' : isNoShow ? 'No show' : isCompleted ? 'Completed' : 'Booked'}: ${bookedBy}` : ""}${fb.isError ? '\n⚠ Mismatch' : ''}${fb.isGroundIssue ? '\n⚠ GT short' : ''}\nDrag to move`}
                     >
                       <div className="font-bold truncate flex items-center gap-0.5">
                         {s.aircraft_registration}
                         {s.approved_by && <span title="Approved" className="text-[8px] font-black text-emerald-800 bg-emerald-200/60 px-1 rounded">✓</span>}
                         {(() => {
-                          const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed");
+                          const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed" || b.status === "dispatched" || b.status === "no_show");
                           if (!activeBooking) return null;
                           const pilotsToShow = [];
                           if (activeBooking.departure_pilot_id) {
@@ -1127,7 +1135,7 @@ export default function Calendar() {
                         })()}
                       </div>
                       <div className="truncate font-semibold">{s.departure}→{s.arrival} <span className="opacity-60">{dur}h</span></div>
-                      <div className="truncate opacity-75">{s.flight_number || `#${s.id}`} · {isCompleted ? "completed" : s.status}</div>
+                      <div className="truncate opacity-75">{s.flight_number || `#${s.id}`} · {isDispatched ? "In flight" : isNoShow ? "No show" : isCompleted ? "completed" : activeBooking ? "Booked" : s.status}</div>
                     </div>
                     {fb.showGroundTime && (
                       <div
@@ -1331,8 +1339,10 @@ export default function Calendar() {
                                   const arrDate = new Date(s.scheduled_arrival + "Z");
                                   const dur = Math.round((arrDate.getTime() - depDate.getTime()) / 360000) / 10;
                                   const bkd = bookings[s.id] || [];
-                                  const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed");
+                                  const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed" || b.status === "dispatched" || b.status === "no_show");
                                   const isCompleted = activeBooking?.status === "completed";
+                                  const isDispatched = activeBooking?.status === "dispatched";
+                                  const isNoShow = activeBooking?.status === "no_show";
                                   const hasError = errorSet.has(s.id);
                                   const hasGroundIssue = groundSet.has(s.id);
 
@@ -1376,21 +1386,34 @@ export default function Calendar() {
                                         borderColor: `var(--status-${statusKey}-border)`,
                                       }}
                                     >
-                                      {/* Flight Number & Status Pill */}
+                                      {/* Flight Number & Unified Status */}
                                       <div className="flex items-center justify-between gap-2 min-w-0">
                                         <span className={`text-xs font-black tracking-tight truncate ${textColor}`} style={{ color: `var(--status-${statusKey}-text)` }}>
                                           {s.flight_number || `#${s.id}`}
                                         </span>
-                                        <span
-                                          className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 border shadow-2xs"
-                                          style={{
-                                            background: `var(--status-${statusKey}-bg)`,
-                                            color: `var(--status-${statusKey}-text)`,
-                                            borderColor: `var(--status-${statusKey}-border)`,
-                                          }}
-                                        >
-                                          {isCompleted ? "completed" : s.status}
-                                        </span>
+                                        {(() => {
+                                          if (isDispatched) return (
+                                            <span className="badge badge-success badge-xs font-bold">In flight</span>
+                                          );
+                                          if (isNoShow) return (
+                                            <span className="badge badge-error badge-xs font-bold">No show</span>
+                                          );
+                                          if (activeBooking && !isCompleted) return (
+                                            <span className="badge badge-warning badge-xs font-bold">Booked</span>
+                                          );
+                                          return (
+                                            <span
+                                              className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 border shadow-2xs"
+                                              style={{
+                                                background: `var(--status-${statusKey}-bg)`,
+                                                color: `var(--status-${statusKey}-text)`,
+                                                borderColor: `var(--status-${statusKey}-border)`,
+                                              }}
+                                            >
+                                              {isCompleted ? "completed" : s.status}
+                                            </span>
+                                          );
+                                        })()}
                                       </div>
 
                                       {/* Route */}
@@ -1574,13 +1597,16 @@ export default function Calendar() {
               <p className="text-xs text-gray-400">Arr: {new Date(editingSchedule.scheduled_arrival + "Z").toISOString().replace("T", " ").slice(0, 16)}</p>
               {(() => { 
                 const bkd = bookings[editingSchedule.id] || []; 
-                const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed");
+                const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed" || b.status === "dispatched" || b.status === "no_show");
                 if (!activeBooking) return null;
                 const isCompleted = activeBooking.status === "completed";
-                const label = isCompleted ? "Completed" : "Booked";
-                const colorClass = isCompleted ? "text-indigo-600" : "text-blue-600";
+                const isDispatched = activeBooking.status === "dispatched";
+                const isNoShow = activeBooking.status === "no_show";
+                const label = isCompleted ? "Completed" : isDispatched ? "In Flight" : isNoShow ? "No Show" : "Booked";
+                const colorClass = isCompleted ? "text-indigo-600" : isDispatched ? "text-emerald-600" : isNoShow ? "text-red-600" : "text-blue-600";
+                const bgClass = isNoShow ? "bg-error/10 border border-error/20 rounded-lg p-2" : "";
                 return (
-                  <div className={`text-xs ${colorClass} font-semibold space-y-1 border-t border-brand-border/40 pt-2 mt-2`}>
+                  <div className={`text-xs ${colorClass} font-semibold space-y-1 border-t border-brand-border/40 pt-2 mt-2 ${bgClass}`}>
                     {activeBooking.departure_pilot_id === activeBooking.arrival_pilot_id ? (
                       <p>{label} (Full Flight): {activeBooking.departure_pilot_callsign}</p>
                     ) : (
@@ -1588,6 +1614,11 @@ export default function Calendar() {
                         {activeBooking.departure_pilot_id && <p>{label} (Departure): {activeBooking.departure_pilot_callsign}</p>}
                         {activeBooking.arrival_pilot_id && <p>{label} (Arrival): {activeBooking.arrival_pilot_callsign}</p>}
                       </>
+                    )}
+                    {isNoShow && (
+                      <div className="mt-1">
+                        <span className="badge badge-error badge-xs">Released for re-booking</span>
+                      </div>
                     )}
                   </div>
                 );

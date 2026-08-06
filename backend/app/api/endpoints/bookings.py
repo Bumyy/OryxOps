@@ -26,7 +26,9 @@ from app.services.booking_service import (
     take_over_booking,
     dispatch_booking,
     reconcile_all_payouts,
+    rebook_delayed,
 )
+from app.services.if_tracking_service import get_flight_progress
 from app.services.pilot_utils import get_pilot_avatar
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -63,6 +65,13 @@ def map_booking_to_out(b: LiveFlightBooking) -> BookingOut:
     if actual_arrival and actual_arrival.strip().upper() != scheduled_arrival:
         diverted = True
 
+    auto_dep = str(b.schedule.actual_departure) if b.schedule and b.schedule.actual_departure else None
+    auto_arr = str(b.schedule.actual_arrival) if b.schedule and b.schedule.actual_arrival else None
+    auto_time = None
+    if b.schedule and b.schedule.actual_departure and b.schedule.actual_arrival:
+        diff = (b.schedule.actual_arrival - b.schedule.actual_departure).total_seconds() / 60
+        auto_time = int(diff)
+
     return BookingOut(
         id=b.id,
         schedule_id=b.schedule_id,
@@ -94,6 +103,9 @@ def map_booking_to_out(b: LiveFlightBooking) -> BookingOut:
         aircraft_icao=b.schedule.aircraft.aircraft_type.icao if b.schedule and b.schedule.aircraft and b.schedule.aircraft.aircraft_type else None,
         actual_arrival=actual_arrival,
         diverted=diverted,
+        actual_departure=auto_dep,
+        actual_arrival_if=auto_arr,
+        auto_flight_time_minutes=auto_time,
     )
 
 
@@ -274,7 +286,7 @@ async def take_over_booking_route(
     booking = await take_over_booking(db, booking_id, pilot.id)
     if not booking:
         raise HTTPException(status_code=400, detail="Booking not available for take-over")
-        
+
     booking_loaded = await get_booking(db, booking.id)
     return map_booking_to_out(booking_loaded)
 
@@ -304,3 +316,62 @@ async def download_pay_slip_pdf(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
 
+
+@router.get("/{booking_id}/progress")
+async def booking_progress(
+    booking_id: int,
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_pilot),
+):
+    progress = await get_flight_progress(db, booking_id)
+    if progress is None:
+        raise HTTPException(status_code=404, detail="Flight not found or not in progress")
+    return progress
+
+
+@router.post("/{booking_id}/rebook", response_model=BookingOut)
+async def rebook_booking_route(
+    booking_id: int,
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_pilot),
+):
+    from app.models.live_models import LiveGroupPilot
+
+    result = await db.execute(
+        select(LiveFlightBooking)
+        .where(LiveFlightBooking.id == booking_id)
+        .options(selectinload(LiveFlightBooking.schedule))
+    )
+    booking = result.scalar_one_or_none()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    if booking.status not in ("no_show", "cancelled"):
+        raise HTTPException(status_code=400, detail="Only released no-show or cancelled bookings can be re-booked")
+
+    schedule = booking.schedule
+    if not schedule:
+        raise HTTPException(status_code=400, detail="Schedule not found")
+
+    member_result = await db.execute(
+        select(LiveGroupPilot).where(
+            LiveGroupPilot.group_id == schedule.group_id,
+            LiveGroupPilot.pilot_id == pilot.id,
+            LiveGroupPilot.removed_at.is_(None),
+        )
+    )
+    if not member_result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="You must be a member of this group to book flights")
+
+    booking_type = "both"
+    if booking.departure_pilot_id is not None and booking.arrival_pilot_id is None:
+        booking_type = "arrival"
+    elif booking.departure_pilot_id is None and booking.arrival_pilot_id is not None:
+        booking_type = "departure"
+
+    new_booking = await rebook_delayed(db, booking, pilot.id, booking_type)
+    if new_booking is None:
+        raise HTTPException(status_code=400, detail="Could not re-book this schedule")
+
+    loaded = await get_booking(db, new_booking.id)
+    return map_booking_to_out(loaded)

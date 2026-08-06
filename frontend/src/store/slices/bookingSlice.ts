@@ -31,6 +31,10 @@ export interface Booking {
   diverted?: boolean;
   actual_arrival?: string;
   scheduled_duration_minutes?: number | null;
+
+  actual_departure?: string | null;
+  actual_arrival_if?: string | null;
+  auto_flight_time_minutes?: number | null;
 }
 
 interface BookingState {
@@ -98,6 +102,36 @@ export const noShowBooking = createAsyncThunk(
 export const takeOverBooking = createAsyncThunk(
   "booking/takeOver",
   (id: number) => api.post<Booking>(`/bookings/${id}/take-over`),
+);
+
+export interface FlightProgress {
+  booking_id: number;
+  status: string;
+  in_progress: boolean;
+  active_on_server: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+  speed: number | null;
+  heading: number | null;
+  vertical_speed: number | null;
+  progress_pct: number | null;
+  eta_minutes: number | null;
+  distance_remaining_nm: number | null;
+  total_distance_nm: number | null;
+  on_ground: boolean | null;
+  last_report: string | null;
+  callsign: string | null;
+}
+
+export const fetchProgress = createAsyncThunk(
+  "booking/fetchProgress",
+  (id: number) => api.get<FlightProgress>(`/bookings/${id}/progress`),
+);
+
+export const rebookBooking = createAsyncThunk(
+  "booking/rebook",
+  (id: number) => api.post<Booking>(`/bookings/${id}/rebook`),
 );
 
 const bookingSlice = createSlice({
