@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     database_url: str = "mysql+aiomysql://root:@localhost:3306/u848011415_qatari"
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 10080
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,https://live.qatarivirtual.xyz"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,https://live.qatarivirtual.com,https://live.qatarivirtual.xyz"
 
     if_api_base_url: str = "https://api.infiniteflight.com/public/v3"
     if_auth_base_url: str = "https://api.infiniteflight.com/auth/v2"
