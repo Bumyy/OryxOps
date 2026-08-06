@@ -841,7 +841,7 @@ async def reconcile_all_payouts(db: AsyncSession, days: int = 30):
             tx_stmt = select(LiveCurrencyTransaction).where(
                 LiveCurrencyTransaction.pilot_id == p_id,
                 LiveCurrencyTransaction.reference_id == booking.id,
-                LiveCurrencyTransaction.transaction_type.in_(["flight_completed", "flight_reversal"])
+                LiveCurrencyTransaction.transaction_type.in_(["flight_completed", "admin_remove"])
             )
             txs = (await db.execute(tx_stmt)).scalars().all()
             net_paid = sum(tx.amount for tx in txs)
@@ -867,7 +867,7 @@ async def reconcile_all_payouts(db: AsyncSession, days: int = 30):
                     db.add(LiveCurrencyTransaction(
                         pilot_id=p_id,
                         amount=-net_paid,
-                        transaction_type="flight_reversal",
+                        transaction_type="admin_remove",
                         reference_id=booking.id,
                         description=f"Reversed flight salary payout for booking #{booking.id} (flight rejected)"
                     ))
