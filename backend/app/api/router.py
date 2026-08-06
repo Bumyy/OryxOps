@@ -17,6 +17,7 @@ from app.api.endpoints import (
     settings,
     transfers,
     handbook,
+    bidding,
 )
 
 api_router = APIRouter()
@@ -37,4 +38,6 @@ api_router.include_router(charts.router)
 api_router.include_router(admin.router)
 api_router.include_router(if_live.router)
 api_router.include_router(handbook.router)
+api_router.include_router(bidding.router)
+
 

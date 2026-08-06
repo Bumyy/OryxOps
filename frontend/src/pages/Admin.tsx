@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { useCurrency } from "../hooks/useCurrency";
 import { api } from "../api/client";
 import { GroupsTab } from "./admin/GroupsPage";
+import { AdminBiddingPage } from "./admin/AdminBiddingPage";
 import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
 import {
   fetchSettings,
@@ -47,6 +48,7 @@ import {
 type Tab =
   | "pilots"
   | "groups"
+  | "bidding"
   | "aircraft"
   | "careers"
   | "transfers"
@@ -101,6 +103,7 @@ export default function Admin() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "pilots", label: "Pilots" },
     { key: "groups", label: "Groups" },
+    { key: "bidding", label: "Fleet Bidding" },
     { key: "aircraft", label: "Aircraft" },
     { key: "careers", label: "Careers" },
     { key: "transfers", label: "Transfers" },
@@ -158,6 +161,7 @@ export default function Admin() {
 
       {tab === "pilots" && <PilotsTab />}
       {tab === "groups" && <GroupsTab />}
+      {tab === "bidding" && <AdminBiddingPage />}
       {tab === "aircraft" && <AircraftTab />}
       {tab === "careers" && <CareersTab />}
       {tab === "transfers" && <TransfersTab />}

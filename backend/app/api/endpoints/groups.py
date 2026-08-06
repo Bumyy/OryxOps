@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_pilot, get_current_staff
-from app.models.live_models import Pilot
+from app.models.live_models import Pilot, Pirep
+from app.services.pilot_utils import get_pilot_avatar
 from app.schemas.group import (
     AssignAircraftRequest,
     AssignPilotsRequest,
@@ -36,7 +38,7 @@ router = APIRouter(prefix="/groups", tags=["groups"])
 
 
 @router.get("", response_model=list[FlyingGroupOut])
-async def list_groups(active_only: bool = False, db: AsyncSession = Depends(get_db)):
+async def list_groups(active_only: bool = True, db: AsyncSession = Depends(get_db)):
     groups = await get_all_groups(db, active_only=active_only)
     result = []
     for g in groups:
@@ -74,6 +76,44 @@ async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
     available_slots = max(0, max_slots - member_count)
     is_full = member_count >= max_slots
 
+    async def _get_pilot_info(pilot):
+        if not pilot:
+            return None, None, None, 0.0
+        from app.services.hours_service import get_pilot_booking_total_seconds
+        secs = await get_pilot_booking_total_seconds(db, pilot.id)
+        hrs = round(float(secs) / 3600.0, 1)
+        avatar = get_pilot_avatar(pilot)
+        return pilot.name, pilot.callsign, avatar, hrs
+
+    aircraft_outs = []
+    for ga in active_aircraft:
+        ac = ga.aircraft
+        c_name, c_callsign, c_avatar, c_hrs = await _get_pilot_info(ac.assigned_captain)
+        f_name, f_callsign, f_avatar, f_hrs = await _get_pilot_info(ac.assigned_fo)
+
+        aircraft_outs.append(
+            GroupAircraftOut(
+                id=ga.id,
+                aircraft_id=ga.aircraft_id,
+                aircraft_type_id=ac.aircraft_type_id,
+                registration=ac.registration,
+                aircraft_type_name=ac.aircraft_type.name if ac.aircraft_type else None,
+                current_airport=ac.current_airport,
+                status=ac.status,
+                assigned_at=str(ga.assigned_at) if ga.assigned_at else None,
+                assigned_captain_id=ac.assigned_captain_id,
+                assigned_captain_name=c_name,
+                assigned_captain_callsign=c_callsign,
+                assigned_captain_avatar=c_avatar,
+                assigned_captain_hours=c_hrs,
+                assigned_fo_id=ac.assigned_fo_id,
+                assigned_fo_name=f_name,
+                assigned_fo_callsign=f_callsign,
+                assigned_fo_avatar=f_avatar,
+                assigned_fo_hours=f_hrs,
+            )
+        )
+
     return GroupDetailOut(
         id=group.id,
         name=group.name,
@@ -97,18 +137,7 @@ async def get_group(group_id: int, db: AsyncSession = Depends(get_db)):
             )
             for gp in active_members
         ],
-        aircraft=[
-            GroupAircraftOut(
-                id=ga.id,
-                aircraft_id=ga.aircraft_id,
-                registration=ga.aircraft.registration,
-                aircraft_type_name=ga.aircraft.aircraft_type.name if ga.aircraft.aircraft_type else None,
-                current_airport=ga.aircraft.current_airport,
-                status=ga.aircraft.status,
-                assigned_at=str(ga.assigned_at) if ga.assigned_at else None,
-            )
-            for ga in active_aircraft
-        ],
+        aircraft=aircraft_outs,
     )
 
 

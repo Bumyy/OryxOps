@@ -35,6 +35,8 @@ async def get_all_airframes(
         selectinload(LiveAircraft.aircraft_type),
         selectinload(LiveAircraft.current_pilot),
         selectinload(LiveAircraft.last_pilot),
+        selectinload(LiveAircraft.assigned_captain),
+        selectinload(LiveAircraft.assigned_fo),
     )
 
     if status:
@@ -63,6 +65,8 @@ async def get_airframe(db: AsyncSession, airframe_id: int) -> LiveAircraft | Non
             selectinload(LiveAircraft.current_pilot),
             selectinload(LiveAircraft.last_pilot),
             selectinload(LiveAircraft.current_parking),
+            selectinload(LiveAircraft.assigned_captain),
+            selectinload(LiveAircraft.assigned_fo),
         )
     )
     return result.scalar_one_or_none()

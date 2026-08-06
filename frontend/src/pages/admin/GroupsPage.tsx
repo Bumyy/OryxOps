@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { api } from "../../api/client";
 import {
   fetchGroups,
   fetchGroupDetail,
@@ -139,6 +140,18 @@ export function GroupsTab() {
     await dispatch(reshuffleGroup(selectedGroupId));
     dispatch(fetchGroups());
     dispatch(fetchGroupDetail(selectedGroupId));
+  };
+
+  const handleAutoShuffleFleet = async () => {
+    if (!selectedGroupId) return;
+    if (!window.confirm("Auto-shuffle fleet pilot pairings for this group? (Ranks Captain vs FO based on total PIREP hours)")) return;
+    try {
+      await api.post(`/admin/fleet/auto-shuffle/${selectedGroupId}`);
+      dispatch(fetchGroupDetail(selectedGroupId));
+      alert("Fleet pair auto-shuffled successfully!");
+    } catch (err: any) {
+      alert("Failed to shuffle fleet: " + (err?.response?.data?.detail || err.message));
+    }
   };
 
   const handleAddPilot = async (pilotId: number) => {
@@ -521,30 +534,69 @@ export function GroupsTab() {
                   )}
                 </div>
 
+                {/* Aircraft List Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-gray-500 uppercase">Assigned Aircraft & Crews</span>
+                  <button
+                    onClick={handleAutoShuffleFleet}
+                    className="px-2.5 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1"
+                    title="Auto-shuffle pilot pairs based on PIREP flight hours"
+                  >
+                    <span>🔀 Auto-Shuffle Fleet</span>
+                  </button>
+                </div>
+
                 {/* Aircraft List */}
-                <div className="flex-1 overflow-y-auto space-y-2 max-h-96 pr-1">
+                <div className="flex-1 overflow-y-auto space-y-3 max-h-[30rem] pr-1">
                   {currentGroup.aircraft.map((a: any) => (
-                    <div key={a.id} className="flex items-center justify-between p-2.5 rounded-xl border border-brand-border/60 hover:bg-brand-pale/20 transition-colors">
-                      <div className="min-w-0 flex-1 pr-2">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-xs text-gray-800">{a.registration}</p>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
-                            a.status === "parked" ? "bg-green-100 text-green-700" :
-                            a.status === "flying" ? "bg-blue-100 text-blue-700" :
-                            "bg-gray-100 text-gray-500"
-                          }`}>{a.status}</span>
+                    <div key={a.id} className="p-3 rounded-2xl border border-gray-200 bg-gray-50/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1 pr-2">
+                          <div className="flex items-center gap-2">
+                            <p className="font-extrabold text-xs text-gray-900">{a.registration}</p>
+                            <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                              a.status === "parked" ? "bg-emerald-100 text-emerald-700" :
+                              a.status === "flying" ? "bg-blue-100 text-blue-700" :
+                              "bg-amber-100 text-amber-700"
+                            }`}>{a.status}</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 truncate mt-0.5">
+                            {a.aircraft_type_name} &middot; Base: {a.current_airport}
+                          </p>
                         </div>
-                        <p className="text-[10px] text-gray-400 truncate">
-                          {a.aircraft_type_name} &middot; Current: {a.current_airport}
-                        </p>
+                        <button
+                          onClick={() => handleRemoveAircraft(a.aircraft_id)}
+                          className="btn btn-ghost btn-xs text-rose-400 hover:text-rose-600 px-1"
+                          title="Remove aircraft from group"
+                        >
+                          ✕
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleRemoveAircraft(a.aircraft_id)}
-                        className="btn btn-ghost btn-xs text-red-400 hover:text-red-600 px-1"
-                        title="Remove aircraft"
-                      >
-                        ✕
-                      </button>
+
+                      {/* Crew Assignment Status */}
+                      <div className="pt-2 border-t border-gray-200/80 grid grid-cols-2 gap-2 text-[10px]">
+                        <div className="bg-white p-2 rounded-xl border border-gray-200">
+                          <span className="text-gray-400 font-bold block uppercase text-[8px]">CAPTAIN (PIC)</span>
+                          {a.assigned_captain_id ? (
+                            <span className="font-bold text-gray-800 truncate block">
+                              👨‍✈️ {a.assigned_captain_callsign || `Pilot #${a.assigned_captain_id}`} ({a.assigned_captain_hours}h)
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 italic">Unassigned</span>
+                          )}
+                        </div>
+
+                        <div className="bg-white p-2 rounded-xl border border-gray-200">
+                          <span className="text-gray-400 font-bold block uppercase text-[8px]">FIRST OFFICER (FO)</span>
+                          {a.assigned_fo_id ? (
+                            <span className="font-bold text-gray-800 truncate block">
+                              🧑‍✈️ {a.assigned_fo_callsign || `Pilot #${a.assigned_fo_id}`} ({a.assigned_fo_hours}h)
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 italic">Solo / Vacant</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
 

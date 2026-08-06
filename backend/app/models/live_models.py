@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     Time,
     UniqueConstraint,
+    Boolean,
 )
 from sqlalchemy.orm import relationship
 
@@ -230,12 +231,16 @@ class LiveAircraft(Base):
     total_flights = Column(Integer, nullable=False, default=0)
     delivered_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     home_base = Column(String(4), nullable=False, default="OTHH")
+    assigned_captain_id = Column(Integer, ForeignKey("pilots.id"), nullable=True)
+    assigned_fo_id = Column(Integer, ForeignKey("pilots.id"), nullable=True)
 
     aircraft_type = relationship("Aircraft", foreign_keys=[aircraft_type_id])
     current_parking = relationship("ParkingPosition", foreign_keys=[current_parking_id])
     current_pilot = relationship("Pilot", foreign_keys=[current_pilot_id])
     current_pirep = relationship("Pirep", foreign_keys=[current_pirep_id])
     last_pilot = relationship("Pilot", foreign_keys=[last_pilot_id])
+    assigned_captain = relationship("Pilot", foreign_keys=[assigned_captain_id])
+    assigned_fo = relationship("Pilot", foreign_keys=[assigned_fo_id])
 
     group_assignments = relationship("LiveGroupAircraft", back_populates="aircraft")
     flight_schedules = relationship("LiveFlightSchedule", back_populates="aircraft")
@@ -337,6 +342,9 @@ class LiveCurrencyTransaction(Base):
             "extra_proposal_slot",
             "path_switch_fee",
             "aircraft_switch_fee",
+            "bidding_fee",
+            "bidding_fee_refund",
+            "path_switch_fee_refund",
             name="transaction_type",
         ),
         nullable=False,
@@ -479,3 +487,55 @@ class LiveIFOAuthToken(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     pilot = relationship("Pilot", foreign_keys=[pilot_id])
+
+
+class LiveBiddingSession(Base):
+    __tablename__ = "live_bidding_sessions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    group_id = Column(Integer, ForeignKey("live_flying_groups.id"), nullable=False)
+    slots_offered = Column(Integer, nullable=False, default=1)
+    bidding_fee_qar = Column(Integer, nullable=False, default=3000)
+    path_switch_fee_qar = Column(Integer, nullable=False, default=40000)
+    status = Column(
+        Enum("open", "under_review", "closed", "cancelled", name="bidding_session_status"),
+        nullable=False,
+        default="open",
+    )
+    opens_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    closes_at = Column(DateTime, nullable=False)
+    created_by = Column(Integer, ForeignKey("pilots.id"), nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    group = relationship("LiveFlyingGroup", foreign_keys=[group_id])
+    creator = relationship("Pilot", foreign_keys=[created_by])
+    applicants = relationship("LiveBiddingApplicant", back_populates="session", cascade="all, delete-orphan")
+
+
+class LiveBiddingApplicant(Base):
+    __tablename__ = "live_bidding_applicants"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("live_bidding_sessions.id"), nullable=False)
+    pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=False)
+    path_switch_required = Column(Boolean, nullable=False, default=False)
+    bidding_fee_paid = Column(Integer, nullable=False, default=3000)
+    path_switch_fee_paid = Column(Integer, nullable=False, default=0)
+    status = Column(
+        Enum("submitted", "awarded", "rejected", "withdrawn", name="bidding_applicant_status"),
+        nullable=False,
+        default="submitted",
+    )
+    applied_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("pilots.id"), nullable=True)
+    admin_notes = Column(String(255), nullable=True)
+
+    session = relationship("LiveBiddingSession", back_populates="applicants")
+    pilot = relationship("Pilot", foreign_keys=[pilot_id])
+    reviewer = relationship("Pilot", foreign_keys=[reviewed_by])
+
+    __table_args__ = (UniqueConstraint("session_id", "pilot_id", name="uc_session_pilot"),)
+

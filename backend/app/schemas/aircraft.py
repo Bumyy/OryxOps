@@ -10,6 +10,16 @@ class AircraftTypeOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AssignedPilotOut(BaseModel):
+    id: int
+    name: str | None = None
+    callsign: str | None = None
+    avatar: str | None = None
+    total_hours: float = 0.0
+
+    model_config = {"from_attributes": True}
+
+
 class LiveAircraftOut(BaseModel):
     id: int
     aircraft_type_id: int
@@ -32,6 +42,11 @@ class LiveAircraftOut(BaseModel):
     home_base: str
     group_id: int | None = None
     group_name: str | None = None
+
+    assigned_captain_id: int | None = None
+    assigned_captain: AssignedPilotOut | None = None
+    assigned_fo_id: int | None = None
+    assigned_fo: AssignedPilotOut | None = None
 
     model_config = {"from_attributes": True}
 

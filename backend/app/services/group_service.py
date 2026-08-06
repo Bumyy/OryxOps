@@ -32,6 +32,12 @@ async def get_group_with_members_aircraft(
             selectinload(LiveFlyingGroup.group_aircraft)
             .selectinload(LiveGroupAircraft.aircraft)
             .selectinload(LiveAircraft.aircraft_type),
+            selectinload(LiveFlyingGroup.group_aircraft)
+            .selectinload(LiveGroupAircraft.aircraft)
+            .selectinload(LiveAircraft.assigned_captain),
+            selectinload(LiveFlyingGroup.group_aircraft)
+            .selectinload(LiveGroupAircraft.aircraft)
+            .selectinload(LiveAircraft.assigned_fo),
         )
     )
     return result.scalar_one_or_none()

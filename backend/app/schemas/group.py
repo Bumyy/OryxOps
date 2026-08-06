@@ -44,11 +44,22 @@ class GroupPilotOut(BaseModel):
 class GroupAircraftOut(BaseModel):
     id: int
     aircraft_id: int
+    aircraft_type_id: int | None = None
     registration: str | None = None
     aircraft_type_name: str | None = None
     current_airport: str | None = None
     status: str | None = None
     assigned_at: str | None = None
+    assigned_captain_id: int | None = None
+    assigned_captain_name: str | None = None
+    assigned_captain_callsign: str | None = None
+    assigned_captain_avatar: str | None = None
+    assigned_captain_hours: float = 0.0
+    assigned_fo_id: int | None = None
+    assigned_fo_name: str | None = None
+    assigned_fo_callsign: str | None = None
+    assigned_fo_avatar: str | None = None
+    assigned_fo_hours: float = 0.0
 
     model_config = {"from_attributes": True}
 

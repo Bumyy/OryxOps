@@ -441,3 +441,145 @@ async def get_pilot_careers_admin(
         )
         for c in careers
     ]
+
+
+# ── FLEET PAIR ASSIGNMENT & SHUFFLE (ADMIN) ──
+
+class AssignFramePilotsRequest(BaseModel):
+    aircraft_id: int
+    pilot1_id: int | None = None
+    pilot2_id: int | None = None
+
+
+async def _get_pilot_total_pirep_seconds(db: AsyncSession, pilot_id: int) -> int:
+    from app.services.hours_service import get_pilot_booking_total_seconds
+    return await get_pilot_booking_total_seconds(db, pilot_id)
+
+
+@router.post("/fleet/assign")
+async def assign_frame_pilots(
+    data: AssignFramePilotsRequest,
+    db: AsyncSession = Depends(get_db),
+    staff: Pilot = Depends(get_current_staff),
+):
+    from app.models.live_models import LiveAircraft
+    result = await db.execute(select(LiveAircraft).where(LiveAircraft.id == data.aircraft_id))
+    aircraft = result.scalar_one_or_none()
+    if not aircraft:
+        raise HTTPException(status_code=404, detail="Aircraft not found")
+
+    pilots_to_assign = [p for p in [data.pilot1_id, data.pilot2_id] if p is not None]
+
+    # Strict Rule: Auto-vacate assigned pilots from any previous aircraft frame
+    from sqlalchemy import or_
+    for p_id in pilots_to_assign:
+        prev_ac_res = await db.execute(
+            select(LiveAircraft).where(
+                LiveAircraft.id != data.aircraft_id,
+                or_(
+                    LiveAircraft.assigned_captain_id == p_id,
+                    LiveAircraft.assigned_fo_id == p_id,
+                ),
+            )
+        )
+        for prev_ac in prev_ac_res.scalars().all():
+            if prev_ac.assigned_captain_id == p_id:
+                prev_ac.assigned_captain_id = None
+            if prev_ac.assigned_fo_id == p_id:
+                prev_ac.assigned_fo_id = None
+
+    if len(pilots_to_assign) == 0:
+        aircraft.assigned_captain_id = None
+        aircraft.assigned_fo_id = None
+    elif len(pilots_to_assign) == 1:
+        aircraft.assigned_captain_id = pilots_to_assign[0]
+        aircraft.assigned_fo_id = None
+    else:
+        # 2 pilots: calculate total PIREP hours to assign Captain (higher hours) and FO (lower hours)
+        p1_secs = await _get_pilot_total_pirep_seconds(db, pilots_to_assign[0])
+        p2_secs = await _get_pilot_total_pirep_seconds(db, pilots_to_assign[1])
+
+        if p1_secs >= p2_secs:
+            aircraft.assigned_captain_id = pilots_to_assign[0]
+            aircraft.assigned_fo_id = pilots_to_assign[1]
+        else:
+            aircraft.assigned_captain_id = pilots_to_assign[1]
+            aircraft.assigned_fo_id = pilots_to_assign[0]
+
+    await db.commit()
+    await db.refresh(aircraft)
+    return {
+        "detail": "Aircraft pilot crew updated",
+        "aircraft_id": aircraft.id,
+        "assigned_captain_id": aircraft.assigned_captain_id,
+        "assigned_fo_id": aircraft.assigned_fo_id,
+    }
+
+
+@router.post("/fleet/auto-shuffle/{group_id}")
+async def auto_shuffle_group_fleet(
+    group_id: int,
+    db: AsyncSession = Depends(get_db),
+    staff: Pilot = Depends(get_current_staff),
+):
+    from app.models.live_models import LiveGroupPilot, LiveGroupAircraft, LiveAircraft, Pilot
+    
+    # 1. Fetch active pilots in group
+    gp_res = await db.execute(
+        select(LiveGroupPilot)
+        .where(LiveGroupPilot.group_id == group_id, LiveGroupPilot.removed_at.is_(None))
+    )
+    group_pilots = gp_res.scalars().all()
+    pilot_ids = [gp.pilot_id for gp in group_pilots]
+
+    # 2. Fetch active aircraft in group
+    ga_res = await db.execute(
+        select(LiveGroupAircraft)
+        .where(LiveGroupAircraft.group_id == group_id, LiveGroupAircraft.removed_at.is_(None))
+        .options(selectinload(LiveGroupAircraft.aircraft))
+    )
+    group_aircraft = ga_res.scalars().all()
+    aircraft_list = [ga.aircraft for ga in group_aircraft if ga.aircraft]
+
+    if not aircraft_list:
+        raise HTTPException(status_code=400, detail="No active aircraft in group to shuffle")
+
+    # 3. Calculate PIREP hours for each pilot and sort descending
+    pilot_hours = []
+    for pid in pilot_ids:
+        secs = await _get_pilot_total_pirep_seconds(db, pid)
+        pilot_hours.append((pid, secs))
+
+    # Sort pilots by total PIREP seconds descending
+    pilot_hours.sort(key=lambda x: x[1], reverse=True)
+
+    sorted_pilot_ids = [p[0] for p in pilot_hours]
+
+    # 4. Pair pilots into crews across aircraft
+    pilot_idx = 0
+    assigned_count = 0
+
+    for aircraft in aircraft_list:
+        if pilot_idx < len(sorted_pilot_ids):
+            cap_id = sorted_pilot_ids[pilot_idx]
+            pilot_idx += 1
+            fo_id = None
+            if pilot_idx < len(sorted_pilot_ids):
+                fo_id = sorted_pilot_ids[pilot_idx]
+                pilot_idx += 1
+
+            aircraft.assigned_captain_id = cap_id
+            aircraft.assigned_fo_id = fo_id
+            assigned_count += 1
+        else:
+            aircraft.assigned_captain_id = None
+            aircraft.assigned_fo_id = None
+
+    await db.commit()
+    return {
+        "detail": "Fleet auto-shuffled successfully",
+        "group_id": group_id,
+        "shuffled_aircraft_count": assigned_count,
+        "total_pilots_assigned": pilot_idx,
+        "unassigned_pilots_count": max(0, len(sorted_pilot_ids) - pilot_idx),
+    }

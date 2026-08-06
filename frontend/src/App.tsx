@@ -25,6 +25,8 @@ import Handbook from "./pages/Handbook";
 
 import AdminPilots from "./pages/admin/PilotsPage";
 import AdminGroups from "./pages/admin/GroupsPage";
+import AdminCrewRoster from "./pages/admin/CrewRosterPage";
+import AdminBidding from "./pages/admin/AdminBiddingPage";
 import AdminAircraft from "./pages/admin/AircraftPage";
 import AdminCareers from "./pages/admin/CareersPage";
 import AdminTransfers from "./pages/admin/TransfersPage";
@@ -145,7 +147,7 @@ export default function App() {
           <Route path="/groups" element={<PilotAccessRoute><Groups /></PilotAccessRoute>} />
           <Route path="/groups/:id" element={<PilotAccessRoute><GroupDetail /></PilotAccessRoute>} />
           <Route path="/calendar" element={<PilotAccessRoute><Calendar /></PilotAccessRoute>} />
-          <Route path="/fleet" element={<PilotAccessRoute><Fleet /></PilotAccessRoute>} />
+          <Route path="/fleet" element={<Navigate to="/groups" replace />} />
           <Route path="/fleet/:id" element={<PilotAccessRoute><AircraftDetail /></PilotAccessRoute>} />
           <Route path="/bookings" element={<PilotAccessRoute><Bookings /></PilotAccessRoute>} />
           <Route path="/operations" element={<PilotAccessRoute><Operations /></PilotAccessRoute>} />
@@ -159,6 +161,8 @@ export default function App() {
           <Route path="/admin/track" element={<AdminRoute><LiveTracker /></AdminRoute>} />
           <Route path="/admin/pilots" element={<AdminRoute><AdminPilots /></AdminRoute>} />
           <Route path="/admin/groups" element={<AdminRoute><AdminGroups /></AdminRoute>} />
+          <Route path="/admin/crew-roster" element={<AdminRoute><AdminCrewRoster /></AdminRoute>} />
+          <Route path="/admin/bidding" element={<AdminRoute><AdminBidding /></AdminRoute>} />
           <Route path="/admin/aircraft" element={<AdminRoute><AdminAircraft /></AdminRoute>} />
           <Route path="/admin/careers" element={<AdminRoute><AdminCareers /></AdminRoute>} />
           <Route path="/admin/transfers" element={<AdminRoute><AdminTransfers /></AdminRoute>} />
