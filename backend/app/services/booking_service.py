@@ -935,14 +935,14 @@ async def record_ledger_rows(
 
 
 
-async def mark_no_show(db: AsyncSession, booking_id: int) -> LiveFlightBooking | None:
-    booking = await get_booking(db, booking_id)
-    if not booking or booking.status != "booked":
-        return None
-    booking.status = "no_show"
-    await db.commit()
-    await db.refresh(booking)
-    return booking
+# async def mark_no_show(db: AsyncSession, booking_id: int) -> LiveFlightBooking | None:
+#     booking = await get_booking(db, booking_id)
+#     if not booking or booking.status != "booked":
+#         return None
+#     booking.status = "no_show"
+#     await db.commit()
+#     await db.refresh(booking)
+#     return booking
 
 
 async def take_over_booking(

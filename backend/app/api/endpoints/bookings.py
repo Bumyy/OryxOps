@@ -22,7 +22,7 @@ from app.services.booking_service import (
     create_booking,
     get_booking,
     get_bookings,
-    mark_no_show,
+    # mark_no_show,
     take_over_booking,
     dispatch_booking,
     reconcile_all_payouts,
@@ -263,18 +263,18 @@ async def complete_booking_route(
     return map_booking_to_out(booking_loaded)
 
 
-@router.post("/{booking_id}/no-show", response_model=BookingOut)
-async def no_show_booking(
-    booking_id: int,
-    db: AsyncSession = Depends(get_db),
-    pilot: Pilot = Depends(get_current_staff),
-):
-    booking = await mark_no_show(db, booking_id)
-    if not booking:
-        raise HTTPException(status_code=400, detail="Booking not found or not in booked status")
-    
-    booking_loaded = await get_booking(db, booking.id)
-    return map_booking_to_out(booking_loaded)
+# @router.post("/{booking_id}/no-show", response_model=BookingOut)
+# async def no_show_booking(
+#     booking_id: int,
+#     db: AsyncSession = Depends(get_db),
+#     pilot: Pilot = Depends(get_current_staff),
+# ):
+#     booking = await mark_no_show(db, booking_id)
+#     if not booking:
+#         raise HTTPException(status_code=400, detail="Booking not found or not in booked status")
+#     
+#     booking_loaded = await get_booking(db, booking.id)
+#     return map_booking_to_out(booking_loaded)
 
 
 @router.post("/{booking_id}/take-over", response_model=BookingOut)
