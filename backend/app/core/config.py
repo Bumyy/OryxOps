@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     chartfox_api_token: str = ""
 
     model_config = {
-        "env_file": ".env",
+        "env_file": (".env", "../.env"),
         "env_file_encoding": "utf-8",
         "extra": "ignore"
     }

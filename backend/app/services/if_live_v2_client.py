@@ -22,7 +22,8 @@ class IFLiveV2Client:
         
     @property
     def is_mock(self) -> bool:
-        return not bool(self.api_key)
+        from app.services.if_v2_client import IFV2Client
+        return IFV2Client._force_mock or not bool(self.api_key)
 
     async def get_sessions(self) -> List[Dict[str, Any]]:
         if self.is_mock:

@@ -50,6 +50,8 @@ interface TelemetryData {
   arr_lon: number;
   flownRoute: TelemetryPoint[];
   flightPlan: Waypoint[];
+  aircraft_reg?: string;
+  aircraft_model?: string;
 }
 
 export default function LiveTracker() {
@@ -477,6 +479,13 @@ export default function LiveTracker() {
                   <p className="text-xs font-black uppercase text-emerald-400">{telemetry.status}</p>
                 </div>
               </div>
+
+              {telemetry.aircraft_reg && (
+                <div className="flex justify-between items-center text-[10px] text-white/60 font-bold border-b border-white/10 pb-3 -mt-2">
+                  <span>Aircraft: <strong className="text-white">{telemetry.aircraft_reg}</strong></span>
+                  {telemetry.aircraft_model && <span className="text-white/40">{telemetry.aircraft_model}</span>}
+                </div>
+              )}
 
               {/* Grid telemetry parameters */}
               <div className="grid grid-cols-2 gap-3 text-xs">

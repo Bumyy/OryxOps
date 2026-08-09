@@ -568,6 +568,15 @@ async def complete_booking(
     booking.reputation_score = round(overall_rep / 20.0, 2)
     booking.status = "completed"
 
+    # Update associated aircraft status and location to reflect landing
+    if booking.schedule and booking.schedule.aircraft:
+        aircraft = booking.schedule.aircraft
+        if aircraft.current_airport != arrival_airport:
+            aircraft.last_airport = aircraft.current_airport
+        aircraft.current_airport = arrival_airport
+        aircraft.status = "parked"
+        db.add(aircraft)
+
     # Extract webhook variables BEFORE committing (which would expire relationships and cause MissingGreenlet)
     dep_icao = (booking.schedule.departure or "OTHH").upper() if booking.schedule else "OTHH"
     arr_icao = (booking.schedule.arrival or "EGLL").upper() if booking.schedule else "EGLL"

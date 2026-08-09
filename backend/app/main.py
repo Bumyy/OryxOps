@@ -16,15 +16,17 @@ _tracker_task: asyncio.Task | None = None
 
 
 async def _tracking_loop():
-    """Background polling loop: sync IF flights every 60 seconds."""
+    """Background polling loop: sync IF flights and aircraft locations every 60 seconds."""
     from app.core.database import async_session
     from app.services.if_tracking_service import tracker, check_completed_flights
+    from app.services.if_sync_service import sync_all_aircraft_locations_optimized
 
     while True:
         try:
             async with async_session() as db:
                 await tracker.sync(db)
                 await check_completed_flights(db)
+                await sync_all_aircraft_locations_optimized(db)
         except Exception as exc:
             logger.error(f"IF tracking background sync failed: {exc}")
         await asyncio.sleep(60)
