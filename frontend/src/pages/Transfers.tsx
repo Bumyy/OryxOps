@@ -8,21 +8,27 @@ export default function Transfers() {
   const [type, setType] = useState("group_switch");
   const [toValue, setToValue] = useState("");
   const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTransfers());
   }, []);
 
   const handleCreate = async () => {
-    if (!toValue) return;
-    const res = await dispatch(createTransfer({ transfer_type: type, to_value: toValue, reason }));
-    if (createTransfer.fulfilled.match(res)) {
-      alert("Transfer request submitted successfully!");
-      setToValue("");
-      setReason("");
-      dispatch(fetchTransfers());
-    } else {
-      alert("Failed to submit transfer request: " + (res.error?.message || "Unknown error"));
+    if (!toValue.trim()) return;
+    setIsSubmitting(true);
+    try {
+      const res = await dispatch(createTransfer({ transfer_type: type, to_value: toValue.trim(), reason: reason.trim() }));
+      if (createTransfer.fulfilled.match(res)) {
+        alert("Transfer request submitted successfully!");
+        setToValue("");
+        setReason("");
+        dispatch(fetchTransfers());
+      } else {
+        alert("Failed to submit transfer request: " + (res.error?.message || "Unknown error"));
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -32,16 +38,56 @@ export default function Transfers() {
 
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 mb-8">
         <h2 className="text-xl font-bold text-brand mb-4">New Request</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          <select value={type} onChange={(e) => setType(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5">
-            <option value="group_switch">Group Switch</option>
-            <option value="career_path_switch">Career Path Switch</option>
-          </select>
-          <input placeholder="To (group name / path name)" value={toValue} onChange={(e) => setToValue(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
-          <input placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-5">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="transfer-type-select" className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              Transfer Type
+            </label>
+            <select
+              id="transfer-type-select"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="select select-bordered w-full rounded-xl"
+            >
+              <option value="group_switch">Group Switch</option>
+              <option value="career_path_switch">Career Path Switch</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="transfer-to-input" className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              To (Group/Path Name) <span className="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <input
+              id="transfer-to-input"
+              placeholder="e.g. Group or path name"
+              value={toValue}
+              onChange={(e) => setToValue(e.target.value)}
+              required
+              className="input input-bordered w-full rounded-xl"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="transfer-reason-input" className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              Reason (Optional)
+            </label>
+            <input
+              id="transfer-reason-input"
+              placeholder="Provide context for review"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="input input-bordered w-full rounded-xl"
+            />
+          </div>
         </div>
-        <button onClick={handleCreate} className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm px-5 py-2 hover:-translate-y-0.5 hover:shadow-lg transition-all">
-          Submit Request
+        <button
+          onClick={handleCreate}
+          disabled={isSubmitting || !toValue.trim()}
+          aria-label="Submit transfer request"
+          className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm px-6 py-2.5 hover:-translate-y-0.5 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        >
+          {isSubmitting ? "Submitting..." : "Submit Request"}
         </button>
       </div>
 
