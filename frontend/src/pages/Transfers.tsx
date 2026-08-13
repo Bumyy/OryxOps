@@ -8,6 +8,7 @@ export default function Transfers() {
   const [type, setType] = useState("group_switch");
   const [toValue, setToValue] = useState("");
   const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTransfers());
@@ -15,7 +16,9 @@ export default function Transfers() {
 
   const handleCreate = async () => {
     if (!toValue) return;
+    setSubmitting(true);
     const res = await dispatch(createTransfer({ transfer_type: type, to_value: toValue, reason }));
+    setSubmitting(false);
     if (createTransfer.fulfilled.match(res)) {
       alert("Transfer request submitted successfully!");
       setToValue("");
@@ -33,15 +36,61 @@ export default function Transfers() {
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 mb-8">
         <h2 className="text-xl font-bold text-brand mb-4">New Request</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          <select value={type} onChange={(e) => setType(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5">
-            <option value="group_switch">Group Switch</option>
-            <option value="career_path_switch">Career Path Switch</option>
-          </select>
-          <input placeholder="To (group name / path name)" value={toValue} onChange={(e) => setToValue(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
-          <input placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
+          <div className="space-y-1.5">
+            <label htmlFor="transfer-type-select" className="text-xs font-bold text-gray-500 block">
+              TRANSFER TYPE
+            </label>
+            <select
+              id="transfer-type-select"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="select select-bordered select-sm w-full font-semibold rounded-xl"
+            >
+              <option value="group_switch">Group Switch</option>
+              <option value="career_path_switch">Career Path Switch</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="transfer-to-input" className="text-xs font-bold text-gray-500 block">
+              TO (GROUP / PATH NAME)
+            </label>
+            <input
+              id="transfer-to-input"
+              placeholder="To (group name / path name)"
+              value={toValue}
+              onChange={(e) => setToValue(e.target.value)}
+              className="input input-bordered input-sm w-full font-semibold rounded-xl"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="transfer-reason-input" className="text-xs font-bold text-gray-500 block">
+              REASON (OPTIONAL)
+            </label>
+            <input
+              id="transfer-reason-input"
+              placeholder="Reason (optional)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="input input-bordered input-sm w-full font-semibold rounded-xl"
+            />
+          </div>
         </div>
-        <button onClick={handleCreate} className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm px-5 py-2 hover:-translate-y-0.5 hover:shadow-lg transition-all">
-          Submit Request
+        <button
+          onClick={handleCreate}
+          disabled={submitting || !toValue}
+          className="btn btn-primary rounded-xl"
+          aria-label="Submit transfer request"
+        >
+          {submitting ? (
+            <span className="flex items-center gap-1.5">
+              <span className="loading loading-spinner loading-xs"></span>
+              Submitting...
+            </span>
+          ) : (
+            "Submit Request"
+          )}
         </button>
       </div>
 
