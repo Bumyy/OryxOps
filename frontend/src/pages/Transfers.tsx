@@ -8,21 +8,27 @@ export default function Transfers() {
   const [type, setType] = useState("group_switch");
   const [toValue, setToValue] = useState("");
   const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTransfers());
-  }, []);
+  }, [dispatch]);
 
   const handleCreate = async () => {
-    if (!toValue) return;
-    const res = await dispatch(createTransfer({ transfer_type: type, to_value: toValue, reason }));
-    if (createTransfer.fulfilled.match(res)) {
-      alert("Transfer request submitted successfully!");
-      setToValue("");
-      setReason("");
-      dispatch(fetchTransfers());
-    } else {
-      alert("Failed to submit transfer request: " + (res.error?.message || "Unknown error"));
+    if (!toValue || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const res = await dispatch(createTransfer({ transfer_type: type, to_value: toValue, reason }));
+      if (createTransfer.fulfilled.match(res)) {
+        alert("Transfer request submitted successfully!");
+        setToValue("");
+        setReason("");
+        dispatch(fetchTransfers());
+      } else {
+        alert("Failed to submit transfer request: " + (res.error?.message || "Unknown error"));
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -30,32 +36,80 @@ export default function Transfers() {
     <div className="max-w-6xl mx-auto px-6 py-8">
       <h1 className="text-5xl font-bold text-brand mb-8">Transfer Requests</h1>
 
-      <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 mb-8">
+      <div className="bg-base-100 rounded-2xl border border-brand-border shadow-sm p-6 mb-8">
         <h2 className="text-xl font-bold text-brand mb-4">New Request</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          <select value={type} onChange={(e) => setType(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5">
-            <option value="group_switch">Group Switch</option>
-            <option value="career_path_switch">Career Path Switch</option>
-          </select>
-          <input placeholder="To (group name / path name)" value={toValue} onChange={(e) => setToValue(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
-          <input placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="transfer-type-select" className="text-xs font-bold text-gray-500 uppercase">
+              Request Type
+            </label>
+            <select
+              id="transfer-type-select"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="select select-bordered select-sm w-full font-medium"
+            >
+              <option value="group_switch">Group Switch</option>
+              <option value="career_path_switch">Career Path Switch</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="transfer-to-input" className="text-xs font-bold text-gray-500 uppercase">
+              Target (Group / Path) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="transfer-to-input"
+              placeholder="e.g. Flight Operations"
+              value={toValue}
+              onChange={(e) => setToValue(e.target.value)}
+              className="input input-bordered input-sm w-full font-medium"
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="transfer-reason-input" className="text-xs font-bold text-gray-500 uppercase">
+              Reason (Optional)
+            </label>
+            <input
+              id="transfer-reason-input"
+              placeholder="Brief reason for transfer"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="input input-bordered input-sm w-full font-medium"
+            />
+          </div>
         </div>
-        <button onClick={handleCreate} className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm px-5 py-2 hover:-translate-y-0.5 hover:shadow-lg transition-all">
-          Submit Request
+
+        <button
+          onClick={handleCreate}
+          disabled={!toValue || isSubmitting}
+          aria-label="Submit transfer request"
+          className="btn btn-primary btn-sm rounded-full font-semibold px-6 disabled:opacity-50"
+        >
+          {isSubmitting ? (
+            <>
+              <span className="loading loading-spinner loading-xs" />
+              Submitting...
+            </>
+          ) : (
+            "Submit Request"
+          )}
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-brand-border shadow-sm overflow-hidden">
+      <div className="bg-base-100 rounded-2xl border border-brand-border shadow-sm overflow-hidden">
         <h2 className="text-xl font-bold text-brand p-6 pb-4">Past Requests</h2>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left bg-brand-pale">
+          <table className="table w-full text-sm">
+            <thead className="bg-base-200">
               <tr>
-                <th className="px-5 py-3 font-semibold text-gray-600">Type</th>
-                <th className="px-5 py-3 font-semibold text-gray-600">To</th>
-                <th className="px-5 py-3 font-semibold text-gray-600">Status</th>
-                <th className="px-5 py-3 font-semibold text-gray-600">Reviewed By</th>
-                <th className="px-5 py-3 font-semibold text-gray-600">Date</th>
+                <th className="px-5 py-3 font-semibold text-xs uppercase">Type</th>
+                <th className="px-5 py-3 font-semibold text-xs uppercase">To</th>
+                <th className="px-5 py-3 font-semibold text-xs uppercase">Status</th>
+                <th className="px-5 py-3 font-semibold text-xs uppercase">Reviewed By</th>
+                <th className="px-5 py-3 font-semibold text-xs uppercase">Date</th>
               </tr>
             </thead>
             <tbody>
@@ -64,21 +118,27 @@ export default function Transfers() {
                   <td className="px-5 py-3 font-semibold text-xs uppercase">{t.transfer_type.replace(/_/g, " ")}</td>
                   <td className="px-5 py-3">{t.to_value}</td>
                   <td className="px-5 py-3">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      t.status === "approved" ? "bg-green-100 text-green-700" :
-                      t.status === "denied" ? "bg-red-100 text-red-700" :
-                      "bg-yellow-100 text-yellow-700"
-                    }`}>{t.status}</span>
+                    <span
+                      className={`badge badge-sm font-bold uppercase ${
+                        t.status === "approved"
+                          ? "badge-success"
+                          : t.status === "denied"
+                          ? "badge-error"
+                          : "badge-warning"
+                      }`}
+                    >
+                      {t.status}
+                    </span>
                   </td>
                   <td className="px-5 py-3">{t.reviewed_by_name || "—"}</td>
-                  <td className="px-5 py-3 text-xs text-gray-400">{new Date(t.requested_at).toLocaleDateString()}</td>
+                  <td className="px-5 py-3 text-xs opacity-70">{new Date(t.requested_at).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         {transfers.length === 0 && (
-          <div className="text-center py-8 text-gray-500">No transfer requests yet.</div>
+          <div className="text-center py-8 opacity-70">No transfer requests yet.</div>
         )}
       </div>
     </div>
