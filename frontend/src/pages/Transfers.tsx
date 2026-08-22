@@ -8,6 +8,7 @@ export default function Transfers() {
   const [type, setType] = useState("group_switch");
   const [toValue, setToValue] = useState("");
   const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTransfers());
@@ -15,14 +16,19 @@ export default function Transfers() {
 
   const handleCreate = async () => {
     if (!toValue) return;
-    const res = await dispatch(createTransfer({ transfer_type: type, to_value: toValue, reason }));
-    if (createTransfer.fulfilled.match(res)) {
-      alert("Transfer request submitted successfully!");
-      setToValue("");
-      setReason("");
-      dispatch(fetchTransfers());
-    } else {
-      alert("Failed to submit transfer request: " + (res.error?.message || "Unknown error"));
+    setSubmitting(true);
+    try {
+      const res = await dispatch(createTransfer({ transfer_type: type, to_value: toValue, reason }));
+      if (createTransfer.fulfilled.match(res)) {
+        alert("Transfer request submitted successfully!");
+        setToValue("");
+        setReason("");
+        dispatch(fetchTransfers());
+      } else {
+        alert("Failed to submit transfer request: " + (res.error?.message || "Unknown error"));
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -33,14 +39,55 @@ export default function Transfers() {
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 mb-8">
         <h2 className="text-xl font-bold text-brand mb-4">New Request</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          <select value={type} onChange={(e) => setType(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5">
-            <option value="group_switch">Group Switch</option>
-            <option value="career_path_switch">Career Path Switch</option>
-          </select>
-          <input placeholder="To (group name / path name)" value={toValue} onChange={(e) => setToValue(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
-          <input placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
+          <div>
+            <label htmlFor="transfer-type" className="block text-xs font-semibold text-gray-600 mb-1">
+              Request Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="transfer-type"
+              aria-label="Request Type"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="select select-bordered w-full"
+            >
+              <option value="group_switch">Group Switch</option>
+              <option value="career_path_switch">Career Path Switch</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="transfer-to" className="block text-xs font-semibold text-gray-600 mb-1">
+              Target Group / Path <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="transfer-to"
+              aria-label="Target Group or Path Name"
+              placeholder="To (group name / path name)"
+              value={toValue}
+              onChange={(e) => setToValue(e.target.value)}
+              className="input input-bordered w-full"
+            />
+          </div>
+          <div>
+            <label htmlFor="transfer-reason" className="block text-xs font-semibold text-gray-600 mb-1">
+              Reason (Optional)
+            </label>
+            <input
+              id="transfer-reason"
+              aria-label="Reason for transfer request"
+              placeholder="Reason (optional)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="input input-bordered w-full"
+            />
+          </div>
         </div>
-        <button onClick={handleCreate} className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm px-5 py-2 hover:-translate-y-0.5 hover:shadow-lg transition-all">
+        <button
+          onClick={handleCreate}
+          disabled={!toValue || submitting}
+          aria-label="Submit transfer request"
+          className="btn btn-primary rounded-full px-6"
+        >
+          {submitting ? <span className="loading loading-spinner loading-xs" /> : null}
           Submit Request
         </button>
       </div>
@@ -48,30 +95,30 @@ export default function Transfers() {
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm overflow-hidden">
         <h2 className="text-xl font-bold text-brand p-6 pb-4">Past Requests</h2>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left bg-brand-pale">
+          <table className="table w-full">
+            <thead>
               <tr>
-                <th className="px-5 py-3 font-semibold text-gray-600">Type</th>
-                <th className="px-5 py-3 font-semibold text-gray-600">To</th>
-                <th className="px-5 py-3 font-semibold text-gray-600">Status</th>
-                <th className="px-5 py-3 font-semibold text-gray-600">Reviewed By</th>
-                <th className="px-5 py-3 font-semibold text-gray-600">Date</th>
+                <th>Type</th>
+                <th>To</th>
+                <th>Status</th>
+                <th>Reviewed By</th>
+                <th>Date</th>
               </tr>
             </thead>
             <tbody>
               {transfers.map((t) => (
-                <tr key={t.id} className="border-t border-brand-border">
-                  <td className="px-5 py-3 font-semibold text-xs uppercase">{t.transfer_type.replace(/_/g, " ")}</td>
-                  <td className="px-5 py-3">{t.to_value}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      t.status === "approved" ? "bg-green-100 text-green-700" :
-                      t.status === "denied" ? "bg-red-100 text-red-700" :
-                      "bg-yellow-100 text-yellow-700"
+                <tr key={t.id}>
+                  <td className="font-semibold text-xs uppercase">{t.transfer_type.replace(/_/g, " ")}</td>
+                  <td>{t.to_value}</td>
+                  <td>
+                    <span className={`badge ${
+                      t.status === "approved" ? "badge-success" :
+                      t.status === "denied" ? "badge-error" :
+                      "badge-warning"
                     }`}>{t.status}</span>
                   </td>
-                  <td className="px-5 py-3">{t.reviewed_by_name || "—"}</td>
-                  <td className="px-5 py-3 text-xs text-gray-400">{new Date(t.requested_at).toLocaleDateString()}</td>
+                  <td>{t.reviewed_by_name || "—"}</td>
+                  <td className="text-xs text-gray-400">{new Date(t.requested_at).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
