@@ -33,12 +33,46 @@ export default function Transfers() {
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 mb-8">
         <h2 className="text-xl font-bold text-brand mb-4">New Request</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          <select value={type} onChange={(e) => setType(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5">
-            <option value="group_switch">Group Switch</option>
-            <option value="career_path_switch">Career Path Switch</option>
-          </select>
-          <input placeholder="To (group name / path name)" value={toValue} onChange={(e) => setToValue(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
-          <input placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} className="border border-brand-border rounded-xl px-4 py-2.5" />
+          <div>
+            <label htmlFor="transfer-type" className="block text-xs font-bold text-gray-500 mb-1">
+              Transfer Type
+            </label>
+            <select
+              id="transfer-type"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="select select-bordered select-sm w-full rounded-xl"
+            >
+              <option value="group_switch">Group Switch</option>
+              <option value="career_path_switch">Career Path Switch</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="transfer-to" className="block text-xs font-bold text-gray-500 mb-1">
+              Destination
+            </label>
+            <input
+              id="transfer-to"
+              placeholder="To (group name / path name)"
+              value={toValue}
+              onChange={(e) => setToValue(e.target.value)}
+              className="input input-bordered input-sm w-full rounded-xl"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="transfer-reason" className="block text-xs font-bold text-gray-500 mb-1">
+              Reason (Optional)
+            </label>
+            <input
+              id="transfer-reason"
+              placeholder="Reason (optional)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="input input-bordered input-sm w-full rounded-xl"
+            />
+          </div>
         </div>
         <button onClick={handleCreate} className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm px-5 py-2 hover:-translate-y-0.5 hover:shadow-lg transition-all">
           Submit Request
