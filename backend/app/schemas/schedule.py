@@ -7,7 +7,6 @@ class WaveOut(BaseModel):
     wave_type: str = "departure"
     departure_window_start: str
     departure_window_end: str
-    week_start: str
 
     model_config = {"from_attributes": True}
 
@@ -18,7 +17,6 @@ class WaveCreate(BaseModel):
     wave_type: str = "departure"
     departure_window_start: str
     departure_window_end: str
-    week_start: str
 
 
 class ScheduleOut(BaseModel):

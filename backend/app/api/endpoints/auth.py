@@ -16,7 +16,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select
 
-    result = await db.execute(select(Pilot).where(Pilot.email == request.email))
+    # Ignore accidental surrounding whitespace from autofill or copied addresses.
+    result = await db.execute(select(Pilot).where(Pilot.email == request.email.strip()))
     pilot = result.scalar_one_or_none()
 
     if not pilot or not verify_password(request.password, pilot.password):

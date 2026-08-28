@@ -45,6 +45,8 @@ Thumbs.db
 
 # --- SQL dumps / assets that shouldn't be committed ---
 *.sql
+!backend/migrations/
+!backend/migrations/*.sql
 /assets/
 
 # --- OS ---

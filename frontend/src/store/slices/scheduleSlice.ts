@@ -26,7 +26,6 @@ interface Wave {
   wave_type: string;
   departure_window_start: string;
   departure_window_end: string;
-  week_start: string;
 }
 
 interface ScheduleState {
@@ -91,10 +90,9 @@ export const bulkApproveSchedules = createAsyncThunk(
 
 export const fetchWaves = createAsyncThunk(
   "schedule/fetchWaves",
-  (params?: { group_id?: number; week_start?: string }) => {
+  (params?: { group_id?: number }) => {
     const qs = new URLSearchParams();
     if (params?.group_id) qs.set("group_id", String(params.group_id));
-    if (params?.week_start) qs.set("week_start", params.week_start);
     return api.get<Wave[]>(`/schedules/waves?${qs.toString()}`);
   },
 );

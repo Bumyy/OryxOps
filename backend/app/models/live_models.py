@@ -362,7 +362,11 @@ class LiveScheduleWave(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     group_id = Column(Integer, ForeignKey("live_flying_groups.id"), nullable=True)
     name = Column(String(50), nullable=False)
-    week_start = Column(Date, nullable=False)
+    wave_type = Column(String(20), nullable=False, default="departure")
+    departure_window_start = Column(Time, nullable=False)
+    departure_window_end = Column(Time, nullable=False)
+    # Legacy column only. Lifetime waves do not use week_start anymore.
+    week_start = Column(Date, nullable=True)
 
     group = relationship("LiveFlyingGroup", back_populates="waves")
     flights = relationship("LiveFlightSchedule", back_populates="wave")

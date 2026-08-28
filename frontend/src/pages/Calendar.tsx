@@ -191,7 +191,7 @@ export default function Calendar() {
   useEffect(() => {
     if (activeGroup) {
       dispatch(fetchSchedules({ group_id: activeGroup, week_start: weekStart, status: "all" }));
-      dispatch(fetchWaves({ week_start: weekStart }));
+      dispatch(fetchWaves({}));
       dispatch(fetchAirframes({ group_id: activeGroup }));
       fetchQuota();
     }
@@ -946,7 +946,7 @@ export default function Calendar() {
               ))}
 
               {/* Waves background blocks */}
-              {waves.filter(w => w.week_start === weekStart).map(w => {
+              {waves.map(w => {
                 const sh = Number(w.departure_window_start.split(":")[0]) + Number(w.departure_window_start.split(":")[1]) / 60;
                 const eh = Number(w.departure_window_end.split(":")[0]) + Number(w.departure_window_end.split(":")[1]) / 60;
                 const ia = w.wave_type === "arrival";

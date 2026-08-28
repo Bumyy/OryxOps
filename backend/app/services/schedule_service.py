@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import select, update
@@ -438,18 +438,19 @@ async def bulk_approve_schedules(
 
 
 async def get_waves(
-    db: AsyncSession, group_id: int | None = None, week_start: str | None = None
+    db: AsyncSession, group_id: int | None = None
 ) -> list[LiveScheduleWave]:
     query = select(LiveScheduleWave)
     if group_id:
         query = query.where(LiveScheduleWave.group_id == group_id)
-    if week_start:
-        query = query.where(LiveScheduleWave.week_start == week_start)
     result = await db.execute(query)
     return list(result.scalars().all())
 
 
 async def create_wave(db: AsyncSession, data: dict) -> LiveScheduleWave:
+    for field in ("departure_window_start", "departure_window_end"):
+        if isinstance(data.get(field), str):
+            data[field] = time.fromisoformat(data[field])
     wave = LiveScheduleWave(**data)
     db.add(wave)
     await db.commit()

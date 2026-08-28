@@ -78,9 +78,6 @@ async def get_my_profile(
     pilot: Pilot = Depends(get_current_pilot),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.services.booking_service import reconcile_all_payouts
-    await reconcile_all_payouts(db)
-
     detail = await get_pilot_detail(db, pilot.id)
     return PilotDetailOut(
         id=detail["pilot"].id,

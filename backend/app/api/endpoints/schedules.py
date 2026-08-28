@@ -348,10 +348,9 @@ async def bulk_approve(
 @router.get("/waves", response_model=list[WaveOut])
 async def list_waves(
     group_id: int | None = Query(None),
-    week_start: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    waves = await get_waves(db, group_id, week_start)
+    waves = await get_waves(db, group_id)
     return [
         WaveOut(
             id=w.id,
@@ -359,7 +358,6 @@ async def list_waves(
             wave_type=w.wave_type if hasattr(w, "wave_type") else "departure",
             departure_window_start=str(w.departure_window_start),
             departure_window_end=str(w.departure_window_end),
-            week_start=str(w.week_start),
         )
         for w in waves
     ]
@@ -381,7 +379,6 @@ async def create_wave_route(
         wave_type=wave.wave_type if hasattr(wave, "wave_type") else "departure",
         departure_window_start=str(wave.departure_window_start),
         departure_window_end=str(wave.departure_window_end),
-        week_start=str(wave.week_start),
     )
 
 

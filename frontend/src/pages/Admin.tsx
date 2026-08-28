@@ -1376,25 +1376,22 @@ export function WavesTab() {
   const [waveType, setWaveType] = useState("departure");
   const [start, setStart] = useState("06:00");
   const [end, setEnd] = useState("09:00");
-  const [weekStart, setWeekStart] = useState("");
 
   useEffect(() => {
     dispatch(fetchWaves({}));
   }, []);
 
   const handleCreate = async () => {
-    if (!name || !weekStart) return;
+    if (!name || !start || !end) return;
     await dispatch(
       createWave({
         name,
         wave_type: waveType,
         departure_window_start: start,
         departure_window_end: end,
-        week_start: weekStart,
       })
     );
     setName("");
-    setWeekStart("");
     dispatch(fetchWaves({}));
   };
 
@@ -1406,8 +1403,8 @@ export function WavesTab() {
       <h2 className="text-2xl font-bold text-brand">Wave Management</h2>
 
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
-        <h3 className="text-lg font-bold text-brand mb-4">Create Wave</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 mb-4">
+        <h3 className="text-lg font-bold text-brand mb-4">Create Lifetime Wave</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
           <input
             placeholder="Name (e.g. Morning Departure)"
             value={name}
@@ -1434,12 +1431,6 @@ export function WavesTab() {
             onChange={(e) => setEnd(e.target.value)}
             className="border border-brand-border rounded-xl px-3 py-2 text-sm"
           />
-          <input
-            type="date"
-            value={weekStart}
-            onChange={(e) => setWeekStart(e.target.value)}
-            className="border border-brand-border rounded-xl px-3 py-2 text-sm"
-          />
         </div>
         <button
           onClick={handleCreate}
@@ -1448,8 +1439,9 @@ export function WavesTab() {
           Create
         </button>
         <p className="text-xs text-gray-400 mt-2">
-          Typical DOH waves: Morning arrivals 04-07, departures 07-09; Evening
-          arrivals 16-19, departures 19-21
+          Waves are reusable and remain active for every week. Typical DOH waves:
+          Morning arrivals 04-07, departures 07-09; evening arrivals 16-19,
+          departures 19-21.
         </p>
       </div>
 
@@ -1466,8 +1458,7 @@ export function WavesTab() {
               <div>
                 <p className="font-semibold text-sm">{w.name}</p>
                 <p className="text-xs text-gray-400">
-                  {w.departure_window_start} → {w.departure_window_end} ·{" "}
-                  {w.week_start}
+                  {w.departure_window_start} → {w.departure_window_end}
                 </p>
               </div>
               <button
@@ -1499,8 +1490,7 @@ export function WavesTab() {
               <div>
                 <p className="font-semibold text-sm">{w.name}</p>
                 <p className="text-xs text-gray-400">
-                  {w.departure_window_start} → {w.departure_window_end} ·{" "}
-                  {w.week_start}
+                  {w.departure_window_start} → {w.departure_window_end}
                 </p>
               </div>
               <button

@@ -22,10 +22,17 @@ async function request<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new Error(
+      "Unable to reach the server. Please check your connection and try again.",
+    );
+  }
 
   if (!res.ok) {
     if (res.status === 401 && !endpoint.includes("/auth/login")) {

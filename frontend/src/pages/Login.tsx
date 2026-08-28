@@ -29,25 +29,33 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-dark to-brand px-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-brand-dark to-brand px-6">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-4 md:p-6">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-black text-brand tracking-wider">
-            QRV<span className="text-brand-light">LIVE</span>
-          </h1>
-          <p className="text-gray-500 mt-2">Qatari Virtual &mdash; Live Mode</p>
+          <img
+            src="/oryxops_logo_colored.webp"
+            alt="OryxOps Logo"
+            className="mx-auto h-20 w-auto object-contain"
+          />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
               {error}
-              <button onClick={() => dispatch(clearError())} className="float-right font-bold ml-2">&times;</button>
+              <button
+                onClick={() => dispatch(clearError())}
+                className="float-right font-bold ml-2"
+              >
+                &times;
+              </button>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Email
+            </label>
             <input
               type="email"
               value={email}
@@ -59,7 +67,9 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Password
+            </label>
             <input
               type="password"
               value={password}
@@ -79,6 +89,11 @@ export default function Login() {
           </button>
         </form>
       </div>
+      <p className="max-w-md text-center text-sm leading-relaxed text-white/80">
+        <span className="font-semibold text-white">Cannot log in?</span> Use
+        the same email and password combination that you use for the Crew
+        Center. Otherwise, open a ticket in the Discord server.
+      </p>
     </div>
   );
 }

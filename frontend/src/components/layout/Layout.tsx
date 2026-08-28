@@ -1,5 +1,32 @@
 import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  RiArrowDownSLine,
+  RiArrowLeftDoubleLine,
+  RiArrowRightDoubleLine,
+  RiAuctionFill,
+  RiBookOpenFill,
+  RiCalendar2Fill,
+  RiCheckboxMultipleFill,
+  RiCloudWindyFill,
+  RiDashboardFill,
+  RiFileList3Fill,
+  RiFileTextFill,
+  RiGroupFill,
+  RiMap2Fill,
+  RiMenuFill,
+  RiMoonFill,
+  RiPlaneFill,
+  RiRadarFill,
+  RiRocket2Fill,
+  RiSettings3Fill,
+  RiShoppingBag3Fill,
+  RiSmartphoneFill,
+  RiSunFill,
+  RiTeamFill,
+  RiThunderstormsFill,
+  RiUser3Fill,
+} from "@remixicon/react";
 import { useAppSelector, useAppDispatch } from "../../store/hooks";
 import { fetchMe, logout } from "../../store/slices/authSlice";
 import { useCurrency } from "../../hooks/useCurrency";
@@ -118,6 +145,34 @@ const adminItems = [
     icon: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
   },
 ];
+
+const navIconMap: Record<string, typeof RiPlaneFill> = {
+  Dashboard: RiDashboardFill,
+  "Flight Operations": RiPlaneFill,
+  "Flying Groups": RiGroupFill,
+  Schedule: RiCalendar2Fill,
+  "My Bookings": RiFileList3Fill,
+  "Proposals Shop": RiShoppingBag3Fill,
+  "OFP Briefing": RiFileTextFill,
+  "Interactive Checklist": RiCheckboxMultipleFill,
+  "Weather & Performance": RiCloudWindyFill,
+  "Aircraft Performance": RiPlaneFill,
+  Charts: RiMap2Fill,
+  Settings: RiSettings3Fill,
+  Pilots: RiUser3Fill,
+  Groups: RiGroupFill,
+  "Crew Roster": RiTeamFill,
+  "Fleet Bidding": RiAuctionFill,
+  Aircraft: RiPlaneFill,
+  Waves: RiThunderstormsFill,
+  "Live Tracking": RiRadarFill,
+  "Auto Scheduler": RiSettings3Fill,
+};
+
+function NavIcon({ label, size }: { label: string; size: number }) {
+  const Icon = navIconMap[label] || RiPlaneFill;
+  return <Icon size={size} className="flex-shrink-0" aria-hidden="true" />;
+}
 
 export default function Layout() {
   const dispatch = useAppDispatch();
@@ -349,19 +404,7 @@ export default function Layout() {
                     : "text-gray-600 hover:bg-brand-hover-bg hover:text-brand"
                 }`}
               >
-                <svg
-                  className="w-5 h-5 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d={item.icon}
-                  />
-                </svg>
+                <NavIcon label={item.label} size={20} />
                 {!sidebarCollapsed && (
                   <span className="truncate">{item.label}</span>
                 )}
@@ -371,7 +414,7 @@ export default function Layout() {
             !sidebarCollapsed && (
               <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3 mb-2 text-center text-amber-800 space-y-1">
                 <div className="text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1">
-                  📱 EFB Standalone Mode
+                  <span className="flex items-center justify-center gap-1"><RiSmartphoneFill size={14} aria-hidden="true" /> EFB Standalone Mode</span>
                 </div>
                 <p className="text-[10px] text-amber-700 font-medium leading-tight">
                   SimBrief & Flight Tools active. Full airline portal requires Award ID 9.
@@ -389,37 +432,11 @@ export default function Layout() {
                 sidebarCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
               }`}
             >
-              <svg
-                className="w-5 h-5 flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                />
-              </svg>
+              <RiFileTextFill size={20} className="flex-shrink-0" aria-hidden="true" />
               {!sidebarCollapsed && (
                 <>
                   <span>EFB</span>
-                  <svg
-                    className={`w-4 h-4 ml-auto transition-transform ${
-                      efbOpen ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <RiArrowDownSLine size={16} className={`ml-auto transition-transform ${efbOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                 </>
               )}
             </button>
@@ -444,19 +461,7 @@ export default function Layout() {
                         : "text-gray-500 hover:bg-brand-hover-bg hover:text-brand"
                     }`}
                   >
-                    <svg
-                      className="w-4 h-4 flex-shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d={item.icon}
-                      />
-                    </svg>
+                    <NavIcon label={item.label} size={16} />
                     {!sidebarCollapsed && (
                       <span className="truncate">{item.label}</span>
                     )}
@@ -475,37 +480,11 @@ export default function Layout() {
               sidebarCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
             }`}
           >
-            <svg
-              className="w-5 h-5 flex-shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-              />
-            </svg>
+            <RiBookOpenFill size={20} className="flex-shrink-0" aria-hidden="true" />
             {!sidebarCollapsed && (
               <>
                 <span>Handbook</span>
-                <svg
-                  className={`w-4 h-4 ml-auto transition-transform ${
-                    handbookOpen ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
+                <RiArrowDownSLine size={16} className={`ml-auto transition-transform ${handbookOpen ? "rotate-180" : ""}`} aria-hidden="true" />
               </>
             )}
           </button>
@@ -553,13 +532,8 @@ export default function Layout() {
                   sidebarCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
                 }`}
               >
-                <svg
-                  className="w-5 h-5 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
+                <RiSettings3Fill size={20} className="flex-shrink-0" aria-hidden="true" />
+                {/*
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -570,25 +544,11 @@ export default function Layout() {
                     strokeLinejoin="round"
                     d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                   />
-                </svg>
+                </svg> */}
                 {!sidebarCollapsed && (
                   <>
                     <span>Admin</span>
-                    <svg
-                      className={`w-4 h-4 ml-auto transition-transform ${
-                        adminOpen ? "rotate-180" : ""
-                      }`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
+                    <RiArrowDownSLine size={16} className={`ml-auto transition-transform ${adminOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                   </>
                 )}
               </button>
@@ -613,19 +573,7 @@ export default function Layout() {
                           : "text-gray-500 hover:bg-brand-hover-bg hover:text-brand"
                       }`}
                     >
-                      <svg
-                        className="w-4 h-4 flex-shrink-0"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d={item.icon}
-                        />
-                      </svg>
+                      <NavIcon label={item.label} size={16} />
                       {!sidebarCollapsed && (
                         <span className="truncate">{item.label}</span>
                       )}
@@ -678,20 +626,8 @@ export default function Layout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Top bar */}
         <header className="h-14 border-b border-brand-border bg-white flex items-center px-4 gap-4 flex-shrink-0 sticky top-0 z-20">
-          <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-            <svg
-              className="w-6 h-6 text-gray-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
+          <button className="lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open navigation">
+            <RiMenuFill size={24} className="text-gray-600" aria-hidden="true" />
           </button>
 
           {/* Toggle sidebar button for desktop */}
@@ -700,27 +636,7 @@ export default function Layout() {
             className="hidden lg:block text-gray-500 hover:text-brand transition-colors p-1 rounded-lg hover:bg-gray-100"
             title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              {sidebarCollapsed ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13 5l7 7-7 7M5 5l7 7-7 7"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M11 19l-7-7 7-7M19 19l-7-7 7-7"
-                />
-              )}
-            </svg>
+            {sidebarCollapsed ? <RiArrowRightDoubleLine size={20} aria-hidden="true" /> : <RiArrowLeftDoubleLine size={20} aria-hidden="true" />}
           </button>
 
           <div className="flex-1" />
@@ -732,7 +648,7 @@ export default function Layout() {
                 className="bg-brand hover:bg-brand-light text-white font-black text-xs px-3.5 py-1.5 rounded-full shadow-md transition-all flex items-center gap-1.5 cursor-pointer animate-pulse"
                 title="Click to notify Staff on Discord about your submitted proposals"
               >
-                <span>🚀</span>
+                <RiRocket2Fill size={14} aria-hidden="true" />
                 <span>{notifyingStaff ? "Sending..." : `Notify Staff (${pendingProposals})`}</span>
               </button>
             )}
@@ -744,7 +660,7 @@ export default function Layout() {
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-1.5 rounded-full shadow-md transition-all flex items-center gap-1.5 cursor-pointer animate-pulse"
                 title="Click to notify Pilots on Discord about approved schedules"
               >
-                <span>🚀</span>
+                <RiRocket2Fill size={14} aria-hidden="true" />
                 <span>{notifyingPilots ? "Sending..." : `Notify Pilots (${pendingApprovals} Approved)`}</span>
               </button>
             )}
@@ -766,33 +682,9 @@ export default function Layout() {
               }
             >
               {theme === "light" ? (
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                  />
-                </svg>
+                <RiMoonFill size={20} aria-hidden="true" />
               ) : (
-                <svg
-                  className="w-5 h-5 text-amber-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"
-                  />
-                </svg>
+                <RiSunFill size={20} className="text-amber-400" aria-hidden="true" />
               )}
             </button>
             <span className="text-sm font-semibold text-gray-600 hidden sm:block">
