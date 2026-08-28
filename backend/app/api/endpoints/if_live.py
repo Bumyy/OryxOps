@@ -671,6 +671,9 @@ async def if_track_booking(
             {"name": arr_icao, "latitude": arr_lat, "longitude": arr_lon}
         ]
         
+        aircraft_reg = booking.schedule.aircraft.registration if booking.schedule and booking.schedule.aircraft else None
+        aircraft_model = booking.schedule.aircraft.aircraft_type.name if booking.schedule and booking.schedule.aircraft and booking.schedule.aircraft.aircraft_type else None
+
         telemetry = {
             "active": True,
             "mock": True,
@@ -693,7 +696,9 @@ async def if_track_booking(
             "arr_lat": arr_lat,
             "arr_lon": arr_lon,
             "flownRoute": trail,
-            "flightPlan": flight_plan_waypoints
+            "flightPlan": flight_plan_waypoints,
+            "aircraft_reg": aircraft_reg,
+            "aircraft_model": aircraft_model
         }
         
         _telemetry_cache[booking_id] = {
@@ -801,6 +806,9 @@ async def if_track_booking(
     else:
         status_text = "Cruising"
 
+    aircraft_reg = booking.schedule.aircraft.registration if booking.schedule and booking.schedule.aircraft else None
+    aircraft_model = booking.schedule.aircraft.aircraft_type.name if booking.schedule and booking.schedule.aircraft and booking.schedule.aircraft.aircraft_type else None
+
     telemetry = {
         "active": True,
         "mock": False,
@@ -818,12 +826,14 @@ async def if_track_booking(
         "status": status_text,
         "origin": dep_icao,
         "destination": arr_icao,
-        "dep_lat": dep_apt["lat"],
-        "dep_lon": dep_apt["lon"],
-        "arr_lat": arr_apt["lat"],
-        "arr_lon": arr_apt["lon"],
+        "dep_lat": dep_dep_lat if 'dep_dep_lat' in locals() else dep_apt["lat"],
+        "dep_lon": dep_dep_lon if 'dep_dep_lon' in locals() else dep_apt["lon"],
+        "arr_lat": arr_arr_lat if 'arr_arr_lat' in locals() else arr_apt["lat"],
+        "arr_lon": arr_arr_lon if 'arr_arr_lon' in locals() else arr_apt["lon"],
         "flownRoute": trail,
-        "flightPlan": flight_plan_waypoints
+        "flightPlan": flight_plan_waypoints,
+        "aircraft_reg": aircraft_reg,
+        "aircraft_model": aircraft_model
     }
 
     _telemetry_cache[booking_id] = {

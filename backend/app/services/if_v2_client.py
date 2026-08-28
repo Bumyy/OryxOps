@@ -90,12 +90,23 @@ class IFV2Error(Exception):
 # ---------------------------------------------------------------------------
 
 def _parse_v2_response(response: httpx.Response) -> Any:
+    import logging
+    logger = logging.getLogger("uvicorn")
+
     if response.is_success:
         body = response.json()
         error_code = body.get("errorCode", -1)
         if error_code == 0:
             return body.get("result")
+        if error_code == 4 or response.status_code == 401:
+            IFV2Client._force_mock = True
+            logger.warning("Infinite Flight V2 API key is invalid or expired. Falling back to Mock/Simulated Mode to prevent error logs.")
         raise IFV2Error(response.status_code, error_code, body.get("error", ""))
+    
+    if response.status_code == 401:
+        IFV2Client._force_mock = True
+        logger.warning("Infinite Flight V2 API key is invalid or expired. Falling back to Mock/Simulated Mode to prevent error logs.")
+
     try:
         body = response.json()
     except Exception:
@@ -195,6 +206,7 @@ class IFV2Client:
     Uses the API key (``if_api_key`` in settings) for authentication. This is the
     public multiplayer data API, not the OAuth-based v3 organization API.
     """
+    _force_mock = False
 
     def __init__(
         self,
@@ -222,12 +234,14 @@ class IFV2Client:
 
     async def open(self):
         if self._client is None:
+            headers = {
+                "Accept": "application/json",
+            }
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Accept": "application/json",
-                },
+                headers=headers,
                 timeout=self._timeout,
             )
         return self
@@ -242,8 +256,33 @@ class IFV2Client:
     # ------------------------------------------------------------------
 
     async def list_sessions(self) -> list[SessionInfo]:
+        if IFV2Client._force_mock:
+            return [SessionInfo(
+                id="mock-session-id",
+                name="Mock Server (Expert)",
+                max_users=1000,
+                user_count=10,
+                type=0,
+                world_type=3,
+                minimum_grade_level=3,
+                minimum_app_version="24.3"
+            )]
         response = await self._http.get("/sessions")
-        return [_build_session(s) for s in _parse_v2_response(response)]
+        try:
+            return [_build_session(s) for s in _parse_v2_response(response)]
+        except IFV2Error as e:
+            if IFV2Client._force_mock:
+                return [SessionInfo(
+                    id="mock-session-id",
+                    name="Mock Server (Expert)",
+                    max_users=1000,
+                    user_count=10,
+                    type=0,
+                    world_type=3,
+                    minimum_grade_level=3,
+                    minimum_app_version="24.3"
+                )]
+            raise e
 
     async def get_expert_session(self) -> SessionInfo | None:
         sessions = await self.list_sessions()
@@ -257,8 +296,15 @@ class IFV2Client:
     # ------------------------------------------------------------------
 
     async def list_session_flights(self, session_id: str) -> list[FlightEntry]:
+        if IFV2Client._force_mock:
+            return []
         response = await self._http.get(f"/sessions/{session_id}/flights")
-        return [_build_flight_entry(f) for f in _parse_v2_response(response)]
+        try:
+            return [_build_flight_entry(f) for f in _parse_v2_response(response)]
+        except IFV2Error as e:
+            if IFV2Client._force_mock:
+                return []
+            raise e
 
     # ------------------------------------------------------------------
     # Flight Plans (bulk)

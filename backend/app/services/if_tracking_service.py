@@ -108,13 +108,14 @@ class IFTrackingSync:
                         self._dispatched_count += 1
                         continue
 
-                    # --- No-show detection ---
-                    cutoff = schedule.scheduled_departure + timedelta(
-                        minutes=_NO_SHOW_GRACE_MINUTES
-                    )
-                    if schedule.scheduled_departure and now >= cutoff:
-                        await self._auto_no_show(db, booking, now)
-                        self._no_show_count += 1
+                    # --- No-show detection (DISABLED) ---
+                    # cutoff = schedule.scheduled_departure + timedelta(
+                    #     minutes=_NO_SHOW_GRACE_MINUTES
+                    # )
+                    # if schedule.scheduled_departure and now >= cutoff:
+                    #     await self._auto_no_show(db, booking, now)
+                    #     self._no_show_count += 1
+                    pass
 
                 # --- Track dispatched flights ---
                 for booking in dispatched:
@@ -240,15 +241,15 @@ class IFTrackingSync:
         db.add(booking)
         db.add(schedule)
 
-    async def _auto_no_show(
-        self,
-        db: AsyncSession,
-        booking: LiveFlightBooking,
-        now: datetime,
-    ):
-        booking.status = "no_show"
-        booking.released_at = now
-        db.add(booking)
+    # async def _auto_no_show(
+    #     self,
+    #     db: AsyncSession,
+    #     booking: LiveFlightBooking,
+    #     now: datetime,
+    # ):
+    #     booking.status = "no_show"
+    #     booking.released_at = now
+    #     db.add(booking)
 
 
 # ---------------------------------------------------------------------------
@@ -367,7 +368,7 @@ async def check_completed_flights(db: AsyncSession) -> list[int]:
             LiveFlightSchedule.scheduled_arrival <= now,
         )
         .options(
-            selectinload(LiveFlightBooking.schedule),
+            selectinload(LiveFlightBooking.schedule).selectinload(LiveFlightSchedule.aircraft),
         )
     )
     candidates = result.scalars().all()
@@ -387,9 +388,17 @@ async def check_completed_flights(db: AsyncSession) -> list[int]:
     for booking in candidates:
         if booking.if_flight_id and booking.if_flight_id not in active_ids:
             schedule = booking.schedule
-            if schedule and schedule.actual_arrival is None:
-                schedule.actual_arrival = now
-                db.add(schedule)
+            if schedule:
+                if schedule.actual_arrival is None:
+                    schedule.actual_arrival = now
+                    db.add(schedule)
+                if schedule.aircraft:
+                    arrival_airport = (schedule.arrival or "OTHH").strip().upper()
+                    if schedule.aircraft.current_airport != arrival_airport:
+                        schedule.aircraft.last_airport = schedule.aircraft.current_airport
+                    schedule.aircraft.current_airport = arrival_airport
+                    schedule.aircraft.status = "parked"
+                    db.add(schedule.aircraft)
             completed_ids.append(booking.id)
 
     await db.commit()

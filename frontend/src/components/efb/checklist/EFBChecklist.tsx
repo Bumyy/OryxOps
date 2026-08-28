@@ -357,10 +357,12 @@ export default function EFBChecklist({
           <p className="mt-1 text-xs text-yellow-600">
             The aircraft code returned from SimBrief (<span className="font-mono">{aircraftCode}</span>) does not match any profile in our database. Please select a compatible aircraft below:
           </p>
-          <div className="mt-4 flex justify-center gap-2">
+          <div className="mt-4 flex flex-col items-center gap-2">
+            <label htmlFor="compatible-aircraft-select" className="text-xs font-bold text-gray-600">CHOOSE PROFILE</label>
             <select
+              id="compatible-aircraft-select"
               onChange={(e) => setAircraftOverride(e.target.value)}
-              className="bg-white border border-yellow-300 text-gray-800 rounded-xl px-3 py-1.5 text-sm"
+              className="select select-bordered select-sm w-64 bg-white"
               defaultValue=""
             >
               <option value="" disabled>Select aircraft profile</option>
@@ -435,13 +437,14 @@ export default function EFBChecklist({
 
           {/* MOBILE RESPONSIVE TIMELINE SELECTOR: Visible below lg screens */}
           <div className="block lg:hidden w-full bg-gray-50/50 rounded-2xl border border-brand-border p-3.5 space-y-2">
-            <label className="text-[10px] font-bold text-gray-400 block uppercase tracking-wider">
+            <label htmlFor="mobile-timeline-select" className="text-[10px] font-bold text-gray-400 block uppercase tracking-wider">
               Active flight checklist page
             </label>
             <select
+              id="mobile-timeline-select"
               value={activePhaseIndex}
               onChange={(e) => setActivePhaseIndex(Number(e.target.value))}
-              className="w-full bg-white border border-brand-border text-brand text-sm font-bold rounded-xl px-3 py-2.5 focus:ring-brand focus:border-brand"
+              className="select select-bordered select-sm w-full font-bold"
             >
               {compiledChecklist.map((section: any, sIdx: number) => {
                 const phaseTotal = section.items.filter((it: any) => !it.isTable).length;
@@ -587,6 +590,7 @@ export default function EFBChecklist({
                       }
 
                       const isChecked = !!checkedItems[item.id];
+                      const checkboxId = `checklist-item-${item.id}`;
                       return (
                         <div
                           key={item.id}
@@ -594,14 +598,16 @@ export default function EFBChecklist({
                             isChecked ? "bg-green-50/15 border-green-100/10" : "hover:bg-brand-hover-bg/30"
                           }`}
                         >
-                          <label className="flex items-center gap-3.5 cursor-pointer flex-1 min-w-0">
+                          <div className="flex items-center gap-3.5 flex-1 min-w-0">
                             <input
+                              id={checkboxId}
                               type="checkbox"
                               checked={isChecked}
+                              aria-label={`Mark as checked: ${item.text}`}
                               onChange={() => handleCheckActiveItem(item.id)}
-                              className="w-5 h-5 rounded text-brand focus:ring-brand border-gray-300 cursor-pointer"
+                              className="checkbox checkbox-primary checkbox-sm cursor-pointer"
                             />
-                            <div className="flex flex-col min-w-0">
+                            <label htmlFor={checkboxId} className="flex flex-col min-w-0 cursor-pointer">
                               <span className={`text-sm font-bold transition-colors truncate ${
                                 isChecked ? "text-gray-400 line-through font-semibold" : "text-gray-800"
                               }`}>
@@ -612,8 +618,8 @@ export default function EFBChecklist({
                                   {safeRender(item.remarks)}
                                 </span>
                               )}
-                            </div>
-                          </label>
+                            </label>
+                          </div>
                           <div className="flex items-center gap-3">
                             <span className={`font-mono text-xs font-extrabold px-3 py-1 rounded-xl border tracking-wide shadow-sm transition-all duration-150 ${
                               isChecked

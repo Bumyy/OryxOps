@@ -86,11 +86,12 @@ export default function EFBSettings({
 
         {/* Input Method Selection */}
         <div className="space-y-1">
-          <label className="text-xs font-bold text-gray-500 block">CO-PILOT INPUT METHOD</label>
+          <label htmlFor="copilot-input-method-select" className="text-xs font-bold text-gray-500 block">CO-PILOT INPUT METHOD</label>
           <select
+            id="copilot-input-method-select"
             value={copilotInputMode}
             onChange={e => updateSettings("copilot_input_mode", e.target.value, setCopilotInputMode)}
-            className="w-full bg-white border border-brand-border text-brand font-bold rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand"
+            className="select select-bordered select-sm w-full font-bold"
           >
             <option value="voice">🎙️ Voice Control (Microphone)</option>
             <option value="button">🖱️ Button &amp; Key Control</option>
@@ -102,11 +103,12 @@ export default function EFBSettings({
         
         {/* Voice Selection list */}
         <div className="space-y-1">
-          <label className="text-xs font-bold text-gray-500 block">AVAILABLE TTS VOICES</label>
+          <label htmlFor="copilot-voice-select" className="text-xs font-bold text-gray-500 block">AVAILABLE TTS VOICES</label>
           <select
+            id="copilot-voice-select"
             value={selectedVoiceName}
             onChange={e => updateSettings("copilot_voice", e.target.value, setSelectedVoiceName)}
-            className="w-full bg-white border border-brand-border text-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand"
+            className="select select-bordered select-sm w-full"
           >
             <option value="">System Default Voice</option>
             {availableVoices.map((voice, idx) => (
@@ -122,34 +124,36 @@ export default function EFBSettings({
         {/* Speech Speed Rate slider */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-bold text-gray-500">
-            <span>SPEECH RATE SPEED</span>
+            <label htmlFor="speech-rate-slider">SPEECH RATE SPEED</label>
             <span>{speechRate.toFixed(1)}x</span>
           </div>
           <input
+            id="speech-rate-slider"
             type="range"
             min="0.5"
             max="2.0"
             step="0.1"
             value={speechRate}
             onChange={e => updateSettings("copilot_rate", parseFloat(e.target.value), setSpeechRate)}
-            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand"
+            className="range range-xs range-primary w-full"
           />
         </div>
 
         {/* Speech Pitch slider */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-bold text-gray-500">
-            <span>SPEECH PITCH LEVEL</span>
+            <label htmlFor="speech-pitch-slider">SPEECH PITCH LEVEL</label>
             <span>{speechPitch.toFixed(1)}</span>
           </div>
           <input
+            id="speech-pitch-slider"
             type="range"
             min="0.5"
             max="1.5"
             step="0.1"
             value={speechPitch}
             onChange={e => updateSettings("copilot_pitch", parseFloat(e.target.value), setSpeechPitch)}
-            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand"
+            className="range range-xs range-primary w-full"
           />
         </div>
 
@@ -169,12 +173,13 @@ export default function EFBSettings({
         
         {/* Trigger Words input */}
         <div className="space-y-1">
-          <label className="text-xs font-bold text-gray-500 block">SPEECH RECOGNITION KEYWORDS (Comma separated)</label>
+          <label htmlFor="copilot-keywords-input" className="text-xs font-bold text-gray-500 block">SPEECH RECOGNITION KEYWORDS (Comma separated)</label>
           <input
+            id="copilot-keywords-input"
             type="text"
             value={triggerKeyword}
             onChange={e => updateSettings("copilot_trigger", e.target.value, setTriggerKeyword)}
-            className="w-full bg-white border border-brand-border text-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand"
+            className="input input-bordered input-sm w-full font-semibold"
             placeholder="e.g. check, checked, set, ok"
           />
           <p className="text-[10px] text-gray-400 mt-1">
@@ -184,11 +189,12 @@ export default function EFBSettings({
 
         {/* Keyboard checklist key config */}
         <div className="space-y-1">
-          <label className="text-xs font-bold text-gray-500 block">KEYBOARD CHECKLIST ADVANCING KEY</label>
+          <label htmlFor="copilot-advancing-key-select" className="text-xs font-bold text-gray-500 block">KEYBOARD CHECKLIST ADVANCING KEY</label>
           <select
+            id="copilot-advancing-key-select"
             value={copilotKey}
             onChange={e => updateSettings("copilot_key", e.target.value, setCopilotKey)}
-            className="w-full bg-white border border-brand-border text-gray-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand"
+            className="select select-bordered select-sm w-full font-semibold"
           >
             <option value="Space">Space Bar</option>
             <option value="Enter">Enter Key</option>
@@ -238,72 +244,75 @@ export default function EFBSettings({
 
         {/* Settings toggles */}
         <div className="space-y-3 pt-1.5">
-          <label className="text-xs font-bold text-gray-500 block">COPILOT BEHAVIORS</label>
+          <span className="text-xs font-bold text-gray-500 block">COPILOT BEHAVIORS</span>
           
-          <label className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold cursor-pointer">
+          <label className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold cursor-pointer label py-0 justify-start">
             <input
               type="checkbox"
               checked={playChime}
               onChange={e => updateSettings("copilot_chime", e.target.checked, setPlayChime)}
-              className="w-4 h-4 rounded text-brand focus:ring-brand border-gray-300 cursor-pointer"
+              className="checkbox checkbox-primary checkbox-sm cursor-pointer"
             />
-            Play electronic chime sound on success
+            <span>Play electronic chime sound on success</span>
           </label>
 
-          <label className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold cursor-pointer">
+          <label className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold cursor-pointer label py-0 justify-start">
             <input
               type="checkbox"
               checked={autoAdvance}
               onChange={e => updateSettings("copilot_auto_advance", e.target.checked, setAutoAdvance)}
-              className="w-4 h-4 rounded text-brand focus:ring-brand border-gray-300 cursor-pointer"
+              className="checkbox checkbox-primary checkbox-sm cursor-pointer"
             />
-            Auto-announce next item after checking off
+            <span>Auto-announce next item after checking off</span>
           </label>
 
-          <label className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold cursor-pointer">
+          <label className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold cursor-pointer label py-0 justify-start">
             <input
               type="checkbox"
               checked={autoCollapse}
               onChange={e => updateSettings("copilot_auto_collapse", e.target.checked, setAutoCollapse)}
-              className="w-4 h-4 rounded text-brand focus:ring-brand border-gray-300 cursor-pointer"
+              className="checkbox checkbox-primary checkbox-sm cursor-pointer"
             />
-            Auto-collapse finished phases and open next phase
+            <span>Auto-collapse finished phases and open next phase</span>
           </label>
-          <label className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold cursor-pointer">
+
+          <label className="flex items-center gap-2.5 text-xs text-gray-600 font-semibold cursor-pointer label py-0 justify-start">
             <input
               type="checkbox"
               checked={showFloatingButton}
               onChange={e => updateSettings("copilot_show_floating", e.target.checked, setShowFloatingButton)}
-              className="w-4 h-4 rounded text-brand focus:ring-brand border-gray-300 cursor-pointer"
+              className="checkbox checkbox-primary checkbox-sm cursor-pointer"
             />
-            Show mobile/tablet floating advance button
+            <span>Show mobile/tablet floating advance button</span>
           </label>
         </div>
 
         {/* Overrides */}
         <div className="space-y-3 pt-2.5 border-t border-brand-border">
-          <label className="text-xs font-bold text-gray-500 block">MANUAL TELEMETRY OVERRIDES</label>
+          <span className="text-xs font-bold text-gray-500 block">MANUAL TELEMETRY OVERRIDES</span>
           
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] text-gray-400 block font-bold">LOAD PERCENTAGE (%)</label>
+              <label htmlFor="manual-load-input" className="text-[10px] text-gray-400 block font-bold">LOAD PERCENTAGE (%)</label>
               <input
+                id="manual-load-input"
                 type="number"
                 min="0"
                 max="100"
                 value={loadOverride !== null ? loadOverride : ""}
                 onChange={e => setLoadOverride(e.target.value ? Math.min(100, Math.max(0, parseInt(e.target.value, 10))) : null)}
-                className="w-full bg-white border border-brand-border text-gray-800 rounded-xl px-2 py-1.5 text-xs placeholder-calculated focus:outline-none focus:border-brand"
+                className="input input-bordered input-sm w-full font-mono"
                 placeholder={`${getCalculatedLoad()}% (Calculated)`}
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] text-gray-400 block font-bold">FLIGHT DIRECTION</label>
+              <label htmlFor="manual-direction-select" className="text-[10px] text-gray-400 block font-bold">FLIGHT DIRECTION</label>
               <select
+                id="manual-direction-select"
                 value={directionOverride || ""}
                 onChange={e => setDirectionOverride((e.target.value as any) || null)}
-                className="w-full bg-white border border-brand-border text-gray-800 rounded-xl px-2 py-1.5 text-xs focus:outline-none focus:border-brand"
+                className="select select-bordered select-sm w-full"
               >
                 <option value="">{getFlightDirection().toUpperCase()} (Calculated)</option>
                 <option value="east">EASTBOUND</option>
@@ -313,11 +322,12 @@ export default function EFBSettings({
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] text-gray-400 block font-bold">FORCE AIRCRAFT PROFILE</label>
+            <label htmlFor="force-aircraft-profile-select" className="text-[10px] text-gray-400 block font-bold">FORCE AIRCRAFT PROFILE</label>
             <select
+              id="force-aircraft-profile-select"
               value={aircraftOverride || ""}
               onChange={e => setAircraftOverride(e.target.value || null)}
-              className="w-full bg-white border border-brand-border text-gray-800 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-brand"
+              className="select select-bordered select-sm w-full"
             >
               <option value="">{aircraftCode || "None (Default)"}</option>
               {Object.keys(aircraftsDb).map(code => (

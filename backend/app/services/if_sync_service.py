@@ -1,5 +1,6 @@
-from typing import Any
+from typing import Any, List, Optional
 import math
+import asyncio
 import airportsdata
 from datetime import datetime
 
@@ -287,17 +288,22 @@ async def sync_aircraft_location(db: AsyncSession, airframe_id: int) -> dict:
     await client.open()
     
     try:
-        # 3. Request metadata first
-        if_aircraft_data = await client.get_aircraft(aircraft.if_organization_aircraft_id)
-        
-        # Sync basic metadata
-        if if_aircraft_data.registration:
-            aircraft.registration = if_aircraft_data.registration
-        if if_aircraft_data.aircraft_id:
-            aircraft.if_aircraft_id = if_aircraft_data.aircraft_id
+        # 3. Request metadata (optional, fail gracefully as this endpoint returns 500 on IF servers)
+        visibility = 1
+        try:
+            if_aircraft_data = await client.get_aircraft(aircraft.if_organization_aircraft_id)
+            if if_aircraft_data.registration:
+                aircraft.registration = if_aircraft_data.registration
+            if if_aircraft_data.aircraft_id:
+                aircraft.if_aircraft_id = if_aircraft_data.aircraft_id
+            visibility = if_aircraft_data.visibility
+        except Exception as meta_err:
+            import logging
+            logger = logging.getLogger("uvicorn")
+            logger.debug(f"Optional metadata fetch failed for {aircraft.registration}: {meta_err}")
             
         # 4. Check if the aircraft is hangared. If so, return early and bypass position API call
-        if if_aircraft_data.visibility == 2:
+        if visibility == 2:
             aircraft.status = "in_hangar"
             db.add(aircraft)
             return {
@@ -387,3 +393,159 @@ async def sync_aircraft_location(db: AsyncSession, airframe_id: int) -> dict:
         }
     finally:
         await client.close()
+
+
+_last_full_offline_sync_at: Optional[datetime] = None
+
+
+async def sync_all_aircraft_locations_optimized(db: AsyncSession) -> dict:
+    from app.services.if_live_v2_client import IFLiveV2Client
+
+    # 1. Fetch all linked aircraft
+    result = await db.execute(
+        select(LiveAircraft).where(LiveAircraft.if_organization_aircraft_id.isnot(None))
+    )
+    aircraft_list = list(result.scalars().all())
+    if not aircraft_list:
+        return {"detail": "No linked aircraft found.", "synced": 0}
+
+    # 2. Initialize V2 Client
+    v2_client = IFLiveV2Client()
+    if v2_client.is_mock:
+        # Mock mode: set status of aircraft based on active dispatched bookings
+        from app.models.live_models import LiveFlightBooking
+        active_bookings_result = await db.execute(
+            select(LiveFlightBooking)
+            .where(LiveFlightBooking.status == "dispatched")
+            .options(selectinload(LiveFlightBooking.schedule))
+        )
+        active_bookings = list(active_bookings_result.scalars().all())
+        active_aircraft_ids = {b.schedule.aircraft_id for b in active_bookings if b.schedule}
+
+        synced_count = 0
+        for ac in aircraft_list:
+            if ac.id in active_aircraft_ids:
+                if ac.status != "flying":
+                    ac.status = "flying"
+                    ac.current_airport = ac.current_airport or "OTHH"
+                    db.add(ac)
+                    synced_count += 1
+            else:
+                if ac.status == "flying":
+                    ac.status = "parked"
+                    db.add(ac)
+                    synced_count += 1
+        if synced_count > 0:
+            await db.commit()
+        return {"detail": "Mock sync completed.", "synced": len(aircraft_list)}
+
+    # Real mode: Fetch Expert session
+    try:
+        sessions = await v2_client.get_sessions()
+        expert_session = next((s for s in sessions if s.get("worldType") == 3), None)
+        if not expert_session and sessions:
+            expert_session = sessions[0]  # Fallback
+
+        if not expert_session:
+            return {"detail": "No active Infinite Flight sessions found.", "synced": 0}
+
+        session_id = expert_session["id"]
+        flights = await v2_client.get_flights(session_id)
+        flights_by_id = {f.get("flightId"): f for f in flights if f.get("flightId")}
+
+        synced_count = 0
+        for ac in aircraft_list:
+            flight = flights_by_id.get(ac.if_organization_aircraft_id)
+            if flight:
+                # Active flying flight
+                lat = flight.get("latitude")
+                lon = flight.get("longitude")
+                speed = flight.get("speed", 0)
+                alt = flight.get("altitude", 0)
+                is_on_ground = alt < 100 and speed < 50
+
+                icao = _find_nearest_icao(lat, lon) if (lat is not None and lon is not None) else (ac.current_airport or "OTHH")
+                new_status = "parked" if is_on_ground else "flying"
+
+                # Detect status or location change
+                changed = False
+                if ac.status != new_status:
+                    ac.status = new_status
+                    changed = True
+                if ac.current_airport != icao:
+                    if new_status == "parked":
+                        ac.last_airport = ac.current_airport
+                    ac.current_airport = icao
+                    changed = True
+
+                last_pilot_username = flight.get("username")
+                if last_pilot_username:
+                    pilot_result = await db.execute(
+                        select(Pilot.id).where(Pilot.ifc == last_pilot_username)
+                    )
+                    pilot_id = pilot_result.scalar_one_or_none()
+                    if pilot_id and ac.last_pilot_id != pilot_id:
+                        ac.last_pilot_id = pilot_id
+                        changed = True
+
+                if changed:
+                    ac.last_flight_at = datetime.utcnow()
+                    db.add(ac)
+                    synced_count += 1
+            else:
+                # Not online: if it was flying, set to parked
+                if ac.status == "flying":
+                    ac.status = "parked"
+                    db.add(ac)
+                    synced_count += 1
+
+        # 3. Continuous offline fleet sync from V3 (1 request every 5.0s until all updated, then rest 30 mins)
+        now = datetime.utcnow()
+        global _last_full_offline_sync_at
+
+        # Check if we are currently in the 30-minute rest period
+        is_resting = False
+        if _last_full_offline_sync_at:
+            elapsed_minutes = (now - _last_full_offline_sync_at).total_seconds() / 60.0
+            if elapsed_minutes < 30:
+                is_resting = True
+
+        if not is_resting:
+            offline_candidates = [
+                ac for ac in aircraft_list
+                if ac.if_organization_aircraft_id not in flights_by_id
+                and ac.status not in ("in_hangar", "retired")
+            ]
+
+            if offline_candidates:
+                import logging
+                logger = logging.getLogger("uvicorn")
+                logger.info(f"Starting continuous V3 offline fleet sync for {len(offline_candidates)} aircraft (at steady ~10-12 req/min pace)...")
+
+                for i, ac_obj in enumerate(offline_candidates):
+                    try:
+                        await sync_aircraft_location(db, ac_obj.id)
+                        synced_count += 1
+                    except Exception as sync_err:
+                        err_str = str(sync_err)
+                        if "404" in err_str:
+                            logger.info(f"Aircraft {ac_obj.registration} not found in Infinite Flight (retired/hangared). Marking as in_hangar.")
+                            ac_obj.status = "in_hangar"
+                            db.add(ac_obj)
+                        else:
+                            logger.warning(f"Background V3 offline sync failed for {ac_obj.registration}: {sync_err}")
+
+                    # Delay 5.0 seconds between individual aircraft to strictly enforce a safe ~12 req/min rate limit
+                    await asyncio.sleep(5.0)
+
+                _last_full_offline_sync_at = datetime.utcnow()
+                logger.info("Completed full fleet offline sync. Offline sync will now rest for 30 minutes.")
+
+        if synced_count > 0:
+            await db.commit()
+        return {"detail": f"Synced {synced_count} aircraft.", "synced": synced_count}
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"detail": f"Sync failed: {str(e)}", "synced": 0}
