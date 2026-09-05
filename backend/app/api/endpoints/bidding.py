@@ -12,8 +12,6 @@ from app.models.live_models import (
     LiveBiddingApplicant,
     LiveFlyingGroup,
     LiveGroupPilot,
-    LiveCareerPath,
-    LivePilotCareer,
     LiveCurrency,
     LiveCurrencyTransaction,
     LiveTransfer,
@@ -49,18 +47,11 @@ async def _get_pilot_current_group(db: AsyncSession, pilot_id: int) -> Optional[
 async def _is_path_switch_required(db: AsyncSession, pilot_id: int, target_group: LiveFlyingGroup) -> bool:
     """
     Determines if moving to target_group requires an Airbus <-> Boeing path switch.
-    Checks career path of pilot's current group vs target group.
+    Checks fleet type of pilot's current group vs target group.
     """
     current_group = await _get_pilot_current_group(db, pilot_id)
     if not current_group:
-        # If no group assigned, check pilot's configured career path
-        pc_res = await db.execute(
-            select(LiveCareerPath)
-            .join(LivePilotCareer, LivePilotCareer.career_path_id == LiveCareerPath.id)
-            .where(LivePilotCareer.pilot_id == pilot_id)
-        )
-        current_path = pc_res.scalar_one_or_none()
-        current_path_name = current_path.name.lower() if current_path else ""
+        current_path_name = ""
     else:
         current_path_name = current_group.name.lower()
 

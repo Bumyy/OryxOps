@@ -8,10 +8,7 @@ interface Pilot {
   grade: number | null;
   group_name: string | null;
   group_id: number | null;
-  career_path_names: string[];
-  current_ranks: string[];
   token_balance?: number;
-  careers?: any[];
 }
 
 interface PilotState {
@@ -28,11 +25,9 @@ const initialState: PilotState = {
 
 export const fetchPilots = createAsyncThunk(
   "pilot/fetchAll",
-  (params?: { group_id?: number; career_path_id?: number; rank_id?: number }) => {
+  (params?: { group_id?: number }) => {
     const qs = new URLSearchParams();
     if (params?.group_id) qs.set("group_id", String(params.group_id));
-    if (params?.career_path_id) qs.set("career_path_id", String(params.career_path_id));
-    if (params?.rank_id) qs.set("rank_id", String(params.rank_id));
     return api.get<Pilot[]>(`/pilots?${qs.toString()}`);
   },
 );

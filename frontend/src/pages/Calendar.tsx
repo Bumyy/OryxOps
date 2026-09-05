@@ -436,19 +436,6 @@ export default function Calendar() {
     return cellStr < todayStr;
   };
 
-  const qualifiedTypeIds = useMemo(() => {
-    const set = new Set<number>();
-    (currentPilot?.careers ?? []).forEach((c: any) => {
-      if (c.selected_aircraft_ids) {
-        c.selected_aircraft_ids.split(",").forEach((id: string) => {
-          const n = parseInt(id.trim(), 10);
-          if (!isNaN(n)) set.add(n);
-        });
-      }
-    });
-    return set;
-  }, [currentPilot]);
-
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -478,18 +465,6 @@ export default function Calendar() {
       return;
     }
     const pid = preselectedAcId ?? (filterAircraftId > 0 ? filterAircraftId : 0);
-
-    if (pid > 0 && qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin) {
-      const targetAc = airframes.find(a => a.id === pid);
-      if (targetAc && !qualifiedTypeIds.has(targetAc.aircraft_type_id)) {
-        const assignedNames = Array.from(qualifiedTypeIds)
-          .map(id => types.find(t => t.id === id)?.name)
-          .filter(Boolean)
-          .join(", ");
-        alert(`Aircraft Qualification Locked:\n\nYou are qualified to schedule [${assignedNames || "assigned aircraft"}]. You cannot draft flights for ${targetAc.registration}.`);
-        return;
-      }
-    }
 
     setSelAircraftId(pid); setSelRouteId(0); setSelTime(`${String(hour).padStart(2, "0")}:00`); setSelGroundTime(60); setSelOverrideDep(""); setAvailableRoutes([]); setEditingSchedule(null);
     if (pid > 0) {
@@ -1961,19 +1936,7 @@ export default function Calendar() {
 
       {/* CREATE POPUP — 2-Step: Step 1: Aircraft Picker Slider | Step 2: Route & Time */}
       {popup && (() => {
-        // Compute qualified frames
-        const qualifiedTypeIds = new Set<number>();
-        (currentPilot?.careers ?? []).forEach((c: any) => {
-          if (c.selected_aircraft_ids) {
-            c.selected_aircraft_ids.split(",").forEach((id: string) => {
-              const n = parseInt(id.trim(), 10);
-              if (!isNaN(n)) qualifiedTypeIds.add(n);
-            });
-          }
-        });
-        const filteredFrames = qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin
-          ? airframes.filter(a => qualifiedTypeIds.has(a.aircraft_type_id))
-          : airframes;
+        const filteredFrames = airframes;
         const selectedAc = filteredFrames.find(a => a.id === selAircraftId);
         const selectedAcType = selectedAc ? types.find(t => t.id === selectedAc.aircraft_type_id) : null;
         const selectedAcImg = selectedAc ? (aircraftImages as any)[String(selectedAc.aircraft_type_id)] : null;
@@ -2306,12 +2269,7 @@ export default function Calendar() {
       {/* AUTO-SCHEDULER MODAL */}
       {autoScheduleModalOpen && (() => {
         const activeGroupObj = groups.find(g => g.id === activeGroup);
-        const groupAirframes = airframes.filter(a => {
-          if (qualifiedTypeIds.size > 0 && !isExecutiveOrAdmin) {
-            return qualifiedTypeIds.has(a.aircraft_type_id);
-          }
-          return true;
-        });
+        const groupAirframes = airframes;
 
         const selectedAc = groupAirframes.find(a => a.id === autoAircraftId);
         const selectedAcType = selectedAc ? types.find(t => t.id === selectedAc.aircraft_type_id) : null;

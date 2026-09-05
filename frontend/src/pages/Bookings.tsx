@@ -145,7 +145,7 @@ export default function Bookings() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in">
       <h1 className="text-4xl font-extrabold text-brand tracking-tight mb-2">Operations Center</h1>
-      <p className="text-gray-500 text-sm mb-8">Manage active dispatches and view logs of filed career mode flights.</p>
+      <p className="text-gray-500 text-sm mb-8">Manage active dispatches and view logs of filed flights.</p>
 
       {/* Tab Switcher */}
       <div className="flex gap-3 mb-8 bg-brand-pale/50 border border-brand-border/40 p-1.5 rounded-2xl max-w-xs">

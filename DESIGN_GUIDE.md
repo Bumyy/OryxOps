@@ -445,13 +445,6 @@ dark airline metrics strip
 - Product cards have generous `p-8`, large icon tile, explanatory copy, and a tinted footer with cost/action.
 - Purchase confirmation is a dark-scrim modal with success icon, transaction badge, receipt breakdown, updated balance, inventory stock, and two footer actions.
 
-### Career Center (`/careers`)
-
-- Career pathway selector/gallery followed by a selected path detail panel.
-- Use cards for pathways and a dense rank progression visualization/table for requirements, progress, and aircraft qualifications.
-- Current rank should use brand highlight; completed ranks use green; future ranks use gray.
-- Promotion readiness should be a green alert banner.
-
 ### Transfers (`/transfers`)
 
 - `max-w-6xl`.
@@ -474,7 +467,6 @@ The consolidated Admin Panel uses a `max-w-6xl` wrapper, a large burgundy title,
 - Pilots: management card with search, quick-enroll inset, and a responsive enrolled-pilot card grid. Each pilot card contains a compact header, save action, two-column edit controls, and an assigned-aircraft chip selector.
 - Groups: split-pane workspace. A scrollable group list occupies one third at `lg`; the selected group management workspace occupies two thirds. Empty selection preserves a full-height centered card. Create-group is a centered modal.
 - Fleet/Aircraft: page wrapper plus fleet management heading, create-airframe card, and horizontally scrollable table.
-- Careers: career-path card gallery, selected path detail card, create-rank inset form, and ranks table with inline editing and aircraft chips.
 - Transfers: form/management card followed by a transfer review table.
 - Waves: compact wave-management forms and list/table views for arrival/departure time windows.
 - Settings: grouped setting cards with compact fields and save actions.
@@ -482,7 +474,7 @@ The consolidated Admin Panel uses a `max-w-6xl` wrapper, a large burgundy title,
 - Crew Roster: wide `max-w-7xl` view with purple gradient header action, horizontal filter tabs, large rounded roster cards, aircraft/crew assignment controls, and amber/blue inset panels.
 - Auto Scheduler: narrow `max-w-4xl` two-column form inside a white rounded-2xl card. Inputs are grouped into aircraft/route controls, timing/haul controls, constraints, and a full-width action footer.
 
-Dedicated routes such as `/admin/pilots`, `/admin/groups`, `/admin/aircraft`, `/admin/careers`, `/admin/transfers`, `/admin/waves`, and `/admin/settings` are thin wrappers around these same tab layouts, with a `max-w-6xl` page title above the shared content.
+Dedicated routes such as `/admin/pilots`, `/admin/groups`, `/admin/aircraft`, `/admin/transfers`, `/admin/waves`, and `/admin/settings` are thin wrappers around these same tab layouts, with a `max-w-6xl` page title above the shared content.
 
 ### Handbook (`/handbook`)
 
@@ -541,7 +533,6 @@ EFB navigation:
 
 Other application routes:
 
-- Careers `/careers`
 - Fleet `/fleet`
 - Aircraft detail `/fleet/:id`
 - Group detail `/groups/:id`
@@ -557,7 +548,6 @@ Admin navigation:
 - `/admin/crew-roster`
 - `/admin/bidding`
 - `/admin/aircraft`
-- `/admin/careers`
 - `/admin/transfers`
 - `/admin/waves`
 - `/admin/settings`

@@ -21,8 +21,6 @@ class PilotListOut(BaseModel):
     name: str
     grade: int | None = None
     group_name: str | None = None
-    career_path_names: list[str] = []
-    current_ranks: list[str] = []
 
     model_config = {"from_attributes": True}
 
@@ -31,6 +29,5 @@ class PilotDetailOut(PilotOut):
     group_name: str | None = None
     group_id: int | None = None
     token_balance: int = 0
-    careers: list[dict] = []
 
     model_config = {"from_attributes": True}

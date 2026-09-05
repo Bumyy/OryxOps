@@ -254,31 +254,6 @@ async def create_booking(
     if not schedule or schedule.status != "approved":
         return None
 
-    # Verify Pilot Career Enrollment & Aircraft Selection Lock
-    from app.models.live_models import LivePilotCareer, Aircraft
-    career_res = await db.execute(
-        select(LivePilotCareer).where(LivePilotCareer.pilot_id == pilot_id)
-    )
-    career = career_res.scalar_one_or_none()
-    if not career or not career.selected_aircraft_ids:
-        raise ValueError(
-            "Configuration Required: You cannot book flights until your Career Path (Airbus/Boeing) and 2 Aircraft selection are configured by staff."
-        )
-
-    assigned_ac_ids = [x.strip() for x in career.selected_aircraft_ids.split(",") if x.strip()]
-    if assigned_ac_ids and schedule.aircraft and schedule.aircraft.aircraft_type_id:
-        schedule_ac_type_id = str(schedule.aircraft.aircraft_type_id)
-        if schedule_ac_type_id not in assigned_ac_ids:
-            ac_res = await db.execute(
-                select(Aircraft.name).where(Aircraft.id.in_([int(x) for x in assigned_ac_ids if x.isdigit()]))
-            )
-            assigned_names = [r[0] for r in ac_res.all()]
-            assigned_str = ", ".join(assigned_names) if assigned_names else "None"
-            schedule_ac_name = schedule.aircraft.aircraft_type.name if schedule.aircraft.aircraft_type else f"ID #{schedule.aircraft.aircraft_type_id}"
-            raise ValueError(
-                f"Aircraft Qualification Locked: You are only qualified to fly [{assigned_str}], but this schedule requires [{schedule_ac_name}]."
-            )
-
     # Retrieve existing booking row for this schedule
     existing_result = await db.execute(
         select(LiveFlightBooking).where(

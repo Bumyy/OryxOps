@@ -13,15 +13,12 @@ router = APIRouter(prefix="/pilots", tags=["pilots"])
 @router.get("", response_model=list[PilotListOut])
 async def list_pilots(
     group_id: int | None = Query(None),
-    career_path_id: int | None = Query(None),
-    rank_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
-    from app.models.live_models import LiveGroupPilot, LiveFlyingGroup, LivePilotCareer
+    from app.models.live_models import LiveGroupPilot, LiveFlyingGroup
 
-    pilots = await get_pilot_list(db, group_id, career_path_id, rank_id)
+    pilots = await get_pilot_list(db, group_id)
     pilot_ids = [p.id for p in pilots]
 
     # Batch load active group assignments
@@ -39,26 +36,9 @@ async def list_pilots(
         for gp, g in group_res:
             group_assignments[gp.pilot_id] = g
 
-    # Batch load careers with paths and ranks
-    careers_by_pilot = {}
-    if pilot_ids:
-        career_res = await db.execute(
-            select(LivePilotCareer)
-            .where(LivePilotCareer.pilot_id.in_(pilot_ids))
-            .options(
-                selectinload(LivePilotCareer.career_path),
-                selectinload(LivePilotCareer.current_rank),
-            )
-        )
-        for c in career_res.scalars().all():
-            if c.pilot_id not in careers_by_pilot:
-                careers_by_pilot[c.pilot_id] = []
-            careers_by_pilot[c.pilot_id].append(c)
-
     result = []
     for p in pilots:
         group = group_assignments.get(p.id)
-        careers = careers_by_pilot.get(p.id, [])
         result.append(
             PilotListOut(
                 id=p.id,
@@ -66,8 +46,6 @@ async def list_pilots(
                 name=p.name,
                 grade=p.grade,
                 group_name=group.name if group else None,
-                career_path_names=[c.career_path.name for c in careers if c.career_path],
-                current_ranks=[c.current_rank.name for c in careers if c.current_rank],
             )
         )
     return result
@@ -92,7 +70,6 @@ async def get_my_profile(
         group_name=detail["group_name"],
         group_id=detail.get("group_id"),
         token_balance=detail["token_balance"],
-        careers=detail["careers"],
     )
 
 
@@ -118,7 +95,6 @@ async def get_pilot(
         group_name=detail["group_name"],
         group_id=detail.get("group_id"),
         token_balance=detail["token_balance"],
-        careers=detail["careers"],
     )
 
 

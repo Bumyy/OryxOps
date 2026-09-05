@@ -7,7 +7,6 @@ import { fetchAircraftSpecs } from "./store/slices/aircraftSlice";
 
 import Layout from "./components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
-import CareerCenter from "./pages/CareerCenter";
 import Groups from "./pages/Groups";
 import GroupDetail from "./pages/GroupDetail";
 import Calendar from "./pages/Calendar";
@@ -28,7 +27,6 @@ import AdminGroups from "./pages/admin/GroupsPage";
 import AdminCrewRoster from "./pages/admin/CrewRosterPage";
 import AdminBidding from "./pages/admin/AdminBiddingPage";
 import AdminAircraft from "./pages/admin/AircraftPage";
-import AdminCareers from "./pages/admin/CareersPage";
 import AdminTransfers from "./pages/admin/TransfersPage";
 import AdminWaves from "./pages/admin/WavesPage";
 import AdminSettings from "./pages/admin/SettingsPage";
@@ -143,7 +141,6 @@ export default function App() {
 
           {/* Full Pilot Routes - Requires Award ID 9 or Admin */}
           <Route path="/" element={<PilotAccessRoute><Dashboard /></PilotAccessRoute>} />
-          <Route path="/careers" element={<PilotAccessRoute><CareerCenter /></PilotAccessRoute>} />
           <Route path="/groups" element={<PilotAccessRoute><Groups /></PilotAccessRoute>} />
           <Route path="/groups/:id" element={<PilotAccessRoute><GroupDetail /></PilotAccessRoute>} />
           <Route path="/calendar" element={<PilotAccessRoute><Calendar /></PilotAccessRoute>} />
@@ -164,7 +161,6 @@ export default function App() {
           <Route path="/admin/crew-roster" element={<AdminRoute><AdminCrewRoster /></AdminRoute>} />
           <Route path="/admin/bidding" element={<AdminRoute><AdminBidding /></AdminRoute>} />
           <Route path="/admin/aircraft" element={<AdminRoute><AdminAircraft /></AdminRoute>} />
-          <Route path="/admin/careers" element={<AdminRoute><AdminCareers /></AdminRoute>} />
           <Route path="/admin/transfers" element={<AdminRoute><AdminTransfers /></AdminRoute>} />
           <Route path="/admin/waves" element={<AdminRoute><AdminWaves /></AdminRoute>} />
           <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />

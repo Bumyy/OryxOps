@@ -1,17 +1,17 @@
-# ✈️ OryxOps Full-Stack Architecture & Career Mode Guide
+# ✈️ OryxOps Full-Stack Architecture & Operations Guide
 
-Welcome to the **OryxOps (QRV Live)** developer guide! This document is designed for developers onboarding onto this project. It provides an in-depth breakdown of the entire virtual airline career management system, database schemas, core services logic, and frontend components.
+Welcome to the **OryxOps (QRV Live)** developer guide! This document is designed for developers onboarding onto this project. It provides an in-depth breakdown of the entire virtual airline flight operations system, database schemas, core services logic, and frontend components.
 
 ---
 
 ## 📌 System Goal & Overview
 OryxOps is a custom-built Virtual Airline (VA) manager for **Qatari Virtual (QRV)** flight simulator pilots. 
 
-Rather than a simple statistics-logger, OryxOps is a **Full Career Simulator** that models:
-1. **Career Path Progression**: Tracking pilot rank advancement along specific paths (Airbus vs. Boeing) using flight hours, takeoff/landing counts, and route exploration percentages.
+OryxOps models:
+1. **Flying Groups & Roster Management**: Managing pilot allocation into aircraft-specific operational groups with capacity formulas.
 2. **Flight Scheduling & Waves**: Organizes flight rosters into scheduled daily "waves" (time blocks) with capacity and booking guards.
 3. **Interactive Booking Engine**: Supports booking flight segments (Departure leg, Arrival leg, or Round-trip) with status controls.
-4. **Route Discovery System**: A gamified exploration library where pilots fly compatible aircraft types to "discover" routes, unlocking them for the airline and contributing to rank promotion progress.
+4. **Route Discovery System**: A gamified exploration library where pilots fly compatible aircraft types to "discover" routes, unlocking them for the airline.
 5. **Interactive EFB & Audio Co-Pilot**: Hands-free voice-controlled checklists with VHF mic pops and real-time wind projection indicators.
 
 ---
@@ -49,7 +49,7 @@ OryxOps/
 ├── backend/                  # FastAPI Python Application
 │   ├── app/
 │   │   ├── api/              # API Endpoint Routers
-│   │   │   ├── endpoints/    # Feature routers (auth, bookings, careers, etc.)
+│   │   │   ├── endpoints/    # Feature routers (auth, bookings, schedules, etc.)
 │   │   │   └── router.py     # Central Router Registry
 │   │   ├── core/             # Base configurations (database, security, deps)
 │   │   ├── models/           # SQLAlchemy Declarative Models (live_models.py)
@@ -64,7 +64,7 @@ OryxOps/
 │   │   ├── assets/           # Static data & checklist JSON configurations
 │   │   ├── components/       # Reusable components (sidebar, efb modules)
 │   │   ├── hooks/            # Custom React hooks
-│   │   ├── pages/            # View pages (Dashboard, Admin, Career, Calendar)
+│   │   ├── pages/            # View pages (Dashboard, Admin, Calendar, Groups)
 │   │   ├── store/            # Redux Toolkit global store slices
 │   │   ├── App.tsx           # Router mappings & Auth Initializer
 │   │   └── main.tsx          # React ReactDom client entrypoint
@@ -89,28 +89,6 @@ classDiagram
     +int status
     +int flying_groupid
   }
-  class LivePilotCareer {
-    +int id
-    +int pilot_id
-    +int career_path_id
-    +int current_rank_id
-    +datetime promoted_at
-  }
-  class LiveCareerPath {
-    +int id
-    +str name
-    +int is_active
-  }
-  class LiveCareerRank {
-    +int id
-    +int career_path_id
-    +str name
-    +int sort_order
-    +int required_hours
-    +int required_takeoffs
-    +int required_landings
-    +decimal required_route_pct
-  }
   class LiveFlightBooking {
     +int id
     +int schedule_id
@@ -126,13 +104,16 @@ classDiagram
     +str week_start
     +str status
   }
+  class LiveFleetAircraft {
+    +int id
+    +str registration
+    +int group_id
+    +str current_icao
+  }
   
-  Pilot "1" -- "0..*" LivePilotCareer
-  LivePilotCareer "*" -- "1" LiveCareerPath
-  LivePilotCareer "*" -- "1" LiveCareerRank
-  LiveCareerPath "1" -- "0..*" LiveCareerRank
   Pilot "1" -- "0..*" LiveFlightBooking
   LiveFlightBooking "*" -- "1" LiveFlightSchedule
+  LiveFlightSchedule "*" -- "1" LiveFleetAircraft
 ```
 
 ### ⚠️ Critical Developer Constraint: Pilot Filters
@@ -148,16 +129,7 @@ query = query.where(Pilot.id.in_(subquery))
 
 ## ⚙️ Backend Services & Business Logic
 
-### 1. Career Progression (`career_service.py`)
-Tracks pilot enrollment in paths (such as Airbus or Boeing) and calculates progress toward the next rank.
-- **Rank requirements check**:
-  - Checks if pilot's flight hours meet the rank threshold.
-  - Queries historical PIREPs (`takeoffs` and `landings`) to ensure experience criteria are met.
-  - **Discovery Percentage**: Determines the ratio of routes compatible with the rank's aircraft type ratings that the pilot has actually flown and discovered:
-    $$\text{Discovery \%} = \frac{\text{Discovered Routes Flown by Pilot}}{\text{Total Routes Mapped to Type}} \times 100$$
-  - If all metrics are complete, `can_promote` yields `True`, enabling rank promotion.
-
-### 2. Flight Booking & Leg Availability (`booking_service.py`)
+### 1. Flight Booking & Leg Availability (`booking_service.py`)
 Reservations support segment bookings: `"departure"`, `"arrival"`, or `"both"` (round-trip).
 - **Round-Trip Locking**:
   - When booking `"both"`, the system verifies that *neither* the departure leg nor the arrival leg has been booked by other pilots. It then inserts two separate records (one `"departure"` booking, one `"arrival"` booking).

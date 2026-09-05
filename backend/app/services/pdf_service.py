@@ -17,10 +17,7 @@ from app.models.live_models import (
     Pilot,
     LiveAircraft,
     Aircraft,
-    Pirep,
-    LivePilotCareer,
-    LiveCareerPath,
-    LiveCareerRank
+    Pirep
 )
 
 # ─── Color Palette ───────────────────────────────────────────────────────────
@@ -99,29 +96,9 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int, pilot_id: 
             ac_type_res = await db.execute(select(Aircraft).where(Aircraft.id == live_ac.aircraft_type_id))
             ac_type = ac_type_res.scalars().first()
 
-    # Pilot Career Details
-    career_path_name = "Standard Operations"
+    # Pilot Details
+    operations_name = "Standard Operations"
     rank_name = f"Grade {primary_pilot.grade}" if primary_pilot and primary_pilot.grade else "Pilot"
-
-    if primary_pilot:
-        pc_res = await db.execute(
-            select(LivePilotCareer)
-            .where(LivePilotCareer.pilot_id == primary_pilot.id)
-            .order_by(desc(LivePilotCareer.id))
-            .limit(1)
-        )
-        pilot_career = pc_res.scalars().first()
-        if pilot_career:
-            if pilot_career.career_path_id:
-                cp_res = await db.execute(select(LiveCareerPath).where(LiveCareerPath.id == pilot_career.career_path_id))
-                cp = cp_res.scalars().first()
-                if cp:
-                    career_path_name = cp.name
-            if pilot_career.current_rank_id:
-                rk_res = await db.execute(select(LiveCareerRank).where(LiveCareerRank.id == pilot_career.current_rank_id))
-                rk = rk_res.scalars().first()
-                if rk:
-                    rank_name = rk.name
 
     # ─── Data Calculations ───────────────────────────────────────────────────
     earnings = float(booking.earnings or 0.0)
@@ -306,13 +283,13 @@ async def build_pay_slip_pdf_bytes(db: AsyncSession, booking_id: int, pilot_id: 
             Paragraph(rank_name, styles['val']),
         ],
         [
-            Paragraph("CAREER PATH", styles['tbl_header']),
+            Paragraph("OPERATIONS", styles['tbl_header']),
             Paragraph("FLIGHT MODE", styles['tbl_header']),
             Paragraph("", styles['tbl_header']),
             Paragraph("", styles['tbl_header']),
         ],
         [
-            Paragraph(career_path_name, styles['val']),
+            Paragraph(operations_name, styles['val']),
             Paragraph(flight_mode_str, styles['val']),
             Paragraph("", styles['val']),
             Paragraph("", styles['val']),

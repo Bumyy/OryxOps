@@ -33,17 +33,11 @@ function getGreeting() {
   return "Good Evening";
 }
 
-// ── Derive title from rank string ───────────────────────────
-function getPilotTitle(rankLine: string): string {
-  const r = rankLine.toLowerCase();
-  if (r.includes("captain")) return "Captain";
-  if (r.includes("senior first officer") || r.includes("sfo")) return "Senior First Officer";
-  if (r.includes("first officer") || r.includes("f/o") || r.includes("fo ")) return "First Officer";
-  if (r.includes("cadet") || r.includes("student")) return "Cadet";
-  if (r.includes("training") || r.includes("trainee")) return "Trainee";
-  if (r === "no career path" || r === "") return "Pilot";
-  // fallback: return the rank itself as the title
-  return rankLine;
+// ── Derive title from grade / callsign ───────────────────────────
+function getPilotTitle(grade: number | null | undefined): string {
+  if (grade && grade >= 4) return "Captain";
+  if (grade && grade >= 2) return "First Officer";
+  return "Pilot";
 }
 
 // ── Animated count-up ───────────────────────────────────────
@@ -110,14 +104,6 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  const careers = pilot?.careers || [];
-  const rankLine = careers.length > 0
-    ? careers.map((c: any) => c.rank).filter(Boolean).join(" · ")
-    : "No career path";
-  const careerPathLine = careers.length > 0
-    ? careers.map((c: any) => c.career_path_name || c.path_name).filter(Boolean).join(", ")
-    : null;
-
   const quotaPercent = quota ? Math.round((quota.proposals_used / quota.weekly_limit) * 100) : 0;
 
   return (
@@ -138,7 +124,7 @@ export default function Dashboard() {
               <ZuluClock />
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 leading-tight">
-              <span className="text-gray-400 font-semibold text-2xl sm:text-3xl">{getPilotTitle(rankLine)}</span>{" "}
+              <span className="text-gray-400 font-semibold text-2xl sm:text-3xl">{getPilotTitle(pilot?.grade)}</span>{" "}
               <span className="text-brand">{pilot?.name || pilot?.callsign || "—"}</span>
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -158,10 +144,10 @@ export default function Dashboard() {
                   {pilot.group_name}
                 </span>
               )}
-              {/* Rank badge */}
-              {rankLine !== "No career path" && (
+              {/* Grade badge */}
+              {pilot?.grade != null && (
                 <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold px-3 py-1 rounded-full">
-                  ✦ {rankLine}
+                  ✦ Grade {pilot.grade}
                 </span>
               )}
             </div>
@@ -232,21 +218,23 @@ export default function Dashboard() {
       {/* ─── SECTION 3: STAT CARDS (3 cards) ────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-        {/* Card 1: Rank & Career */}
-        <Link to="/careers" className="group bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md hover:border-amber-300 transition-all duration-200 block">
+        {/* Card 1: Flying Group */}
+        <Link to="/groups" className="group bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md hover:border-brand/40 transition-all duration-200 block">
           <div className="flex items-center justify-between mb-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
-              <span className="text-base">✦</span>
+            <div className="w-9 h-9 rounded-xl bg-brand-pale border border-brand-border flex items-center justify-center">
+              <svg className="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
             </div>
-            <svg className="w-4 h-4 text-gray-300 group-hover:text-amber-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-4 h-4 text-gray-300 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Current Rank</p>
-          <p className="text-xl font-extrabold text-gray-900 leading-tight truncate">{rankLine}</p>
-          {careerPathLine && (
-            <p className="text-xs text-gray-400 mt-1 font-semibold truncate">{careerPathLine}</p>
-          )}
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Assigned Group</p>
+          <p className="text-xl font-extrabold text-gray-900 leading-tight truncate">{pilot?.group_name || "No Group Assigned"}</p>
+          <p className="text-xs text-gray-400 mt-1 font-semibold truncate">
+            {pilot?.grade != null ? `Grade ${pilot.grade}` : "Active Flight Operations"}
+          </p>
         </Link>
 
         {/* Card 2: Weekly Proposals */}

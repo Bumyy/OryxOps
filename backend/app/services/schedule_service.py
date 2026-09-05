@@ -247,17 +247,9 @@ async def get_pilot_proposal_quota(
     db: AsyncSession, pilot_id: int, week_start: str
 ) -> dict:
     from sqlalchemy import func
-    from app.models.live_models import LivePilotCareer, LiveCareerRank, LiveCurrencyTransaction
+    from app.models.live_models import LiveCurrencyTransaction
 
-    career_res = await db.execute(
-        select(LivePilotCareer)
-        .where(LivePilotCareer.pilot_id == pilot_id)
-        .options(selectinload(LivePilotCareer.current_rank))
-    )
-    career = career_res.scalar_one_or_none()
     weekly_limit = 3
-    if career and career.current_rank:
-        weekly_limit = career.current_rank.weekly_proposal_limit or 3
 
     count_res = await db.execute(
         select(func.count(LiveFlightSchedule.id)).where(
@@ -306,25 +298,11 @@ async def check_and_process_proposal_slot(
 ) -> int:
     from sqlalchemy import func
     from app.models.live_models import (
-        LivePilotCareer,
         LiveCurrency,
         LiveCurrencyTransaction,
     )
 
-    career_res = await db.execute(
-        select(LivePilotCareer)
-        .where(LivePilotCareer.pilot_id == pilot_id)
-        .options(selectinload(LivePilotCareer.current_rank))
-    )
-    career = career_res.scalar_one_or_none()
-    if not career or not career.selected_aircraft_ids:
-        raise ValueError(
-            "Configuration Required: You cannot propose flights until your Career Path (Airbus/Boeing) and 2 Aircraft selection are configured by staff."
-        )
-
     weekly_limit = 3
-    if career and career.current_rank:
-        weekly_limit = career.current_rank.weekly_proposal_limit or 3
 
     count_res = await db.execute(
         select(func.count(LiveFlightSchedule.id)).where(

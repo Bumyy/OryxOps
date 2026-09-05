@@ -1,6 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
-import careerReducer from "./slices/careerSlice";
 import groupReducer from "./slices/groupSlice";
 import aircraftReducer from "./slices/aircraftSlice";
 import scheduleReducer from "./slices/scheduleSlice";
@@ -13,7 +12,6 @@ import adminReducer from "./slices/adminSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
-    career: careerReducer,
     group: groupReducer,
     aircraft: aircraftReducer,
     schedule: scheduleReducer,

@@ -85,13 +85,10 @@ async def review_transfer(
     staff: Pilot = Depends(get_current_staff),
 ):
     from datetime import datetime
-    from sqlalchemy import delete, func
+    from sqlalchemy import select, func
     from app.models.live_models import (
         LiveFlyingGroup,
         LiveGroupPilot,
-        LiveCareerPath,
-        LiveCareerRank,
-        LivePilotCareer,
         Pilot,
         LiveTransfer,
     )
@@ -154,49 +151,6 @@ async def review_transfer(
             p = pilot_res.scalar_one_or_none()
             if p:
                 p.flying_groupid = target_group.id
-
-        # 2. Process Career Path Switch
-        elif transfer.transfer_type == "career_path_switch":
-            path_res = await db.execute(
-                select(LiveCareerPath).where(
-                    func.lower(LiveCareerPath.name) == func.lower(transfer.to_value),
-                    LiveCareerPath.is_active == 1,
-                )
-            )
-            target_path = path_res.scalar_one_or_none()
-            if not target_path:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Target active career path '{transfer.to_value}' not found",
-                )
-
-            # Delete old career entries
-            await db.execute(
-                delete(LivePilotCareer).where(LivePilotCareer.pilot_id == transfer.pilot_id)
-            )
-
-            # Get first rank
-            rank_res = await db.execute(
-                select(LiveCareerRank)
-                .where(LiveCareerRank.career_path_id == target_path.id)
-                .order_by(LiveCareerRank.sort_order)
-                .limit(1)
-            )
-            first_rank = rank_res.scalar_one_or_none()
-            if not first_rank:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Target career path has no ranks configured",
-                )
-
-            # Create new career
-            db.add(
-                LivePilotCareer(
-                    pilot_id=transfer.pilot_id,
-                    career_path_id=target_path.id,
-                    current_rank_id=first_rank.id,
-                )
-            )
 
     transfer.status = data.status
     transfer.reviewed_by = staff.id

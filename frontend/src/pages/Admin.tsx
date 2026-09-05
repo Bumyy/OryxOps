@@ -8,7 +8,6 @@ import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
 import {
   fetchSettings,
   updateSetting,
-  promotePilot,
   enrollPilot,
   fetchEnrolledPilots,
   reshuffleGroup,
@@ -28,18 +27,6 @@ import {
 } from "../store/slices/aircraftSlice";
 import { fetchTransfers, reviewTransfer } from "../store/slices/transferSlice";
 import {
-  fetchCareerPaths,
-  fetchCareerPathDetail,
-  createCareerPath,
-  deleteCareerPath,
-  createRank,
-  updateRank,
-  deleteRank,
-  fetchRankAircraft,
-  assignAircraftToRank,
-  removeAircraftFromRank,
-} from "../store/slices/careerSlice";
-import {
   fetchWaves,
   createWave,
   deleteWave,
@@ -50,7 +37,6 @@ type Tab =
   | "groups"
   | "bidding"
   | "aircraft"
-  | "careers"
   | "transfers"
   | "waves"
   | "settings"
@@ -105,7 +91,6 @@ export default function Admin() {
     { key: "groups", label: "Groups" },
     { key: "bidding", label: "Fleet Bidding" },
     { key: "aircraft", label: "Aircraft" },
-    { key: "careers", label: "Careers" },
     { key: "transfers", label: "Transfers" },
     { key: "waves", label: "Waves" },
     { key: "settings", label: "Settings" },
@@ -133,7 +118,6 @@ export default function Admin() {
     dispatch(fetchAirframes());
     dispatch(fetchAircraftTypes());
     dispatch(fetchTransfers());
-    dispatch(fetchCareerPaths());
   }, []);
 
   return (
@@ -163,7 +147,6 @@ export default function Admin() {
       {tab === "groups" && <GroupsTab />}
       {tab === "bidding" && <AdminBiddingPage />}
       {tab === "aircraft" && <AircraftTab />}
-      {tab === "careers" && <CareersTab />}
       {tab === "transfers" && <TransfersTab />}
       {tab === "waves" && <WavesTab />}
       {tab === "settings" && <SettingsTab />}
@@ -174,54 +157,20 @@ export default function Admin() {
 
 export function PilotsTab() {
   const dispatch = useAppDispatch();
-  const { enrolled, unenrolled } = useAppSelector((s) => s.admin);
-  const { paths } = useAppSelector((s) => s.career);
+  const { enrolled } = useAppSelector((s) => s.admin);
   const { groups } = useAppSelector((s) => s.group);
-  const { types } = useAppSelector((s) => s.aircraft);
 
-  const [careerPathId, setCareerPathId] = useState<number>(0);
+  const [initialGroupId, setInitialGroupId] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [pilotSimbriefIds, setPilotSimbriefIds] = useState<Record<number, string>>({});
   const [pilotLifts, setPilotLifts] = useState<Record<number, number>>({});
   const [pilotGroups, setPilotGroups] = useState<Record<number, number>>({});
-  const [pilotPaths, setPilotPaths] = useState<Record<number, number>>({});
-  const [pilotAircrafts, setPilotAircrafts] = useState<Record<number, string>>({});
-  const [pilotRanks, setPilotRanks] = useState<Record<number, number>>({});
   const [savingPilotId, setSavingPilotId] = useState<number | null>(null);
 
   useEffect(() => {
     dispatch(fetchEnrolledPilots());
     dispatch(fetchGroups());
-    dispatch(fetchAircraftTypes());
-    dispatch(fetchCareerPaths());
   }, [dispatch]);
-
-  useEffect(() => {
-    if (paths.length > 0 && careerPathId === 0) {
-      setCareerPathId(paths[0].id);
-    }
-  }, [paths, careerPathId]);
-
-  const handleEnroll = async (pilotId: number, simbriefIdStr?: string) => {
-    const sId = simbriefIdStr !== undefined ? simbriefIdStr : "";
-    const parsedSimbrief = sId.trim() ? parseInt(sId.trim(), 10) : null;
-
-    const res = await dispatch(
-      enrollPilot({
-        pilot_id: pilotId,
-        career_path_id: careerPathId,
-        simbrief_id: parsedSimbrief,
-      })
-    );
-    if (enrollPilot.fulfilled.match(res)) {
-      alert("Pilot enrolled successfully!");
-      dispatch(fetchEnrolledPilots());
-    } else {
-      alert(
-        "Failed to enroll pilot: " + (res.error?.message || "Unknown error")
-      );
-    }
-  };
 
   const handleSavePilotSettings = async (p: any) => {
     setSavingPilotId(p.id);
@@ -235,18 +184,11 @@ export function PilotsTab() {
 
       const liftsVal = pilotLifts[p.id] !== undefined ? pilotLifts[p.id] : (p.lifts || 0);
       const groupVal = pilotGroups[p.id] !== undefined ? pilotGroups[p.id] : (p.flying_groupid || 0);
-      const firstCareer = p.careers && p.careers[0];
-      const aircraftVal = pilotAircrafts[p.id] !== undefined ? pilotAircrafts[p.id] : (firstCareer?.selected_aircraft_ids || "");
-      const pathVal = pilotPaths[p.id] !== undefined ? pilotPaths[p.id] : (firstCareer?.career_path_id || null);
-      const rankVal = pilotRanks[p.id] !== undefined ? pilotRanks[p.id] : (firstCareer?.current_rank_id || null);
 
       await api.post("/admin/update-pilot", {
         pilot_id: p.id,
         lifts: liftsVal,
         flying_groupid: groupVal,
-        selected_aircraft_ids: aircraftVal,
-        career_path_id: pathVal,
-        rank_id: rankVal,
       });
 
       alert(`Updated settings for ${p.callsign}!`);
@@ -267,16 +209,12 @@ export function PilotsTab() {
       alert("Please enter a pilot callsign!");
       return;
     }
-    if (!careerPathId) {
-      alert("Please select a career path!");
-      return;
-    }
     setEnrolling(true);
     try {
       const sId = enrollSimbrief.trim() ? parseInt(enrollSimbrief.trim(), 10) : null;
       const res = await api.post<{ detail: string }>("/admin/enroll-by-callsign", {
         callsign: enrollCallsign.trim(),
-        career_path_id: careerPathId,
+        initial_group_id: initialGroupId || null,
         simbrief_id: sId,
       });
       alert(res.detail || "Pilot enrolled successfully!");
@@ -288,22 +226,6 @@ export function PilotsTab() {
     } finally {
       setEnrolling(false);
     }
-  };
-
-  const toggleAircraftForPilot = (pilotId: number, acTypeId: number, currentStr: string) => {
-    const ids = currentStr ? currentStr.split(",").map((x: string) => x.trim()).filter(Boolean) : [];
-    const strId = String(acTypeId);
-    let newIds: string[];
-    if (ids.includes(strId)) {
-      newIds = ids.filter((x: string) => x !== strId);
-    } else {
-      if (ids.length >= 2) {
-        alert("Maximum 2 aircraft can be selected per pilot!");
-        return;
-      }
-      newIds = [...ids, strId];
-    }
-    setPilotAircrafts(prev => ({ ...prev, [pilotId]: newIds.join(",") }));
   };
 
   const filterPilots = (list: any[]) => {
@@ -323,8 +245,8 @@ export function PilotsTab() {
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-xl font-bold text-brand">Pilot Fleet & Path Management</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Manage enrolled pilots, assigned paths, ranks, aircrafts, and lifts.</p>
+            <h2 className="text-xl font-bold text-brand">Pilot Fleet & Group Management</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Manage enrolled pilots, assigned groups, SimBrief IDs, and lifts.</p>
           </div>
           <input
             type="text"
@@ -349,13 +271,14 @@ export function PilotsTab() {
               className="border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold w-full sm:w-64 bg-white focus:outline-none focus:border-brand"
             />
             <select
-              value={careerPathId}
-              onChange={(e) => setCareerPathId(Number(e.target.value))}
+              value={initialGroupId}
+              onChange={(e) => setInitialGroupId(Number(e.target.value))}
               className="border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand bg-white focus:outline-none"
             >
-              {(paths || []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              <option value={0}>Assign Group (Optional)...</option>
+              {groups.filter(g => g.is_active).map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
                 </option>
               ))}
             </select>
@@ -382,18 +305,8 @@ export function PilotsTab() {
           </h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredEnrolled.map((p) => {
-              const firstCareer = p.careers && p.careers[0];
               const currentLifts = pilotLifts[p.id] !== undefined ? pilotLifts[p.id] : (p.lifts || 0);
               const currentGroup = pilotGroups[p.id] !== undefined ? pilotGroups[p.id] : (p.flying_groupid || 0);
-              const currentAcStr = pilotAircrafts[p.id] !== undefined ? pilotAircrafts[p.id] : (firstCareer?.selected_aircraft_ids || "");
-              const selectedAcIds = currentAcStr ? currentAcStr.split(",").map((x: string) => x.trim()).filter(Boolean) : [];
-              
-              const pathsList = paths || [];
-              const currentPathId = pilotPaths[p.id] !== undefined ? pilotPaths[p.id] : (firstCareer?.career_path_id || (pathsList[0]?.id || 0));
-              const currentPathObj = pathsList.find(path => path?.id === currentPathId);
-              const availableRanks = (currentPathObj && Array.isArray(currentPathObj.ranks)) ? currentPathObj.ranks : [];
-              const currentRankId = pilotRanks[p.id] !== undefined ? pilotRanks[p.id] : (firstCareer?.current_rank_id || (availableRanks[0]?.id || 0));
-
               const isSaving = savingPilotId === p.id;
 
               return (
@@ -413,9 +326,9 @@ export function PilotsTab() {
                           </span>
                         )}
                       </div>
-                      {firstCareer && (
+                      {p.group_name && (
                         <div className="text-[11px] font-bold text-emerald-700 mt-0.5">
-                          {firstCareer.career_path_name}{firstCareer.current_rank_name ? ` · ${firstCareer.current_rank_name}` : " · First Officer"}
+                          {p.group_name}
                         </div>
                       )}
                     </div>
@@ -430,7 +343,7 @@ export function PilotsTab() {
                   </div>
 
                   {/* Grid of Edit Controls */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
 
                     {/* 1. Flying Group Selector */}
                     <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
@@ -449,57 +362,9 @@ export function PilotsTab() {
                       </select>
                     </div>
 
-                    {/* 2. Path Selector */}
+                    {/* 2. Lifts Counter */}
                     <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
-                      <label className="text-[10px] font-black uppercase text-gray-500">Career Path</label>
-                      <select
-                        value={currentPathId}
-                        onChange={(e) => {
-                          const newPathId = Number(e.target.value);
-                          setPilotPaths((prev: Record<number, number>) => ({ ...prev, [p.id]: newPathId }));
-                          const newPathObj = paths.find(path => path.id === newPathId);
-                          if (newPathObj && newPathObj.ranks && newPathObj.ranks.length > 0) {
-                            setPilotRanks((prev: Record<number, number>) => ({ ...prev, [p.id]: newPathObj.ranks[0].id }));
-                          }
-                        }}
-                        className="border border-brand-border rounded-lg px-2.5 py-1 text-xs font-bold text-gray-700 bg-white focus:outline-none focus:border-brand"
-                      >
-                        <option value={0} disabled>
-                          Select Career Path...
-                        </option>
-                        {paths.map((path) => (
-                          <option key={path.id} value={path.id}>
-                            {path.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* 3. Rank Selector */}
-                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
-                      <label className="text-[10px] font-black uppercase text-gray-500">Career Rank</label>
-                      {availableRanks.length > 0 ? (
-                        <select
-                          value={currentRankId}
-                          onChange={(e) => setPilotRanks(prev => ({ ...prev, [p.id]: Number(e.target.value) }))}
-                          className="border border-brand-border rounded-lg px-2.5 py-1 text-xs font-bold text-gray-700 bg-white focus:outline-none focus:border-brand"
-                        >
-                          {availableRanks.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name} (Limit: {r.weekly_proposal_limit} / wk)
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-[11px] font-semibold text-gray-400 py-1">
-                          No ranks configured
-                        </span>
-                      )}
-                    </div>
-
-                    {/* 4. Lifts Counter */}
-                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
-                      <label className="text-[10px] font-black uppercase text-gray-500">Lifts Provided (Count)</label>
+                      <label className="text-[10px] font-black uppercase text-gray-500">Lifts Provided</label>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -512,13 +377,10 @@ export function PilotsTab() {
                           onClick={() => setPilotLifts(prev => ({ ...prev, [p.id]: currentLifts + 1 }))}
                           className="w-6 h-6 rounded-lg bg-gray-100 font-bold text-gray-700 hover:bg-gray-200 flex items-center justify-center cursor-pointer"
                         >+</button>
-                        <span className="text-[10px] text-gray-400 font-semibold ml-auto">
-                          {currentLifts > 0 ? "Lift Provider" : "Regular"}
-                        </span>
                       </div>
                     </div>
 
-                    {/* 4. SimBrief ID */}
+                    {/* 3. SimBrief ID */}
                     <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
                       <label className="text-[10px] font-black uppercase text-gray-500">SimBrief ID</label>
                       <input
@@ -531,38 +393,6 @@ export function PilotsTab() {
                         }}
                         className="border border-brand-border rounded-lg px-2.5 py-1 text-xs font-mono bg-white focus:outline-none focus:border-brand"
                       />
-                    </div>
-                  </div>
-
-                  {/* 5. 2-Aircraft Selection Models */}
-                  <div className="bg-white p-3 rounded-xl border border-emerald-200/80 flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase text-brand">
-                        Assigned Aircraft Models (Max 2)
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${selectedAcIds.length === 2 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                        {selectedAcIds.length} / 2 Selected
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5">
-                      {types.map((acType) => {
-                        const isSelected = selectedAcIds.includes(String(acType.id));
-                        return (
-                          <button
-                            key={acType.id}
-                            type="button"
-                            onClick={() => toggleAircraftForPilot(p.id, acType.id, currentAcStr)}
-                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
-                              isSelected
-                                ? "bg-brand text-white border-brand shadow-xs"
-                                : "bg-gray-50 text-gray-600 border-gray-200 hover:border-brand/40"
-                            }`}
-                          >
-                            {isSelected ? "✓ " : ""}{acType.name}
-                          </button>
-                        );
-                      })}
                     </div>
                   </div>
 
@@ -776,492 +606,6 @@ export function AircraftTab() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── CAREERS TAB ─── */
-
-export function CareersTab() {
-  const dispatch = useAppDispatch();
-  const { paths } = useAppSelector((s) => s.career);
-  const { pilots } = useAppSelector((s) => s.pilot);
-  const { types } = useAppSelector((s) => s.aircraft);
-  const [activePathId, setActivePathId] = useState<number | null>(null);
-  const [pathDetail, setPathDetail] = useState<any>(null);
-  const [rankAircraft, setRankAircraft] = useState<Record<number, any[]>>({});
-
-  // ── Path CRUD state
-  const [showCreatePath, setShowCreatePath] = useState(false);
-  const [newPathName, setNewPathName] = useState("");
-  const [newPathDesc, setNewPathDesc] = useState("");
-
-  // ── Rank CRUD state
-  const [showCreateRank, setShowCreateRank] = useState(false);
-  const [newRankName, setNewRankName] = useState("");
-  const [newRankOrder, setNewRankOrder] = useState(1);
-  const [newRankPct, setNewRankPct] = useState(0);
-  const [newRankTakeoffs, setNewRankTakeoffs] = useState(0);
-  const [newRankLandings, setNewRankLandings] = useState(0);
-
-  // ── Aircraft assign state
-  const [assignAcRankId, setAssignAcRankId] = useState<number | null>(null);
-  const [assignAcTypeId, setAssignAcTypeId] = useState(0);
-  const [editRankId, setEditRankId] = useState<number | null>(null);
-
-  // ── Promote state
-  const [promotePilotId, setPromotePilotId] = useState(0);
-  const [promotePathId, setPromotePathId] = useState(0);
-
-  useEffect(() => {
-    dispatch(fetchCareerPaths());
-    dispatch(fetchAircraftTypes());
-  }, []);
-
-  const loadPath = async (pathId: number) => {
-    setActivePathId(pathId);
-    const detail: any = await dispatch(fetchCareerPathDetail(pathId)).unwrap();
-    setPathDetail(detail);
-    if (detail?.ranks) {
-      for (const rank of detail.ranks) {
-        const ac: any = await dispatch(fetchRankAircraft(rank.id)).unwrap();
-        setRankAircraft((prev) => ({ ...prev, [rank.id]: ac || [] }));
-      }
-    }
-  };
-
-  const refreshPath = () => {
-    if (activePathId) loadPath(activePathId);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-brand">Career Management</h2>
-        <button
-          onClick={() => setShowCreatePath(!showCreatePath)}
-          className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm px-5 py-2 hover:-translate-y-0.5 hover:shadow-lg transition-all"
-        >
-          + New Path
-        </button>
-      </div>
-
-      {/* Create Path */}
-      {showCreatePath && (
-        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
-          <h3 className="text-lg font-bold text-brand mb-4">
-            Create Career Path
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <input
-              placeholder="Name (e.g. Airbus)"
-              value={newPathName}
-              onChange={(e) => setNewPathName(e.target.value)}
-              className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
-            />
-            <input
-              placeholder="Description"
-              value={newPathDesc}
-              onChange={(e) => setNewPathDesc(e.target.value)}
-              className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
-            />
-          </div>
-          <button
-            onClick={async () => {
-              await dispatch(
-                createCareerPath({
-                  name: newPathName,
-                  description: newPathDesc || null,
-                })
-              );
-              setNewPathName("");
-              setNewPathDesc("");
-              setShowCreatePath(false);
-              dispatch(fetchCareerPaths());
-            }}
-            className="rounded-full bg-brand text-white font-semibold text-sm px-5 py-2"
-          >
-            Create
-          </button>
-        </div>
-      )}
-
-      {/* Path List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {paths.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => loadPath(p.id)}
-            className={`text-left bg-white rounded-2xl border shadow-sm p-5 transition-all ${
-              activePathId === p.id
-                ? "border-brand ring-2 ring-brand/20"
-                : "border-brand-border hover:shadow-lg"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-brand text-lg">{p.name}</h3>
-              <span className="text-xs text-gray-400">ID: {p.id}</span>
-            </div>
-            <p className="text-sm text-gray-500 mt-1">
-              {p.description || "No description"}
-            </p>
-            {p.is_active ? (
-              <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full mt-2 inline-block">
-                Active
-              </span>
-            ) : (
-              <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full mt-2 inline-block">
-                Inactive
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Path Detail with Ranks */}
-      {pathDetail && (
-        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-brand">
-              {pathDetail.name} — Ranks
-            </h3>
-            <button
-              onClick={() => setShowCreateRank(!showCreateRank)}
-              className="text-xs rounded-full bg-brand text-white px-3 py-1 hover:bg-brand-light transition-colors"
-            >
-              + Add Rank
-            </button>
-          </div>
-
-          {/* Create Rank Form */}
-          {showCreateRank && activePathId && (
-            <div className="mb-4 p-4 bg-brand-pale rounded-xl border border-brand-border">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                <input
-                  placeholder="Rank Name"
-                  value={newRankName}
-                  onChange={(e) => setNewRankName(e.target.value)}
-                  className="border border-brand-border rounded-lg px-3 py-2 text-sm"
-                />
-                <input
-                  type="number"
-                  placeholder="Sort Order"
-                  value={newRankOrder}
-                  onChange={(e) => setNewRankOrder(Number(e.target.value))}
-                  className="border border-brand-border rounded-lg px-3 py-2 text-sm"
-                />
-                <input
-                  type="number"
-                  placeholder="Route % Required"
-                  value={newRankPct}
-                  onChange={(e) => setNewRankPct(Number(e.target.value))}
-                  className="border border-brand-border rounded-lg px-3 py-2 text-sm"
-                />
-                <input
-                  type="number"
-                  placeholder="Takeoffs Required"
-                  value={newRankTakeoffs}
-                  onChange={(e) => setNewRankTakeoffs(Number(e.target.value))}
-                  className="border border-brand-border rounded-lg px-3 py-2 text-sm"
-                />
-                <input
-                  type="number"
-                  placeholder="Landings Required"
-                  value={newRankLandings}
-                  onChange={(e) => setNewRankLandings(Number(e.target.value))}
-                  className="border border-brand-border rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-              <button
-                onClick={async () => {
-                  await dispatch(
-                    createRank({
-                      pathId: activePathId,
-                      data: {
-                        name: newRankName,
-                        sort_order: newRankOrder,
-                        required_route_pct: newRankPct,
-                        required_takeoffs: newRankTakeoffs,
-                        required_landings: newRankLandings,
-                      },
-                    })
-                  );
-                  setNewRankName("");
-                  setShowCreateRank(false);
-                  refreshPath();
-                }}
-                className="text-xs bg-brand text-white px-4 py-1.5 rounded-full"
-              >
-                Save Rank
-              </button>
-            </div>
-          )}
-
-          {/* Ranks Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-brand-pale text-left">
-                <tr>
-                  <th className="px-4 py-2 font-semibold text-gray-600">#</th>
-                  <th className="px-4 py-2 font-semibold text-gray-600">
-                    Name
-                  </th>
-                  <th className="px-4 py-2 font-semibold text-gray-600">
-                    Route %
-                  </th>
-                  <th className="px-4 py-2 font-semibold text-gray-600">T/O</th>
-                  <th className="px-4 py-2 font-semibold text-gray-600">LDG</th>
-                  <th className="px-4 py-2 font-semibold text-gray-600">
-                    Aircraft
-                  </th>
-                  <th className="px-4 py-2 font-semibold text-gray-600">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {pathDetail.ranks?.map((rank: any) => (
-                  <tr key={rank.id} className="border-t border-brand-border">
-                    <td className="px-4 py-2 text-gray-400">
-                      {rank.sort_order}
-                    </td>
-                    <td className="px-4 py-2 font-semibold">
-                      {editRankId === rank.id ? (
-                        <input
-                          defaultValue={rank.name}
-                          onBlur={async (e) => {
-                            await dispatch(
-                              updateRank({
-                                rankId: rank.id,
-                                data: { name: e.target.value },
-                              })
-                            );
-                            setEditRankId(null);
-                            refreshPath();
-                          }}
-                          className="border border-brand-border rounded-lg px-2 py-1 text-sm w-36"
-                          autoFocus
-                        />
-                      ) : (
-                        <span
-                          className="cursor-pointer"
-                          onClick={() => setEditRankId(rank.id)}
-                        >
-                          {rank.name}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      <input
-                        type="number"
-                        defaultValue={rank.required_route_pct}
-                        onBlur={async (e) => {
-                          const v = Number(e.target.value);
-                          if (v !== rank.required_route_pct) {
-                            await dispatch(
-                              updateRank({
-                                rankId: rank.id,
-                                data: { required_route_pct: v },
-                              })
-                            );
-                            refreshPath();
-                          }
-                        }}
-                        className="border border-brand-border rounded-lg px-2 py-1 text-sm w-16"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <input
-                        type="number"
-                        defaultValue={rank.required_takeoffs}
-                        onBlur={async (e) => {
-                          const v = Number(e.target.value);
-                          if (v !== rank.required_takeoffs) {
-                            await dispatch(
-                              updateRank({
-                                rankId: rank.id,
-                                data: { required_takeoffs: v },
-                              })
-                            );
-                            refreshPath();
-                          }
-                        }}
-                        className="border border-brand-border rounded-lg px-2 py-1 text-sm w-16"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <input
-                        type="number"
-                        defaultValue={rank.required_landings}
-                        onBlur={async (e) => {
-                          const v = Number(e.target.value);
-                          if (v !== rank.required_landings) {
-                            await dispatch(
-                              updateRank({
-                                rankId: rank.id,
-                                data: { required_landings: v },
-                              })
-                            );
-                            refreshPath();
-                          }
-                        }}
-                        className="border border-brand-border rounded-lg px-2 py-1 text-sm w-16"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex flex-wrap gap-1 items-center">
-                        {(rankAircraft[rank.id] || []).map((ra: any) => (
-                          <span
-                            key={ra.id}
-                            className="text-xs bg-brand-pale text-brand border border-brand-border px-2 py-0.5 rounded-full flex items-center gap-1"
-                          >
-                            {ra.aircraft_name || `Type #${ra.aircraft_type_id}`}{" "}
-                            ({ra.count})
-                            <button
-                              onClick={async () => {
-                                await dispatch(
-                                  removeAircraftFromRank({
-                                    rankId: rank.id,
-                                    aircraftTypeId: ra.aircraft_type_id,
-                                  })
-                                );
-                                const ac = await dispatch(
-                                  fetchRankAircraft(rank.id)
-                                ).unwrap();
-                                setRankAircraft((prev) => ({
-                                  ...prev,
-                                  [rank.id]: ac || [],
-                                }));
-                              }}
-                              className="text-red-400 hover:text-red-600 ml-0.5"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                        {assignAcRankId === rank.id ? (
-                          <div className="flex gap-1 items-center">
-                            <select
-                              value={assignAcTypeId}
-                              onChange={(e) =>
-                                setAssignAcTypeId(Number(e.target.value))
-                              }
-                              className="text-xs border border-brand-border rounded-lg px-1 py-0.5 w-24"
-                            >
-                              <option value={0}>Type</option>
-                              {types.map((t) => (
-                                <option key={t.id} value={t.id}>
-                                  {t.name}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={async () => {
-                                if (assignAcTypeId) {
-                                  await dispatch(
-                                    assignAircraftToRank({
-                                      rankId: rank.id,
-                                      aircraftTypeId: assignAcTypeId,
-                                    })
-                                  );
-                                  const ac = await dispatch(
-                                    fetchRankAircraft(rank.id)
-                                  ).unwrap();
-                                  setRankAircraft((prev) => ({
-                                    ...prev,
-                                    [rank.id]: ac || [],
-                                  }));
-                                  setAssignAcRankId(null);
-                                  setAssignAcTypeId(0);
-                                }
-                              }}
-                              className="text-xs bg-brand text-white px-1.5 py-0.5 rounded-full"
-                            >
-                              +
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setAssignAcRankId(rank.id)}
-                            className="text-xs text-brand hover:underline"
-                          >
-                            + Add Type
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2">
-                      <button
-                        onClick={async () => {
-                          await dispatch(deleteRank(rank.id));
-                          refreshPath();
-                        }}
-                        className="text-xs text-red-400 hover:text-red-600"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Promote Section */}
-      <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
-        <h3 className="text-lg font-bold text-brand mb-4">Promote Pilot</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <select
-            value={promotePilotId}
-            onChange={(e) => setPromotePilotId(Number(e.target.value))}
-            className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
-          >
-            <option value={0}>Select Pilot</option>
-            {pilots.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.callsign} — {p.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={promotePathId}
-            onChange={(e) => setPromotePathId(Number(e.target.value))}
-            className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
-          >
-            <option value={0}>Career Path</option>
-            {paths.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={async () => {
-              if (promotePilotId && promotePathId) {
-                const res = await dispatch(
-                  promotePilot({
-                    pilotId: promotePilotId,
-                    careerPathId: promotePathId,
-                  })
-                );
-                if (promotePilot.fulfilled.match(res)) {
-                  alert("Pilot promoted successfully!");
-                } else {
-                  alert(
-                    "Failed to promote pilot: " +
-                      (res.error?.message || "Unknown error")
-                  );
-                }
-              }
-            }}
-            className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm py-2.5 hover:-translate-y-0.5 hover:shadow-lg transition-all"
-          >
-            Promote
-          </button>
         </div>
       </div>
     </div>

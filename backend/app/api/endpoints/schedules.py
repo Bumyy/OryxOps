@@ -97,42 +97,6 @@ async def create_schedule_route(
     pilot: Pilot = Depends(get_current_pilot),
 ):
     await check_group_access(db, data.group_id, pilot)
-
-    # ── Career & Aircraft Qualification Lock ──
-    from app.models.live_models import LivePilotCareer, LiveAircraft, Aircraft
-
-    career_res = await db.execute(
-        select(LivePilotCareer).where(LivePilotCareer.pilot_id == pilot.id)
-    )
-    career = career_res.scalar_one_or_none()
-    if not career or not career.selected_aircraft_ids:
-        raise HTTPException(
-            status_code=400,
-            detail="Configuration Required: You cannot draft schedules until your Career Path and 2 Aircraft selection are configured by staff."
-        )
-
-    assigned_ids = [x.strip() for x in career.selected_aircraft_ids.split(",") if x.strip()]
-    if assigned_ids and data.aircraft_id:
-        ac_res = await db.execute(
-            select(LiveAircraft)
-            .where(LiveAircraft.id == data.aircraft_id)
-        )
-        ac = ac_res.scalar_one_or_none()
-        if ac and ac.aircraft_type_id:
-            if str(ac.aircraft_type_id) not in assigned_ids:
-                # Get assigned model names for clear error
-                names_res = await db.execute(
-                    select(Aircraft.name).where(
-                        Aircraft.id.in_([int(x) for x in assigned_ids if x.isdigit()])
-                    )
-                )
-                assigned_names = [r[0] for r in names_res.all()]
-                assigned_str = ", ".join(assigned_names) if assigned_names else "None"
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Aircraft Qualification Locked: You can only draft schedules for [{assigned_str}]. This aircraft is not in your qualification list."
-                )
-
     schedule = await create_schedule(db, {**data.model_dump(), "created_by": pilot.id, "status": "draft"})
     return ScheduleOut(
         id=schedule.id,
@@ -426,22 +390,10 @@ async def buy_proposal_token(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
-    from app.models.live_models import LiveCurrency, LiveCurrencyTransaction, LivePilotCareer
+    from app.models.live_models import LiveCurrency, LiveCurrencyTransaction
 
     if slot_type not in ["short", "long"]:
         raise HTTPException(status_code=400, detail="Invalid slot type. Must be 'short' or 'long'.")
-
-    # Check if pilot has a career profile setup
-    career_res = await db.execute(
-        select(LivePilotCareer)
-        .where(LivePilotCareer.pilot_id == pilot.id)
-    )
-    career = career_res.scalar_one_or_none()
-    if not career:
-        raise HTTPException(
-            status_code=400,
-            detail="Configuration Required: You cannot purchase proposal slots until your Career Path is configured."
-        )
 
     cost = 1000 if slot_type == "short" else 2000
     description = f"Pre-purchased {'Short' if slot_type == 'short' else 'Long'}-Haul Slot Token"

@@ -9,27 +9,19 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.dependencies import get_current_staff
 from app.models.live_models import (
-    LiveCareerPath,
-    LiveCareerRank,
     LiveFlyingGroup,
     LiveGroupAircraft,
     LiveGroupPilot,
-    LivePilotCareer,
     LiveCurrency,
     Pilot,
     AwardGranted,
 )
-from app.schemas.career import PilotCareerOut
-from app.services.career_service import promote_pilot
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-PILOT_CAREER_REFETCH = PilotCareerOut
 
 
 class EnrollPilotRequest(BaseModel):
     pilot_id: int
-    career_path_id: int
     simbrief_id: int | None = None
 
 
@@ -40,31 +32,6 @@ class UpdateSimbriefRequest(BaseModel):
 
 class ReshuffleRequest(BaseModel):
     group_id: int
-
-
-# ── PROMOTE ──
-
-@router.post("/promote/{pilot_id}")
-async def promote_pilot_route(
-    pilot_id: int,
-    career_path_id: int,
-    db: AsyncSession = Depends(get_db),
-    staff: Pilot = Depends(get_current_staff),
-):
-    pilot_career = await promote_pilot(db, pilot_id, career_path_id)
-    if not pilot_career:
-        raise HTTPException(status_code=404, detail="Pilot career or next rank not found")
-
-    return PilotCareerOut(
-        id=pilot_career.id,
-        career_path_id=pilot_career.career_path_id,
-        career_path_name=pilot_career.career_path.name,
-        current_rank_id=pilot_career.current_rank_id,
-        current_rank_name=pilot_career.current_rank.name if pilot_career.current_rank else None,
-        sort_order=pilot_career.current_rank.sort_order if pilot_career.current_rank else None,
-        started_at=str(pilot_career.started_at) if pilot_career.started_at else None,
-        promoted_at=str(pilot_career.promoted_at) if pilot_career.promoted_at else None,
-    )
 
 
 # ── UPDATE PILOT SIMBRIEF ID ──
@@ -100,25 +67,6 @@ async def enroll_pilot(
     if pilot.status != 1:
         raise HTTPException(status_code=400, detail="Can only enroll active pilots")
 
-    existing = await db.execute(
-        select(LivePilotCareer).where(
-            LivePilotCareer.pilot_id == data.pilot_id,
-            LivePilotCareer.career_path_id == data.career_path_id,
-        )
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Pilot already enrolled in this career path")
-
-    first_rank = await db.execute(
-        select(LiveCareerRank)
-        .where(LiveCareerRank.career_path_id == data.career_path_id)
-        .order_by(LiveCareerRank.sort_order)
-        .limit(1)
-    )
-    rank = first_rank.scalar_one_or_none()
-    if not rank:
-        raise HTTPException(status_code=400, detail="Career path has no ranks configured")
-
     # Update simbrief_id if provided
     if data.simbrief_id is not None:
         pilot.simbrief_id = data.simbrief_id
@@ -133,35 +81,19 @@ async def enroll_pilot(
     if not award_exist.scalar_one_or_none():
         db.add(AwardGranted(awardid=9, pilotid=data.pilot_id, dateawarded=date.today()))
 
-    career = LivePilotCareer(
-        pilot_id=data.pilot_id,
-        career_path_id=data.career_path_id,
-        current_rank_id=rank.id,
-    )
-    db.add(career)
-
     # Initialize wallet if not exists
     curr_res = await db.execute(select(LiveCurrency).where(LiveCurrency.pilot_id == data.pilot_id))
     if not curr_res.scalar_one_or_none():
         db.add(LiveCurrency(pilot_id=data.pilot_id, balance=0, total_earned=0, total_spent=0))
 
     await db.commit()
-    await db.refresh(career)
-
-    return {
-        "detail": "Pilot enrolled",
-        "career_path_id": career.career_path_id,
-        "current_rank_id": career.current_rank_id,
-    }
+    return {"detail": "Pilot enrolled successfully"}
 
 
 class AdminUpdatePilotRequest(BaseModel):
     pilot_id: int
     lifts: int | None = None
     flying_groupid: int | None = None
-    selected_aircraft_ids: str | None = None
-    rank_id: int | None = None
-    career_path_id: int | None = None
 
 
 @router.post("/update-pilot")
@@ -179,26 +111,12 @@ async def update_pilot_admin(
     if data.flying_groupid is not None:
         pilot.flying_groupid = data.flying_groupid
 
-    if data.selected_aircraft_ids is not None or data.rank_id is not None or data.career_path_id is not None:
-        career_res = await db.execute(
-            select(LivePilotCareer).where(LivePilotCareer.pilot_id == data.pilot_id)
-        )
-        career = career_res.scalar_one_or_none()
-        if career:
-            if data.selected_aircraft_ids is not None:
-                career.selected_aircraft_ids = data.selected_aircraft_ids
-            if data.career_path_id is not None:
-                career.career_path_id = data.career_path_id
-            if data.rank_id is not None:
-                career.current_rank_id = data.rank_id
-
     await db.commit()
     return {"detail": "Pilot settings updated successfully"}
 
 
 class EnrollByCallsignRequest(BaseModel):
     callsign: str
-    career_path_id: int
     simbrief_id: int | None = None
 
 
@@ -220,25 +138,6 @@ async def enroll_pilot_by_callsign(
     if pilot.status != 1:
         raise HTTPException(status_code=400, detail=f"Pilot {pilot.callsign} is not active.")
 
-    existing = await db.execute(
-        select(LivePilotCareer).where(
-            LivePilotCareer.pilot_id == pilot.id,
-            LivePilotCareer.career_path_id == data.career_path_id,
-        )
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Pilot {pilot.callsign} is already enrolled.")
-
-    first_rank = await db.execute(
-        select(LiveCareerRank)
-        .where(LiveCareerRank.career_path_id == data.career_path_id)
-        .order_by(LiveCareerRank.sort_order)
-        .limit(1)
-    )
-    rank = first_rank.scalar_one_or_none()
-    if not rank:
-        raise HTTPException(status_code=400, detail="Career path has no ranks configured.")
-
     if data.simbrief_id is not None:
         pilot.simbrief_id = data.simbrief_id
 
@@ -252,27 +151,17 @@ async def enroll_pilot_by_callsign(
     if not award_exist.scalar_one_or_none():
         db.add(AwardGranted(awardid=9, pilotid=pilot.id, dateawarded=date.today()))
 
-    career = LivePilotCareer(
-        pilot_id=pilot.id,
-        career_path_id=data.career_path_id,
-        current_rank_id=rank.id,
-    )
-    db.add(career)
-
     # Initialize wallet if not exists
     curr_res = await db.execute(select(LiveCurrency).where(LiveCurrency.pilot_id == pilot.id))
     if not curr_res.scalar_one_or_none():
         db.add(LiveCurrency(pilot_id=pilot.id, balance=0, total_earned=0, total_spent=0))
 
     await db.commit()
-    await db.refresh(career)
 
     return {
         "detail": f"Pilot {pilot.callsign} enrolled successfully with Award 9 granted!",
         "pilot_id": pilot.id,
         "callsign": pilot.callsign,
-        "career_path_id": career.career_path_id,
-        "current_rank_id": career.current_rank_id,
     }
 
 
@@ -281,45 +170,14 @@ async def enroll_pilot_by_callsign(
 @router.get("/enrolled-pilots")
 async def get_enrolled_pilots(db: AsyncSession = Depends(get_db), staff=Depends(get_current_staff)):
     result = await db.execute(
-        select(LivePilotCareer, Pilot)
-        .join(Pilot, Pilot.id == LivePilotCareer.pilot_id)
-        .where(Pilot.status == 1)
-        .options(
-            selectinload(LivePilotCareer.career_path),
-            selectinload(LivePilotCareer.current_rank),
-        )
+        select(Pilot)
+        .join(AwardGranted, AwardGranted.pilotid == Pilot.id)
+        .where(Pilot.status == 1, AwardGranted.awardid == 9)
     )
-    rows = result.all()
-
-    from collections import defaultdict
-    pilot_careers = defaultdict(list)
-    pilots_dict = {}
-
-    for career, pilot in rows:
-        if not career.current_rank_id and career.career_path_id:
-            first_rank_res = await db.execute(
-                select(LiveCareerRank)
-                .where(LiveCareerRank.career_path_id == career.career_path_id)
-                .order_by(LiveCareerRank.sort_order)
-                .limit(1)
-            )
-            fr = first_rank_res.scalar_one_or_none()
-            if fr:
-                career.current_rank_id = fr.id
-                career.current_rank = fr
-                await db.commit()
-
-        pilots_dict[pilot.id] = pilot
-        pilot_careers[pilot.id].append({
-            "career_path_id": career.career_path_id,
-            "career_path_name": career.career_path.name if career.career_path else None,
-            "current_rank_id": career.current_rank_id,
-            "current_rank_name": career.current_rank.name if career.current_rank else None,
-            "selected_aircraft_ids": career.selected_aircraft_ids,
-        })
+    pilots = result.scalars().all()
 
     enrolled = []
-    for pid, p in pilots_dict.items():
+    for p in pilots:
         enrolled.append({
             "id": p.id,
             "callsign": p.callsign,
@@ -328,7 +186,6 @@ async def get_enrolled_pilots(db: AsyncSession = Depends(get_db), staff=Depends(
             "lifts": getattr(p, "lifts", 0) or 0,
             "flying_groupid": p.flying_groupid,
             "enrolled": True,
-            "careers": pilot_careers[p.id],
         })
 
     return {"enrolled": enrolled, "unenrolled": []}
@@ -417,30 +274,7 @@ async def reshuffle_group(
     }
 
 
-# ── GET PILOT CAREERS (ADMIN VIEW) ──
 
-@router.get("/pilot/{pilot_id}/careers", response_model=list[PilotCareerOut])
-async def get_pilot_careers_admin(
-    pilot_id: int,
-    db: AsyncSession = Depends(get_db),
-    staff: Pilot = Depends(get_current_staff),
-):
-    from app.services.career_service import get_pilot_careers
-
-    careers = await get_pilot_careers(db, pilot_id)
-    return [
-        PilotCareerOut(
-            id=c.id,
-            career_path_id=c.career_path_id,
-            career_path_name=c.career_path.name,
-            current_rank_id=c.current_rank_id,
-            current_rank_name=c.current_rank.name,
-            sort_order=c.current_rank.sort_order,
-            started_at=str(c.started_at) if c.started_at else None,
-            promoted_at=str(c.promoted_at) if c.promoted_at else None,
-        )
-        for c in careers
-    ]
 
 
 # ── FLEET PAIR ASSIGNMENT & SHUFFLE (ADMIN) ──

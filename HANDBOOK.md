@@ -1,5 +1,5 @@
 # OryxOps — Complete User Guide & Operational Handbook
-**Qatari Virtual · Official Flight Operations & Career Mode Manual**
+**Qatari Virtual · Official Flight Operations Manual**
 
 ---
 
@@ -7,7 +7,7 @@
 
 1. [Introduction & Core Philosophy](#1-introduction--core-philosophy)
 2. [Infinite Flight Live & Persistence](#2-infinite-flight-live--persistence)
-3. [Pilot Ranks, Career Paths & Groups](#3-pilot-ranks-career-paths--groups)
+3. [Pilot Ranks & Fleet Groups](#3-pilot-ranks--fleet-groups)
 4. [The Dashboard — Your Home Base](#4-the-dashboard--your-home-base)
 5. [Schedule Calendar — Propose & Book Flights](#5-schedule-calendar--propose--book-flights)
 6. [The OryxOps Shop — Proposal Tokens](#6-the-oryxops-shop--proposal-tokens)
@@ -15,15 +15,14 @@
 8. [Electronic Flight Bag (EFB)](#8-electronic-flight-bag-efb)
 9. [Fleet Registry](#9-fleet-registry)
 10. [Flying Groups](#10-flying-groups)
-11. [Career Center](#11-career-center)
-12. [Transfer Requests](#12-transfer-requests)
-13. [Quick Reference Summary](#13-quick-reference-summary)
+11. [Transfer Requests](#11-transfer-requests)
+12. [Quick Reference Summary](#12-quick-reference-summary)
 
 ---
 
 ## 1. Introduction & Core Philosophy
 
-Welcome to **OryxOps**, the flagship operations platform and custom career mode designed exclusively for **Qatari Virtual**.
+Welcome to **OryxOps**, the flagship flight operations platform designed exclusively for **Qatari Virtual**.
 
 In traditional virtual airline systems, management staff face the tedious task of manually creating dozens of flight schedules per day, while pilots often feel disconnected from fleet management. OryxOps completely reinvents this workflow:
 
@@ -46,20 +45,13 @@ OryxOps operates on top of Infinite Flight's **persistent fleet model** (IF Live
 
 ---
 
-## 3. Pilot Ranks, Career Paths & Groups
+## 3. Pilot Ranks & Fleet Groups
 
 ### 3.1 Pilot Ranks
 
-Access to aircraft is governed by your **Pilot Rank** and assigned **Fleet Group**. OryxOps features four primary operational ranks per career pathway:
+Access to aircraft and operations is organized by your **Pilot Rank** and assigned **Fleet Group**.
 
-| Rank | Pathway | Weekly Free Proposals |
-|---|---|---|
-| First Officer | Airbus or Boeing | 3 proposals / week |
-| Captain | Airbus or Boeing | 7 proposals / week |
-| Senior First Officer | Airbus or Boeing | 3 proposals / week |
-| (next rank) | — | — |
-
-> Ranks are assigned and promoted by staff through the Admin panel. You can view your current rank on the [Dashboard](#4-the-dashboard--your-home-base) and your full rank ladder in the [Career Center](#11-career-center).
+> Ranks are assigned by staff through the Admin panel. You can view your current rank and operational group directly on the [Dashboard](#4-the-dashboard--your-home-base).
 
 ---
 
@@ -106,7 +98,7 @@ The Dashboard is the first page you see after login. It gives a full overview of
 - If no active booking exists, a prompt to **Browse Schedule** is shown instead.
 
 **Stat Cards (3 cards)**
-- **Current Rank** — your rank name and career path. Clicking takes you to [Career Center](#11-career-center).
+- **Flying Group** — your current assigned flight group. Clicking takes you to [Flying Groups](#10-flying-groups).
 - **Weekly Proposals** — shows `used / total` for your current week's proposal allowance with a progress bar. Turns red when ≥ 80% used. A **Shop →** link takes you to buy more tokens.
 - **Pilot Wallet** — your QAR balance plus how many Short-Haul and Long-Haul tokens you have stockpiled.
 
@@ -565,87 +557,41 @@ Click any group card to go to its **Group Detail page** (`/groups/:id`) showing 
 
 ---
 
-## 11. Career Center
-
-**Navigation:** Sidebar → Career Center
-
-![Career Center — placeholder: screenshot of the Career Center page showing two career path cards (Airbus pathway and Boeing pathway) and the rank ladder]
-
-The Career Center tracks your long-term progression as a pilot.
-
-### Career Paths
-
-There are two main career pathways (managed by staff):
-- **Airbus Pathway** — First Officer → Senior First Officer → Captain progression on Airbus fleet
-- **Boeing Pathway** — First Officer → Senior First Officer → Captain progression on Boeing fleet
-
-> Career path enrollment is done by staff in the Admin → Pilots panel. You cannot self-enroll.
-
-Click any path card to expand your progress details.
-
-### Rank Ladder
-
-Shows your full rank progression for the selected path. Each rank node shows:
-- **Rank name** (e.g., Boeing First Officer)
-- **Requirements** — route discovery %, required takeoffs, required landings
-- **Aircraft types** accessible at that rank
-
-Current rank is highlighted in blue; completed past ranks in green.
-
-### Progress Details
-
-For your current rank, the progress panel shows three metrics:
-
-| Metric | Description |
-|---|---|
-| **Route Discovery** | % of available routes for your rank you've flown, vs. required % |
-| **Takeoffs** | Number of takeoffs logged vs. required count |
-| **Landings** | Number of landings logged vs. required count |
-
-When all three metrics are met, a green **"Ready for promotion"** banner appears. Contact staff for the actual promotion.
-
-### Aircraft Qualifications
-
-Shows which aircraft types are **Unlocked** (accessible at your current rank) vs. **Locked** (accessible at a future rank). Unlocked types appear in green.
-
----
-
-## 12. Transfer Requests
+## 11. Transfer Requests
 
 **Navigation:** Sidebar → Transfers
 
-The Transfer Requests page allows you to formally request a change from management.
+The Transfer Requests page allows you to formally request a group change from management.
 
 ### Transfer Types
 
 | Type | When to Use |
 |---|---|
 | **Group Switch** | Request to be moved from your current flying group to a different one |
-| **Career Path Switch** | Request to switch from the Airbus pathway to Boeing pathway (or vice versa) |
 
 ### Submitting a Request
 
-1. Select the **Transfer Type** from the dropdown.
-2. Enter the **Destination** — the name of the target group or career path.
+1. Select **Group Switch** from the transfer type dropdown.
+2. Enter the **Destination** — the name of the target flying group.
 3. Add an optional **Reason** for the request.
 4. Click **Submit Request**.
 
 ### Tracking Past Requests
 
 All your submitted transfer requests appear in the table below with:
-- **Type** — group switch or career path switch
-- **To** — the requested destination
+- **Type** — group switch
+- **To** — the requested destination group
 - **Status** badge — Pending 🟡 / Approved 🟢 / Denied 🔴
 - **Reviewed By** — the staff member who processed it
 - **Date** — when the request was submitted
 
 ---
 
-## 13. Quick Reference Summary
+## 12. Quick Reference Summary
 
 | Action | Navigation Path | Key Requirement / Notes |
 |---|---|---|
-| View your status & wallet | Dashboard (Home) | Shows rank, weekly proposals, QAR balance |
+| View your status & wallet | Dashboard (Home) | Shows rank, group, weekly proposals, QAR balance |
 | **Create a Draft flight** | Schedule Calendar → click a time cell → select aircraft & route | Aircraft must match your group; route loads from current aircraft position |
 | **Propose a flight** | Click Draft card → Propose Flight | Consumes 1 proposal token (free or purchased) |
 | **Buy extra tokens** | Shop → Buy Token | 1,000 QAR (short-haul) / 2,000 QAR (long-haul) |
@@ -661,7 +607,6 @@ All your submitted transfer requests appear in the table below with:
 | **Access charts** | EFB → Charts tab | ChartFox embedded; search by ICAO code |
 | **View fleet** | Fleet Registry | Shows all airframes grouped by group; click for detail |
 | **Request group transfer** | Transfers → New Request → Group Switch | Enter target group name + optional reason |
-| **View career progress** | Career Center → select path card | Shows route %, takeoffs, landings vs. requirements |
 
 ---
 

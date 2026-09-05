@@ -5,7 +5,6 @@ from app.api.endpoints import (
     aircraft,
     auth,
     bookings,
-    careers,
     charts,
     discovery,
     efb,
@@ -25,7 +24,6 @@ api_router = APIRouter()
 
 api_router.include_router(auth.router)
 api_router.include_router(pilots.router)
-api_router.include_router(careers.router)
 api_router.include_router(discovery.router)
 api_router.include_router(aircraft.router)
 api_router.include_router(groups.router)

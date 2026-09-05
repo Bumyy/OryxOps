@@ -148,65 +148,6 @@ class Permission(Base):
 # LIVE MODE TABLES
 # ============================================================
 
-class LiveCareerPath(Base):
-    __tablename__ = "live_career_paths"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(50), nullable=False)
-    description = Column(Text)
-    is_active = Column(Integer, nullable=False, default=1)
-
-    ranks = relationship("LiveCareerRank", back_populates="career_path")
-    pilot_careers = relationship("LivePilotCareer", back_populates="career_path")
-
-
-class LiveCareerRank(Base):
-    __tablename__ = "live_career_ranks"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    career_path_id = Column(Integer, ForeignKey("live_career_paths.id"), nullable=False)
-    name = Column(String(50), nullable=False)
-    sort_order = Column(Integer, nullable=False)
-    required_route_pct = Column(Numeric(5, 2), nullable=False, default=0)
-    required_takeoffs = Column(Integer, nullable=False, default=0)
-    required_landings = Column(Integer, nullable=False, default=0)
-    weekly_proposal_limit = Column(Integer, nullable=False, default=3)
-
-    career_path = relationship("LiveCareerPath", back_populates="ranks")
-    rank_aircraft = relationship("LiveCareerRankAircraft", back_populates="career_rank")
-
-
-class LiveCareerRankAircraft(Base):
-    __tablename__ = "live_career_rank_aircraft"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    career_rank_id = Column(Integer, ForeignKey("live_career_ranks.id"), nullable=False)
-    aircraft_type_id = Column(Integer, ForeignKey("aircraft.id"), nullable=False)
-    count = Column(Integer, nullable=False, default=1)
-
-    career_rank = relationship("LiveCareerRank", back_populates="rank_aircraft")
-    aircraft_type = relationship("Aircraft", foreign_keys=[aircraft_type_id])
-
-
-class LivePilotCareer(Base):
-    __tablename__ = "live_pilot_careers"
-    __table_args__ = (UniqueConstraint("pilot_id", "career_path_id", name="uk_pilot_path"),)
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=False)
-    career_path_id = Column(Integer, ForeignKey("live_career_paths.id"), nullable=False)
-    current_rank_id = Column(Integer, ForeignKey("live_career_ranks.id"), nullable=False)
-    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    promoted_at = Column(DateTime)
-    previous_rank_id = Column(Integer, ForeignKey("live_career_ranks.id"))
-    selected_aircraft_ids = Column(String(255), nullable=True)
-
-    pilot = relationship("Pilot", foreign_keys=[pilot_id])
-    career_path = relationship("LiveCareerPath", back_populates="pilot_careers")
-    current_rank = relationship("LiveCareerRank", foreign_keys=[current_rank_id])
-    previous_rank = relationship("LiveCareerRank", foreign_keys=[previous_rank_id])
-
-
 class LiveAircraft(Base):
     __tablename__ = "live_aircraft"
 
@@ -455,7 +396,7 @@ class LiveTransfer(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     pilot_id = Column(Integer, ForeignKey("pilots.id"), nullable=False)
     transfer_type = Column(
-        Enum("group_switch", "career_path_switch", "path_switch", "aircraft_switch", name="transfer_type"),
+        Enum("group_switch", "path_switch", "aircraft_switch", name="transfer_type"),
         nullable=False,
     )
     from_value = Column(String(100))

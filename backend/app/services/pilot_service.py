@@ -7,7 +7,6 @@ from app.models.live_models import (
     LiveFlyingGroup,
     LiveGroupAircraft,
     LiveGroupPilot,
-    LivePilotCareer,
     LiveCurrency,
     Pilot,
     Pirep,
@@ -18,8 +17,6 @@ from app.models.live_models import (
 async def get_pilot_list(
     db: AsyncSession,
     group_id: int | None = None,
-    career_path_id: int | None = None,
-    rank_id: int | None = None,
 ) -> list[Pilot]:
     query = select(Pilot).where(Pilot.status == 1)
 
@@ -33,20 +30,6 @@ async def get_pilot_list(
             .where(LiveGroupPilot.group_id == group_id, LiveGroupPilot.removed_at.is_(None))
         )
         query = query.where(Pilot.id.in_(group_pilot_sub))
-
-    if career_path_id:
-        career_sub = (
-            select(LivePilotCareer.pilot_id)
-            .where(LivePilotCareer.career_path_id == career_path_id)
-        )
-        query = query.where(Pilot.id.in_(career_sub))
-
-    if rank_id:
-        career_sub = (
-            select(LivePilotCareer.pilot_id)
-            .where(LivePilotCareer.current_rank_id == rank_id)
-        )
-        query = query.where(Pilot.id.in_(career_sub))
 
     result = await db.execute(query)
     return list(result.scalars().all())
@@ -80,30 +63,11 @@ async def get_pilot_detail(db: AsyncSession, pilot_id: int) -> dict | None:
     )
     group = group_result.scalar_one_or_none()
 
-    career_result = await db.execute(
-        select(LivePilotCareer)
-        .where(LivePilotCareer.pilot_id == pilot_id)
-        .options(
-            selectinload(LivePilotCareer.career_path),
-            selectinload(LivePilotCareer.current_rank),
-        )
-    )
-    careers = list(career_result.scalars().all())
-
     return {
         "pilot": pilot,
         "token_balance": token.balance if token else 0,
         "group_name": group.name if group else None,
         "group_id": group.id if group else None,
-        "careers": [
-            {
-                "path": c.career_path.name if c.career_path else None,
-                "rank": c.current_rank.name if c.current_rank else None,
-                "sort_order": c.current_rank.sort_order if c.current_rank else None,
-                "selected_aircraft_ids": c.selected_aircraft_ids or "",
-            }
-            for c in careers
-        ],
     }
 
 
