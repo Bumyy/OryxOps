@@ -96,23 +96,29 @@ async def create_schedule_route(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
-    await check_group_access(db, data.group_id, pilot)
     schedule = await create_schedule(db, {**data.model_dump(), "created_by": pilot.id, "status": "draft"})
+    full_schedule = await get_schedule(db, schedule.id)
+    s = full_schedule or schedule
     return ScheduleOut(
-        id=schedule.id,
-        group_id=schedule.group_id,
-        aircraft_id=schedule.aircraft_id,
-        route_id=schedule.route_id,
-        departure=schedule.departure,
-        arrival=schedule.arrival,
-        flight_number=schedule.flight_number,
-        scheduled_departure=str(schedule.scheduled_departure),
-        scheduled_arrival=str(schedule.scheduled_arrival),
-        wave_id=schedule.wave_id,
-        ground_time_minutes=schedule.ground_time_minutes or 60,
-        status=schedule.status,
-        created_by=schedule.created_by,
-        week_start=str(schedule.week_start),
+        id=s.id,
+        group_id=s.group_id,
+        aircraft_id=s.aircraft_id,
+        aircraft_registration=s.aircraft.registration if s.aircraft else None,
+        route_id=s.route_id,
+        departure=s.departure,
+        arrival=s.arrival,
+        flight_number=s.flight_number,
+        scheduled_departure=str(s.scheduled_departure),
+        scheduled_arrival=str(s.scheduled_arrival),
+        wave_id=s.wave_id,
+        wave_name=s.wave.name if s.wave else None,
+        ground_time_minutes=s.ground_time_minutes or 60,
+        status=s.status,
+        created_by=s.created_by,
+        created_by_name=s.creator.callsign if s.creator else pilot.callsign,
+        approved_by=s.approved_by,
+        week_start=str(s.week_start),
+        booking_count=0,
     )
 
 
@@ -126,27 +132,32 @@ async def update_schedule_route(
     schedule = await get_schedule(db, schedule_id)
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    await check_group_access(db, schedule.group_id, pilot)
     schedule = await update_schedule(db, schedule_id, data.model_dump(exclude_none=True))
     if schedule.status == "approved":
         await try_auto_sync_to_if(db, schedule)
         await db.commit()
+    full_schedule = await get_schedule(db, schedule.id)
+    s = full_schedule or schedule
     return ScheduleOut(
-        id=schedule.id,
-        group_id=schedule.group_id,
-        aircraft_id=schedule.aircraft_id,
-        route_id=schedule.route_id,
-        departure=schedule.departure,
-        arrival=schedule.arrival,
-        flight_number=schedule.flight_number,
-        scheduled_departure=str(schedule.scheduled_departure),
-        scheduled_arrival=str(schedule.scheduled_arrival),
-        wave_id=schedule.wave_id,
-        ground_time_minutes=schedule.ground_time_minutes or 60,
-        status=schedule.status,
-        created_by=schedule.created_by,
-        week_start=str(schedule.week_start),
-        if_schedule_id=schedule.if_schedule_id,
+        id=s.id,
+        group_id=s.group_id,
+        aircraft_id=s.aircraft_id,
+        aircraft_registration=s.aircraft.registration if s.aircraft else None,
+        route_id=s.route_id,
+        departure=s.departure,
+        arrival=s.arrival,
+        flight_number=s.flight_number,
+        scheduled_departure=str(s.scheduled_departure),
+        scheduled_arrival=str(s.scheduled_arrival),
+        wave_id=s.wave_id,
+        wave_name=s.wave.name if s.wave else None,
+        ground_time_minutes=s.ground_time_minutes or 60,
+        status=s.status,
+        created_by=s.created_by,
+        created_by_name=s.creator.callsign if s.creator else None,
+        approved_by=s.approved_by,
+        week_start=str(s.week_start),
+        if_schedule_id=s.if_schedule_id,
     )
 
 
@@ -159,7 +170,6 @@ async def delete_schedule_route(
     schedule = await get_schedule(db, schedule_id)
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    await check_group_access(db, schedule.group_id, pilot)
 
     if schedule.if_schedule_id:
         try:
@@ -200,25 +210,32 @@ async def propose_schedule(
     schedule = await get_schedule(db, schedule_id)
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    await check_group_access(db, schedule.group_id, pilot)
     try:
         schedule = await update_schedule_status(db, schedule_id, "proposed", pilot_id=pilot.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    full_schedule = await get_schedule(db, schedule.id)
+    s = full_schedule or schedule
     return ScheduleOut(
-        id=schedule.id,
-        group_id=schedule.group_id,
-        aircraft_id=schedule.aircraft_id,
-        departure=schedule.departure,
-        arrival=schedule.arrival,
-        scheduled_departure=str(schedule.scheduled_departure),
-        scheduled_arrival=str(schedule.scheduled_arrival),
-        wave_id=schedule.wave_id,
-        ground_time_minutes=schedule.ground_time_minutes or 60,
-        status=schedule.status,
-        created_by=schedule.created_by,
-        week_start=str(schedule.week_start),
+        id=s.id,
+        group_id=s.group_id,
+        aircraft_id=s.aircraft_id,
+        aircraft_registration=s.aircraft.registration if s.aircraft else None,
+        departure=s.departure,
+        arrival=s.arrival,
+        flight_number=s.flight_number,
+        scheduled_departure=str(s.scheduled_departure),
+        scheduled_arrival=str(s.scheduled_arrival),
+        wave_id=s.wave_id,
+        wave_name=s.wave.name if s.wave else None,
+        ground_time_minutes=s.ground_time_minutes or 60,
+        status=s.status,
+        created_by=s.created_by,
+        created_by_name=s.creator.callsign if s.creator else None,
+        approved_by=s.approved_by,
+        week_start=str(s.week_start),
+        if_schedule_id=s.if_schedule_id,
     )
 
 
@@ -235,21 +252,28 @@ async def approve_schedule(
     await try_auto_sync_to_if(db, schedule)
     await db.commit()
 
+    full_schedule = await get_schedule(db, schedule.id)
+    s = full_schedule or schedule
     return ScheduleOut(
-        id=schedule.id,
-        group_id=schedule.group_id,
-        aircraft_id=schedule.aircraft_id,
-        departure=schedule.departure,
-        arrival=schedule.arrival,
-        scheduled_departure=str(schedule.scheduled_departure),
-        scheduled_arrival=str(schedule.scheduled_arrival),
-        wave_id=schedule.wave_id,
-        ground_time_minutes=schedule.ground_time_minutes or 60,
-        status=schedule.status,
-        created_by=schedule.created_by,
-        approved_by=schedule.approved_by,
-        week_start=str(schedule.week_start),
-        if_schedule_id=schedule.if_schedule_id,
+        id=s.id,
+        group_id=s.group_id,
+        aircraft_id=s.aircraft_id,
+        aircraft_registration=s.aircraft.registration if s.aircraft else None,
+        route_id=s.route_id,
+        departure=s.departure,
+        arrival=s.arrival,
+        flight_number=s.flight_number,
+        scheduled_departure=str(s.scheduled_departure),
+        scheduled_arrival=str(s.scheduled_arrival),
+        wave_id=s.wave_id,
+        wave_name=s.wave.name if s.wave else None,
+        ground_time_minutes=s.ground_time_minutes or 60,
+        status=s.status,
+        created_by=s.created_by,
+        created_by_name=s.creator.callsign if s.creator else None,
+        approved_by=s.approved_by,
+        week_start=str(s.week_start),
+        if_schedule_id=s.if_schedule_id,
     )
 
 
@@ -280,20 +304,29 @@ async def reject_schedule(
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
     await db.commit()
+
+    full_schedule = await get_schedule(db, schedule.id)
+    s = full_schedule or schedule
     return ScheduleOut(
-        id=schedule.id,
-        group_id=schedule.group_id,
-        aircraft_id=schedule.aircraft_id,
-        departure=schedule.departure,
-        arrival=schedule.arrival,
-        scheduled_departure=str(schedule.scheduled_departure),
-        scheduled_arrival=str(schedule.scheduled_arrival),
-        wave_id=schedule.wave_id,
-        ground_time_minutes=schedule.ground_time_minutes or 60,
-        status=schedule.status,
-        created_by=schedule.created_by,
-        week_start=str(schedule.week_start),
-        if_schedule_id=schedule.if_schedule_id,
+        id=s.id,
+        group_id=s.group_id,
+        aircraft_id=s.aircraft_id,
+        aircraft_registration=s.aircraft.registration if s.aircraft else None,
+        route_id=s.route_id,
+        departure=s.departure,
+        arrival=s.arrival,
+        flight_number=s.flight_number,
+        scheduled_departure=str(s.scheduled_departure),
+        scheduled_arrival=str(s.scheduled_arrival),
+        wave_id=s.wave_id,
+        wave_name=s.wave.name if s.wave else None,
+        ground_time_minutes=s.ground_time_minutes or 60,
+        status=s.status,
+        created_by=s.created_by,
+        created_by_name=s.creator.callsign if s.creator else None,
+        approved_by=s.approved_by,
+        week_start=str(s.week_start),
+        if_schedule_id=s.if_schedule_id,
     )
 
 
@@ -364,7 +397,6 @@ async def auto_generate_schedules_route(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
-    await check_group_access(db, data.group_id, pilot)
     try:
         count = await generate_auto_schedules(
             db,

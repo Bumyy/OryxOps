@@ -69,39 +69,73 @@ export const fetchBookings = createAsyncThunk(
 
 export const createBooking = createAsyncThunk(
   "booking/create",
-  ({ scheduleId, bookingType = "both" }: { scheduleId: number; bookingType?: string }) =>
-    api.post<Booking | Booking[]>("/bookings", { schedule_id: scheduleId, booking_type: bookingType }),
+  async ({ scheduleId, bookingType = "both" }: { scheduleId: number; bookingType?: string }, { rejectWithValue }) => {
+    try {
+      return await api.post<Booking | Booking[]>("/bookings", { schedule_id: scheduleId, booking_type: bookingType });
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to create booking");
+    }
+  },
 );
 
 export const cancelBooking = createAsyncThunk(
   "booking/cancel",
-  (id: number) => api.delete(`/bookings/${id}`),
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await api.delete(`/bookings/${id}`);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to cancel booking");
+    }
+  },
 );
 
 export const dispatchBooking = createAsyncThunk(
   "booking/dispatch",
-  (id: number) => api.post<Booking>(`/bookings/${id}/dispatch`),
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await api.post<Booking>(`/bookings/${id}/dispatch`);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to dispatch booking");
+    }
+  },
 );
 
 export const completeBooking = createAsyncThunk(
   "booking/complete",
-  ({ id, flightTimeMinutes, fuelBurned, landingFpm, actualArrival }: { id: number; flightTimeMinutes: number; fuelBurned: number; landingFpm: number; actualArrival?: string }) =>
-    api.post<Booking>(`/bookings/${id}/complete`, {
-      flight_time_minutes: flightTimeMinutes,
-      fuel_burned: fuelBurned,
-      landing_fpm: landingFpm,
-      actual_arrival: actualArrival
-    }),
+  async ({ id, flightTimeMinutes, fuelBurned, landingFpm, actualArrival }: { id: number; flightTimeMinutes: number; fuelBurned: number; landingFpm: number; actualArrival?: string }, { rejectWithValue }) => {
+    try {
+      return await api.post<Booking>(`/bookings/${id}/complete`, {
+        flight_time_minutes: flightTimeMinutes,
+        fuel_burned: fuelBurned,
+        landing_fpm: landingFpm,
+        actual_arrival: actualArrival
+      });
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to complete booking");
+    }
+  },
 );
 
 export const noShowBooking = createAsyncThunk(
   "booking/noShow",
-  (id: number) => api.post<Booking>(`/bookings/${id}/no-show`),
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await api.post<Booking>(`/bookings/${id}/no-show`);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to mark no-show");
+    }
+  },
 );
 
 export const takeOverBooking = createAsyncThunk(
   "booking/takeOver",
-  (id: number) => api.post<Booking>(`/bookings/${id}/take-over`),
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await api.post<Booking>(`/bookings/${id}/take-over`);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to take over booking");
+    }
+  },
 );
 
 export interface FlightProgress {

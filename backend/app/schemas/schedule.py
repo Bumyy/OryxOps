@@ -21,7 +21,7 @@ class WaveCreate(BaseModel):
 
 class ScheduleOut(BaseModel):
     id: int
-    group_id: int
+    group_id: int | None = None
     aircraft_id: int
     aircraft_registration: str | None = None
     route_id: int | None = None
@@ -45,7 +45,7 @@ class ScheduleOut(BaseModel):
 
 
 class ScheduleCreate(BaseModel):
-    group_id: int
+    group_id: int | None = None
     aircraft_id: int
     route_id: int | None = None
     departure: str = Field(..., min_length=4, max_length=4, pattern=r"^[A-Z]{4}$")
@@ -85,12 +85,12 @@ class ScheduleUpdate(BaseModel):
 
 
 class ScheduleBulkApprove(BaseModel):
-    group_id: int
+    group_id: int | None = None
     week_start: str
 
 
 class AutoScheduleRequest(BaseModel):
-    group_id: int
+    group_id: int | None = None
     aircraft_id: int
     num_roundtrips: int
     haul_preference: str

@@ -22,7 +22,7 @@ from app.services.booking_service import (
     create_booking,
     get_booking,
     get_bookings,
-    # mark_no_show,
+    mark_no_show,
     take_over_booking,
     dispatch_booking,
     reconcile_all_payouts,
@@ -136,7 +136,6 @@ async def create_booking_route(
     db: AsyncSession = Depends(get_db),
     pilot: Pilot = Depends(get_current_pilot),
 ):
-    # Check group membership
     schedule_result = await db.execute(
         select(LiveFlightSchedule)
         .where(LiveFlightSchedule.id == data.schedule_id)
@@ -145,16 +144,6 @@ async def create_booking_route(
     schedule = schedule_result.scalar_one_or_none()
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
-
-    member_result = await db.execute(
-        select(LiveGroupPilot).where(
-            LiveGroupPilot.group_id == schedule.group_id,
-            LiveGroupPilot.pilot_id == pilot.id,
-            LiveGroupPilot.removed_at.is_(None),
-        )
-    )
-    if not member_result.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="You must be a member of this group to book flights")
 
     try:
         # Create bookings atomically (with commit=False)
@@ -263,18 +252,18 @@ async def complete_booking_route(
     return map_booking_to_out(booking_loaded)
 
 
-# @router.post("/{booking_id}/no-show", response_model=BookingOut)
-# async def no_show_booking(
-#     booking_id: int,
-#     db: AsyncSession = Depends(get_db),
-#     pilot: Pilot = Depends(get_current_staff),
-# ):
-#     booking = await mark_no_show(db, booking_id)
-#     if not booking:
-#         raise HTTPException(status_code=400, detail="Booking not found or not in booked status")
-#     
-#     booking_loaded = await get_booking(db, booking.id)
-#     return map_booking_to_out(booking_loaded)
+@router.post("/{booking_id}/no-show", response_model=BookingOut)
+async def no_show_booking(
+    booking_id: int,
+    db: AsyncSession = Depends(get_db),
+    pilot: Pilot = Depends(get_current_staff),
+):
+    booking = await mark_no_show(db, booking_id)
+    if not booking:
+        raise HTTPException(status_code=400, detail="Booking not found or not in booked status")
+    
+    booking_loaded = await get_booking(db, booking.id)
+    return map_booking_to_out(booking_loaded)
 
 
 @router.post("/{booking_id}/take-over", response_model=BookingOut)
@@ -352,16 +341,6 @@ async def rebook_booking_route(
     schedule = booking.schedule
     if not schedule:
         raise HTTPException(status_code=400, detail="Schedule not found")
-
-    member_result = await db.execute(
-        select(LiveGroupPilot).where(
-            LiveGroupPilot.group_id == schedule.group_id,
-            LiveGroupPilot.pilot_id == pilot.id,
-            LiveGroupPilot.removed_at.is_(None),
-        )
-    )
-    if not member_result.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="You must be a member of this group to book flights")
 
     booking_type = "both"
     if booking.departure_pilot_id is not None and booking.arrival_pilot_id is None:

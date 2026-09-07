@@ -135,15 +135,6 @@ export default function Dashboard() {
                 </svg>
                 {pilot?.callsign || "—"}
               </span>
-              {/* Group badge */}
-              {pilot?.group_name && (
-                <span className="inline-flex items-center gap-1.5 bg-brand-pale border border-brand-border text-brand text-xs font-bold px-3 py-1 rounded-full">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {pilot.group_name}
-                </span>
-              )}
               {/* Grade badge */}
               {pilot?.grade != null && (
                 <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold px-3 py-1 rounded-full">
@@ -218,22 +209,22 @@ export default function Dashboard() {
       {/* ─── SECTION 3: STAT CARDS (3 cards) ────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-        {/* Card 1: Flying Group */}
-        <Link to="/groups" className="group bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md hover:border-brand/40 transition-all duration-200 block">
+        {/* Card 1: Fleet Registry */}
+        <Link to="/fleet" className="group bg-white rounded-2xl border border-brand-border shadow-sm p-5 hover:shadow-md hover:border-brand/40 transition-all duration-200 block">
           <div className="flex items-center justify-between mb-3">
             <div className="w-9 h-9 rounded-xl bg-brand-pale border border-brand-border flex items-center justify-center">
               <svg className="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
             </div>
             <svg className="w-4 h-4 text-gray-300 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Assigned Group</p>
-          <p className="text-xl font-extrabold text-gray-900 leading-tight truncate">{pilot?.group_name || "No Group Assigned"}</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Fleet Registry</p>
+          <p className="text-xl font-extrabold text-gray-900 leading-tight truncate">Official Fleet</p>
           <p className="text-xs text-gray-400 mt-1 font-semibold truncate">
-            {pilot?.grade != null ? `Grade ${pilot.grade}` : "Active Flight Operations"}
+            25 Active Airframes
           </p>
         </Link>
 
@@ -396,18 +387,18 @@ export default function Dashboard() {
         <div className="lg:col-span-2 grid grid-cols-2 gap-3 content-start">
           {[
             {
-              to: "/fleet",
-              icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8",
-              label: "Fleet",
-              desc: "Aircraft & registrations",
+              to: "/bookings",
+              icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
+              label: "Bookings",
+              desc: "Active & past flights",
               color: "text-sky-600",
               bg: "bg-sky-50 border-sky-100",
             },
             {
-              to: "/groups",
-              icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z",
-              label: "Groups",
-              desc: "Flying group & slots",
+              to: "/operations",
+              icon: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8",
+              label: "Operations",
+              desc: "Active flight dispatch",
               color: "text-violet-600",
               bg: "bg-violet-50 border-violet-100",
             },

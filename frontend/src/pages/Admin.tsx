@@ -1,28 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { useCurrency } from "../hooks/useCurrency";
 import { api } from "../api/client";
-import { GroupsTab } from "./admin/GroupsPage";
 import { AdminBiddingPage } from "./admin/AdminBiddingPage";
 import PaxBoardingModal from "../components/efb/briefing/PaxBoardingModal";
+import { isFleetAircraft } from "../utils/aircraftCategories";
 import {
   fetchSettings,
   updateSetting,
   enrollPilot,
   fetchEnrolledPilots,
-  reshuffleGroup,
   updateSimbriefId,
 } from "../store/slices/adminSlice";
-import {
-  fetchGroups,
-  createGroup,
-  updateGroup,
-} from "../store/slices/groupSlice";
 import { fetchPilots } from "../store/slices/pilotSlice";
 import {
   fetchAirframes,
   fetchAircraftTypes,
-  createAirframe,
   updateAirframe,
 } from "../store/slices/aircraftSlice";
 import { fetchTransfers, reviewTransfer } from "../store/slices/transferSlice";
@@ -34,8 +27,6 @@ import {
 
 type Tab =
   | "pilots"
-  | "groups"
-  | "bidding"
   | "aircraft"
   | "transfers"
   | "waves"
@@ -77,7 +68,6 @@ export const MASTER_AIRCRAFT_LIST = [
 export default function Admin() {
   const dispatch = useAppDispatch();
   const { settings } = useAppSelector((s) => s.admin);
-  const { groups } = useAppSelector((s) => s.group);
   const { pilots } = useAppSelector((s) => s.pilot);
   const { airframes, types } = useAppSelector((s) => s.aircraft);
   const { transfers } = useAppSelector((s) => s.transfer);
@@ -88,8 +78,6 @@ export default function Admin() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "pilots", label: "Pilots" },
-    { key: "groups", label: "Groups" },
-    { key: "bidding", label: "Fleet Bidding" },
     { key: "aircraft", label: "Aircraft" },
     { key: "transfers", label: "Transfers" },
     { key: "waves", label: "Waves" },
@@ -113,7 +101,6 @@ export default function Admin() {
 
   useEffect(() => {
     dispatch(fetchSettings());
-    dispatch(fetchGroups());
     dispatch(fetchPilots({}));
     dispatch(fetchAirframes());
     dispatch(fetchAircraftTypes());
@@ -144,8 +131,6 @@ export default function Admin() {
       </div>
 
       {tab === "pilots" && <PilotsTab />}
-      {tab === "groups" && <GroupsTab />}
-      {tab === "bidding" && <AdminBiddingPage />}
       {tab === "aircraft" && <AircraftTab />}
       {tab === "transfers" && <TransfersTab />}
       {tab === "waves" && <WavesTab />}
@@ -158,18 +143,14 @@ export default function Admin() {
 export function PilotsTab() {
   const dispatch = useAppDispatch();
   const { enrolled } = useAppSelector((s) => s.admin);
-  const { groups } = useAppSelector((s) => s.group);
 
-  const [initialGroupId, setInitialGroupId] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [pilotSimbriefIds, setPilotSimbriefIds] = useState<Record<number, string>>({});
   const [pilotLifts, setPilotLifts] = useState<Record<number, number>>({});
-  const [pilotGroups, setPilotGroups] = useState<Record<number, number>>({});
   const [savingPilotId, setSavingPilotId] = useState<number | null>(null);
 
   useEffect(() => {
     dispatch(fetchEnrolledPilots());
-    dispatch(fetchGroups());
   }, [dispatch]);
 
   const handleSavePilotSettings = async (p: any) => {
@@ -183,12 +164,10 @@ export function PilotsTab() {
       }
 
       const liftsVal = pilotLifts[p.id] !== undefined ? pilotLifts[p.id] : (p.lifts || 0);
-      const groupVal = pilotGroups[p.id] !== undefined ? pilotGroups[p.id] : (p.flying_groupid || 0);
 
       await api.post("/admin/update-pilot", {
         pilot_id: p.id,
         lifts: liftsVal,
-        flying_groupid: groupVal,
       });
 
       alert(`Updated settings for ${p.callsign}!`);
@@ -214,7 +193,6 @@ export function PilotsTab() {
       const sId = enrollSimbrief.trim() ? parseInt(enrollSimbrief.trim(), 10) : null;
       const res = await api.post<{ detail: string }>("/admin/enroll-by-callsign", {
         callsign: enrollCallsign.trim(),
-        initial_group_id: initialGroupId || null,
         simbrief_id: sId,
       });
       alert(res.detail || "Pilot enrolled successfully!");
@@ -245,8 +223,8 @@ export function PilotsTab() {
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-xl font-bold text-brand">Pilot Fleet & Group Management</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Manage enrolled pilots, assigned groups, SimBrief IDs, and lifts.</p>
+            <h2 className="text-xl font-bold text-brand">Pilot Fleet Management</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Manage enrolled pilots, SimBrief IDs, and lifts.</p>
           </div>
           <input
             type="text"
@@ -270,18 +248,6 @@ export function PilotsTab() {
               onChange={(e) => setEnrollCallsign(e.target.value)}
               className="border border-brand-border rounded-xl px-3.5 py-2 text-xs font-bold w-full sm:w-64 bg-white focus:outline-none focus:border-brand"
             />
-            <select
-              value={initialGroupId}
-              onChange={(e) => setInitialGroupId(Number(e.target.value))}
-              className="border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand bg-white focus:outline-none"
-            >
-              <option value={0}>Assign Group (Optional)...</option>
-              {groups.filter(g => g.is_active).map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
             <input
               type="text"
               placeholder="SimBrief ID (Optional)..."
@@ -306,7 +272,6 @@ export function PilotsTab() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredEnrolled.map((p) => {
               const currentLifts = pilotLifts[p.id] !== undefined ? pilotLifts[p.id] : (p.lifts || 0);
-              const currentGroup = pilotGroups[p.id] !== undefined ? pilotGroups[p.id] : (p.flying_groupid || 0);
               const isSaving = savingPilotId === p.id;
 
               return (
@@ -326,11 +291,6 @@ export function PilotsTab() {
                           </span>
                         )}
                       </div>
-                      {p.group_name && (
-                        <div className="text-[11px] font-bold text-emerald-700 mt-0.5">
-                          {p.group_name}
-                        </div>
-                      )}
                     </div>
 
                     <button
@@ -343,26 +303,8 @@ export function PilotsTab() {
                   </div>
 
                   {/* Grid of Edit Controls */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-
-                    {/* 1. Flying Group Selector */}
-                    <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
-                      <label className="text-[10px] font-black uppercase text-gray-500">Flying Group</label>
-                      <select
-                        value={currentGroup}
-                        onChange={(e) => setPilotGroups(prev => ({ ...prev, [p.id]: Number(e.target.value) }))}
-                        className="border border-brand-border rounded-lg px-2.5 py-1 text-xs font-bold text-gray-700 bg-white focus:outline-none focus:border-brand"
-                      >
-                        <option value={0}>No Group Assigned</option>
-                        {groups.filter(g => g.is_active || g.id === currentGroup).map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* 2. Lifts Counter */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {/* 1. Lifts Counter */}
                     <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
                       <label className="text-[10px] font-black uppercase text-gray-500">Lifts Provided</label>
                       <div className="flex items-center gap-2">
@@ -380,7 +322,7 @@ export function PilotsTab() {
                       </div>
                     </div>
 
-                    {/* 3. SimBrief ID */}
+                    {/* 2. SimBrief ID */}
                     <div className="bg-white p-2.5 rounded-xl border border-emerald-200/80 flex flex-col gap-1">
                       <label className="text-[10px] font-black uppercase text-gray-500">SimBrief ID</label>
                       <input
@@ -412,19 +354,11 @@ export function PilotsTab() {
   );
 }
 
-/* ─── GROUPS TAB ─── */
-// GroupsTab is imported from ./admin/GroupsPage
-
 /* ─── AIRCRAFT TAB ─── */
 
 export function AircraftTab() {
   const dispatch = useAppDispatch();
-  const { airframes, types } = useAppSelector((s) => s.aircraft);
-  const [showCreate, setShowCreate] = useState(false);
-  const [reg, setReg] = useState("");
-  const [typeId, setTypeId] = useState(0);
-  const [airport, setAirport] = useState("OTHH");
-  const [ifOrgId, setIfOrgId] = useState("");
+  const { airframes } = useAppSelector((s) => s.aircraft);
   const [editStatus, setEditStatus] = useState<Record<number, string>>({});
 
   useEffect(() => {
@@ -432,80 +366,15 @@ export function AircraftTab() {
     dispatch(fetchAircraftTypes());
   }, [dispatch]);
 
-  const handleCreate = async () => {
-    if (!reg || !typeId) return;
-    await dispatch(
-      createAirframe({
-        aircraft_type_id: typeId,
-        registration: reg,
-        current_airport: airport,
-        home_base: airport,
-        if_organization_aircraft_id: ifOrgId || null,
-      })
-    );
-    setReg("");
-    setTypeId(0);
-    setAirport("OTHH");
-    setIfOrgId("");
-    setShowCreate(false);
-    dispatch(fetchAirframes());
-  };
+  const fleetAirframes = useMemo(() => {
+    return airframes.filter((a) => isFleetAircraft(a.registration));
+  }, [airframes]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-brand">Fleet Management</h2>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="rounded-full bg-gradient-to-br from-brand-dark to-brand text-white font-semibold text-sm px-5 py-2 hover:-translate-y-0.5 hover:shadow-lg transition-all"
-        >
-          + Add Airframe
-        </button>
       </div>
-
-      {showCreate && (
-        <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
-          <h3 className="text-lg font-bold text-brand mb-4">Add Airframe</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
-            <input
-              placeholder="Registration (e.g. A7-BAA)"
-              value={reg}
-              onChange={(e) => setReg(e.target.value)}
-              className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
-            />
-            <select
-              value={typeId}
-              onChange={(e) => setTypeId(Number(e.target.value))}
-              className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
-            >
-              <option value={0}>Aircraft Type</option>
-              {types.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.icao})
-                </option>
-              ))}
-            </select>
-            <input
-              placeholder="Delivery Airport"
-              value={airport}
-              onChange={(e) => setAirport(e.target.value)}
-              className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
-            />
-            <input
-              placeholder="IF Org Aircraft ID (Optional)"
-              value={ifOrgId}
-              onChange={(e) => setIfOrgId(e.target.value)}
-              className="border border-brand-border rounded-xl px-4 py-2.5 text-sm"
-            />
-          </div>
-          <button
-            onClick={handleCreate}
-            className="rounded-full bg-brand text-white font-semibold text-sm px-5 py-2"
-          >
-            Create
-          </button>
-        </div>
-      )}
 
       <div className="bg-white rounded-2xl border border-brand-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -532,7 +401,7 @@ export function AircraftTab() {
               </tr>
             </thead>
             <tbody>
-              {airframes.map((a) => (
+              {fleetAirframes.map((a) => (
                 <tr key={a.id} className="border-t border-brand-border">
                   <td className="px-5 py-3 font-semibold">{a.registration}</td>
                   <td className="px-5 py-3 text-xs">{a.aircraft_type_name}</td>

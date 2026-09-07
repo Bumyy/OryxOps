@@ -43,16 +43,23 @@ async def get_current_staff(
     pilot=Depends(get_current_pilot),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.live_models import Permission
+    from app.models.live_models import Permission, StaffRole
 
     clean_callsign = pilot.callsign.strip().upper() if pilot.callsign else ""
-    if clean_callsign in ["QRV001", "QRV002", "QRV003", "QRV004"]:
+    if clean_callsign in ["QRV001", "QRV002", "QRV003", "QRV004", "QRV008"]:
+        return pilot
+
+    # Check StaffRole
+    role_res = await db.execute(
+        select(StaffRole).where(StaffRole.user_id == pilot.id).limit(1)
+    )
+    if role_res.scalar_one_or_none() is not None:
         return pilot
 
     result = await db.execute(
         select(Permission).where(
             Permission.userid == pilot.id,
-            Permission.name == "admin",
+            Permission.name.in_(["admin", "staff", "manager", "executive", "scheduler"]),
         ).limit(1)
     )
     if result.scalar_one_or_none() is not None:
@@ -65,19 +72,30 @@ async def get_current_admin(
     pilot=Depends(get_current_pilot),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.live_models import Permission
+    from app.models.live_models import Permission, StaffRole
 
     clean_callsign = pilot.callsign.strip().upper() if pilot.callsign else ""
-    if clean_callsign in ["QRV001", "QRV002", "QRV003", "QRV004"]:
+    if clean_callsign in ["QRV001", "QRV002", "QRV003", "QRV004", "QRV008"]:
+        return pilot
+
+    # Check StaffRole
+    role_res = await db.execute(
+        select(StaffRole).where(
+            StaffRole.user_id == pilot.id,
+            StaffRole.level.in_(["Executive", "Manager", "Staff"]),
+        ).limit(1)
+    )
+    if role_res.scalar_one_or_none() is not None:
         return pilot
 
     result = await db.execute(
         select(Permission).where(
             Permission.userid == pilot.id,
-            Permission.name == "admin",
+            Permission.name.in_(["admin", "staff", "manager", "executive"]),
         ).limit(1)
     )
     if result.scalar_one_or_none() is not None:
         return pilot
 
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+

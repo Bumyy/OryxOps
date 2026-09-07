@@ -23,8 +23,6 @@ import Shop from "./pages/Shop";
 import Handbook from "./pages/Handbook";
 
 import AdminPilots from "./pages/admin/PilotsPage";
-import AdminGroups from "./pages/admin/GroupsPage";
-import AdminCrewRoster from "./pages/admin/CrewRosterPage";
 import AdminBidding from "./pages/admin/AdminBiddingPage";
 import AdminAircraft from "./pages/admin/AircraftPage";
 import AdminTransfers from "./pages/admin/TransfersPage";
@@ -141,11 +139,9 @@ export default function App() {
 
           {/* Full Pilot Routes - Requires Award ID 9 or Admin */}
           <Route path="/" element={<PilotAccessRoute><Dashboard /></PilotAccessRoute>} />
-          <Route path="/groups" element={<PilotAccessRoute><Groups /></PilotAccessRoute>} />
-          <Route path="/groups/:id" element={<PilotAccessRoute><GroupDetail /></PilotAccessRoute>} />
+          <Route path="/groups" element={<Navigate to="/calendar" replace />} />
+          <Route path="/groups/:id" element={<Navigate to="/calendar" replace />} />
           <Route path="/calendar" element={<PilotAccessRoute><Calendar /></PilotAccessRoute>} />
-          <Route path="/fleet" element={<Navigate to="/groups" replace />} />
-          <Route path="/fleet/:id" element={<PilotAccessRoute><AircraftDetail /></PilotAccessRoute>} />
           <Route path="/bookings" element={<PilotAccessRoute><Bookings /></PilotAccessRoute>} />
           <Route path="/operations" element={<PilotAccessRoute><Operations /></PilotAccessRoute>} />
           <Route path="/transfers" element={<PilotAccessRoute><Transfers /></PilotAccessRoute>} />
@@ -157,14 +153,15 @@ export default function App() {
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
           <Route path="/admin/track" element={<AdminRoute><LiveTracker /></AdminRoute>} />
           <Route path="/admin/pilots" element={<AdminRoute><AdminPilots /></AdminRoute>} />
-          <Route path="/admin/groups" element={<AdminRoute><AdminGroups /></AdminRoute>} />
-          <Route path="/admin/crew-roster" element={<AdminRoute><AdminCrewRoster /></AdminRoute>} />
-          <Route path="/admin/bidding" element={<AdminRoute><AdminBidding /></AdminRoute>} />
+          <Route path="/admin/crew-roster" element={<Navigate to="/admin/pilots" replace />} />
           <Route path="/admin/aircraft" element={<AdminRoute><AdminAircraft /></AdminRoute>} />
           <Route path="/admin/transfers" element={<AdminRoute><AdminTransfers /></AdminRoute>} />
           <Route path="/admin/waves" element={<AdminRoute><AdminWaves /></AdminRoute>} />
           <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
           <Route path="/admin/auto-scheduler" element={<AdminRoute><AdminAutoScheduler /></AdminRoute>} />
+          <Route path="/admin/fleet" element={<AdminRoute><Fleet /></AdminRoute>} />
+          <Route path="/fleet" element={<AdminRoute><Fleet /></AdminRoute>} />
+          <Route path="/fleet/:id" element={<AdminRoute><AircraftDetail /></AdminRoute>} />
         </Route>
       </Routes>
     </AuthInitializer>

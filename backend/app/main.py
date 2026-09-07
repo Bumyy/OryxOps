@@ -35,6 +35,17 @@ async def _tracking_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _tracker_task
+    # Safe DB constraint relaxation for group-free operations
+    try:
+        from app.core.database import async_session
+        from sqlalchemy import text
+        async with async_session() as db:
+            await db.execute(text("ALTER TABLE live_flight_schedule MODIFY group_id INT NULL"))
+            await db.execute(text("ALTER TABLE live_schedule_waves MODIFY group_id INT NULL"))
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"Note on ALTER TABLE group_id: {e}")
+
     _tracker_task = asyncio.create_task(_tracking_loop())
     logger.info("IF tracking background worker started")
     yield

@@ -39,8 +39,29 @@ async function request<T>(
       localStorage.removeItem("token");
       window.location.href = "/login";
     }
-    const error = await res.json().catch(() => ({ detail: "Request failed" }));
-    throw new Error(error.detail || `HTTP ${res.status}`);
+    let errorMsg = `HTTP ${res.status}`;
+    try {
+      const text = await res.text();
+      try {
+        const error = JSON.parse(text);
+        if (typeof error.detail === "string") {
+          errorMsg = error.detail;
+        } else if (Array.isArray(error.detail)) {
+          errorMsg = error.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ");
+        } else if (error.detail && typeof error.detail === "object") {
+          errorMsg = JSON.stringify(error.detail);
+        } else if (error.message) {
+          errorMsg = error.message;
+        }
+      } catch {
+        if (text && text.trim().length > 0 && text.length < 300) {
+          errorMsg = text.trim();
+        }
+      }
+    } catch {
+      // fallback
+    }
+    throw new Error(errorMsg);
   }
 
   if (res.status === 204) return undefined as T;

@@ -75,15 +75,13 @@ export default function AircraftDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         {[
-          { label: "Current Airport", value: a.current_airport },
-          { label: "Home Base", value: a.home_base },
-          { label: "Total Hours", value: `${a.total_flight_hours}h` },
-          { label: "Total Flights", value: a.total_flights },
+          { label: "Current Airport", value: a.current_airport || "OTHH" },
+          { label: "Home Base", value: a.home_base || "OTHH" },
+          { label: "Total Hours", value: `${a.total_flight_hours || 0}h` },
+          { label: "Total Flights", value: a.total_flights || 0 },
           { label: "Current Pilot", value: a.current_pilot_name || "—" },
-          { label: "Last Pilot", value: (a as any).last_pilot_name || "—" },
-          { label: "Group", value: (a as any).group_name || "—" },
           { label: "Last Flight", value: a.last_flight_at ? new Date(a.last_flight_at).toLocaleDateString() : "—" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-brand-border shadow-sm p-4">

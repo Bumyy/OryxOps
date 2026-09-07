@@ -3,7 +3,7 @@ import { api } from "../../api/client";
 
 interface ScheduleItem {
   id: number;
-  group_id: number;
+  group_id?: number | null;
   aircraft_id: number;
   aircraft_registration: string;
   departure: string;
@@ -15,7 +15,9 @@ interface ScheduleItem {
   wave_name: string | null;
   ground_time_minutes: number;
   status: string;
+  created_by?: number;
   created_by_name: string;
+  approved_by?: number | null;
   week_start: string;
   booking_count: number;
 }
@@ -53,44 +55,84 @@ export const fetchSchedules = createAsyncThunk(
 
 export const createSchedule = createAsyncThunk(
   "schedule/create",
-  (data: any) => api.post<ScheduleItem>("/schedules", data),
+  async (data: any, { rejectWithValue }) => {
+    try {
+      return await api.post<ScheduleItem>("/schedules", data);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to create schedule");
+    }
+  },
 );
 
 export const updateSchedule = createAsyncThunk(
   "schedule/update",
-  ({ id, data }: { id: number; data: any }) =>
-    api.patch<ScheduleItem>(`/schedules/${id}`, data),
+  async ({ id, data }: { id: number; data: any }, { rejectWithValue }) => {
+    try {
+      return await api.patch<ScheduleItem>(`/schedules/${id}`, data);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to update schedule");
+    }
+  },
 );
 
 export const deleteSchedule = createAsyncThunk(
   "schedule/delete",
-  (id: number) => api.delete(`/schedules/${id}`),
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await api.delete(`/schedules/${id}`);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to delete schedule");
+    }
+  },
 );
 
 export const proposeSchedule = createAsyncThunk(
   "schedule/propose",
-  (id: number) => api.post<ScheduleItem>(`/schedules/${id}/propose`),
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await api.post<ScheduleItem>(`/schedules/${id}/propose`);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to propose schedule");
+    }
+  },
 );
 
 export const approveSchedule = createAsyncThunk(
   "schedule/approve",
-  (id: number) => api.post<ScheduleItem>(`/schedules/${id}/approve`),
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await api.post<ScheduleItem>(`/schedules/${id}/approve`);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to approve schedule");
+    }
+  },
 );
 
 export const rejectSchedule = createAsyncThunk(
   "schedule/reject",
-  (id: number) => api.post<ScheduleItem>(`/schedules/${id}/reject`),
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await api.post<ScheduleItem>(`/schedules/${id}/reject`);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to reject schedule");
+    }
+  },
 );
 
 export const bulkApproveSchedules = createAsyncThunk(
   "schedule/bulkApprove",
-  (data: { group_id: number; week_start: string }) =>
-    api.post("/schedules/bulk-approve", data),
+  async (data: { group_id?: number | null; week_start: string }, { rejectWithValue }) => {
+    try {
+      return await api.post("/schedules/bulk-approve", data);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to bulk approve schedules");
+    }
+  },
 );
 
 export const fetchWaves = createAsyncThunk(
   "schedule/fetchWaves",
-  (params?: { group_id?: number }) => {
+  async (params?: { group_id?: number }) => {
     const qs = new URLSearchParams();
     if (params?.group_id) qs.set("group_id", String(params.group_id));
     return api.get<Wave[]>(`/schedules/waves?${qs.toString()}`);
@@ -99,12 +141,24 @@ export const fetchWaves = createAsyncThunk(
 
 export const createWave = createAsyncThunk(
   "schedule/createWave",
-  (data: any) => api.post<Wave>("/schedules/waves", data),
+  async (data: any, { rejectWithValue }) => {
+    try {
+      return await api.post<Wave>("/schedules/waves", data);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to create wave");
+    }
+  },
 );
 
 export const deleteWave = createAsyncThunk(
   "schedule/deleteWave",
-  (id: number) => api.delete(`/schedules/waves/${id}`),
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await api.delete(`/schedules/waves/${id}`);
+    } catch (err: any) {
+      return rejectWithValue(err.message || "Failed to delete wave");
+    }
+  },
 );
 
 const scheduleSlice = createSlice({

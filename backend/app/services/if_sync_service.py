@@ -197,47 +197,52 @@ async def try_auto_sync_to_if(
     Called transparently after approval — regular users never see this.
     Returns the IF schedule ID, or ``None`` if IF is not configured.
     """
-    # Check if the schedule's aircraft has an IF mapping
-    if schedule.aircraft_id is None:
-        return None
-
-    result = await db.execute(
-        select(LiveAircraft)
-        .where(LiveAircraft.id == schedule.aircraft_id)
-        .options(selectinload(LiveAircraft.aircraft_type))
-    )
-    aircraft = result.scalar_one_or_none()
-    if aircraft is None or not aircraft.if_organization_aircraft_id:
-        return None
-
-    # Find any staff member with a valid IF token
-    result = await db.execute(
-        select(LiveIFOAuthToken)
-        .where(LiveIFOAuthToken.refresh_token != "")
-        .where(LiveIFOAuthToken.refresh_token.isnot(None))
-    )
-    token_row = result.scalars().first()
-    if token_row is None:
-        return None
-
-    # Build client + sync
-    manager = IFTokenManager()
-    client = await manager.get_client(db, token_row.pilot_id)
-    if isinstance(client, IFLiveClient):
-        await client.open()
-    else:
-        return None
-
     try:
-        sync = IFScheduleSync(client)
-        if_id = await sync.push_schedule(
-            db, schedule, aircraft.if_organization_aircraft_id
+        # Check if the schedule's aircraft has an IF mapping
+        if schedule.aircraft_id is None:
+            return None
+
+        result = await db.execute(
+            select(LiveAircraft)
+            .where(LiveAircraft.id == schedule.aircraft_id)
+            .options(selectinload(LiveAircraft.aircraft_type))
         )
-        return if_id
+        aircraft = result.scalar_one_or_none()
+        if aircraft is None or not aircraft.if_organization_aircraft_id:
+            return None
+
+        # Find any staff member with a valid IF token
+        result = await db.execute(
+            select(LiveIFOAuthToken)
+            .where(LiveIFOAuthToken.refresh_token != "")
+            .where(LiveIFOAuthToken.refresh_token.isnot(None))
+        )
+        token_row = result.scalars().first()
+        if token_row is None:
+            return None
+
+        # Build client + sync
+        manager = IFTokenManager()
+        client = await manager.get_client(db, token_row.pilot_id)
+        if not isinstance(client, IFLiveClient):
+            return None
+
+        try:
+            await client.open()
+            sync = IFScheduleSync(client)
+            if_id = await sync.push_schedule(
+                db, schedule, aircraft.if_organization_aircraft_id
+            )
+            return if_id
+        except Exception:
+            return None
+        finally:
+            try:
+                await client.close()
+            except Exception:
+                pass
     except Exception:
         return None
-    finally:
-        await client.close()
 
 
 # ---------------------------------------------------------------------------

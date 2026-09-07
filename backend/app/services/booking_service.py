@@ -202,9 +202,13 @@ async def get_bookings(
         if status == "logs":
             # For logs, show completed, rejected, or cancelled
             query = query.where(LiveFlightBooking.status.in_(["completed", "rejected", "cancelled"]))
+        elif status == "booked":
+            # For active bookings tab, show booked, dispatched, and no_show
+            query = query.where(LiveFlightBooking.status.in_(["booked", "dispatched", "no_show"]))
+            query = query.where(LiveFlightSchedule.status != "cancelled")
         else:
             query = query.where(LiveFlightBooking.status == status)
-            if status in ["booked", "dispatched"]:
+            if status in ["booked", "dispatched", "no_show"]:
                 query = query.where(LiveFlightSchedule.status != "cancelled")
     else:
         # Default query filters out cancelled schedules for active bookings
@@ -919,14 +923,15 @@ async def record_ledger_rows(
 
 
 
-# async def mark_no_show(db: AsyncSession, booking_id: int) -> LiveFlightBooking | None:
-#     booking = await get_booking(db, booking_id)
-#     if not booking or booking.status != "booked":
-#         return None
-#     booking.status = "no_show"
-#     await db.commit()
-#     await db.refresh(booking)
-#     return booking
+async def mark_no_show(db: AsyncSession, booking_id: int) -> LiveFlightBooking | None:
+    booking = await get_booking(db, booking_id)
+    if not booking or booking.status != "booked":
+        return None
+    booking.status = "no_show"
+    booking.released_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(booking)
+    return booking
 
 
 async def take_over_booking(

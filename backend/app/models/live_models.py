@@ -317,7 +317,7 @@ class LiveFlightSchedule(Base):
     __tablename__ = "live_flight_schedule"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    group_id = Column(Integer, ForeignKey("live_flying_groups.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("live_flying_groups.id"), nullable=True)
     aircraft_id = Column(Integer, ForeignKey("live_aircraft.id"), nullable=False)
     route_id = Column(Integer, ForeignKey("routes.id"))
     departure = Column(String(4), nullable=False)

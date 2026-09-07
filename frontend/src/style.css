@@ -83,21 +83,25 @@
     --scrollbar-thumb: #ead9df;
     --y-axis-width: 100px;
 
-    --status-approved-bg:      #d1fae5;
-    --status-approved-text:    #065f46;
-    --status-approved-border:  #6ee7b7;
+    --status-approved-bg:      #f0fdf4;
+    --status-approved-text:    #15803d;
+    --status-approved-border:  #86efac;
 
-    --status-completed-bg:     #e0e7ff;
-    --status-completed-text:   #3730a3;
+    --status-booked-bg:        #f0fdf4;
+    --status-booked-text:      #065f46;
+    --status-booked-border:    #86efac;
+
+    --status-completed-bg:     #eef2ff;
+    --status-completed-text:   #2563eb;
     --status-completed-border: #c7d2fe;
 
-    --status-proposed-bg:      #fef3c7;
-    --status-proposed-text:    #78350f;
-    --status-proposed-border:  #fcd34d;
+    --status-proposed-bg:      #fefce8;
+    --status-proposed-text:    #a16207;
+    --status-proposed-border:  #fde047;
 
     --status-draft-bg:         #f0f9ff;
-    --status-draft-text:       #0c4a6e;
-    --status-draft-border:     #7dd3fc;
+    --status-draft-text:       #0284c7;
+    --status-draft-border:     #bae6fd;
 
     --status-error-bg:         #ffe4e6;
     --status-error-text:       #881337;

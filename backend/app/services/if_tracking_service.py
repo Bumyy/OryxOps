@@ -54,91 +54,91 @@ class IFTrackingSync:
         self._error = None
         now = datetime.utcnow()
 
+        flights: list[FlightEntry] = []
+        flight_by_id: dict[str, FlightEntry] = {}
+        session_id: str | None = None
+
         try:
             async with IFV2Client() as v2:
                 expert = await v2.get_expert_session()
-                if expert is None:
+                if expert is not None:
+                    flights = await v2.list_session_flights(expert.id)
+                    self._active_flight_count = len(flights)
+                    flight_by_id = {f.flight_id: f for f in flights}
+                    session_id = expert.id
+                else:
                     self._error = "No Expert server found"
-                    self._last_sync_at = now
-                    return self.status
 
-                flights = await v2.list_session_flights(expert.id)
-                self._active_flight_count = len(flights)
+            due_booked = await self._get_due_booked_schedules(db, now)
+            dispatched = await self._get_dispatched_bookings(db)
 
-                flight_by_id: dict[str, FlightEntry] = {f.flight_id: f for f in flights}
-                session_id = expert.id
+            v3_client = await self._get_v3_client(db)
 
-                due_booked = await self._get_due_booked_schedules(db, now)
-                dispatched = await self._get_dispatched_bookings(db)
+            # --- Auto-dispatch & No-show detection ---
+            for booking in due_booked:
+                schedule = booking.schedule
+                if schedule is None:
+                    continue
+                aircraft = schedule.aircraft
 
-                v3_client = await self._get_v3_client(db)
-
-                # --- Auto-dispatch: v3 position.id ∈ v2 flightId set ---
-                for booking in due_booked:
-                    schedule = booking.schedule
-                    if schedule is None:
-                        continue
-                    aircraft = schedule.aircraft
-                    if aircraft is None or not aircraft.if_organization_aircraft_id:
-                        continue
-
-                    matched_flight = None
-                    if v3_client is not None:
-                        try:
-                            pos = await v3_client.get_aircraft_position(
-                                aircraft.if_organization_aircraft_id
-                            )
-                            pos_id = pos.get("id") if isinstance(pos, dict) else None
-                            if pos_id and pos_id in flight_by_id:
-                                matched_flight = flight_by_id[pos_id]
-                        except Exception:
-                            pass
-
-                    if matched_flight:
-                        valid = await self._validate_booking_pilot(
-                            db, booking, matched_flight
+                matched_flight = None
+                if v3_client is not None and aircraft and aircraft.if_organization_aircraft_id:
+                    try:
+                        pos = await v3_client.get_aircraft_position(
+                            aircraft.if_organization_aircraft_id
                         )
-                        if not valid:
-                            continue
-                        if matched_flight.speed <= 0:
-                            continue
+                        pos_id = pos.get("id") if isinstance(pos, dict) else None
+                        if pos_id and pos_id in flight_by_id:
+                            matched_flight = flight_by_id[pos_id]
+                    except Exception:
+                        pass
+
+                if matched_flight:
+                    valid = await self._validate_booking_pilot(
+                        db, booking, matched_flight
+                    )
+                    if valid and matched_flight.speed > 0:
                         await self._auto_dispatch(
                             db, booking, schedule, matched_flight, now
                         )
                         self._dispatched_count += 1
                         continue
 
-                    # --- No-show detection (DISABLED) ---
-                    # cutoff = schedule.scheduled_departure + timedelta(
-                    #     minutes=_NO_SHOW_GRACE_MINUTES
-                    # )
-                    # if schedule.scheduled_departure and now >= cutoff:
-                    #     await self._auto_no_show(db, booking, now)
-                    #     self._no_show_count += 1
-                    pass
+                # --- No-show detection (30 minutes after scheduled departure and booked_at) ---
+                if schedule.scheduled_departure:
+                    dep_cutoff = schedule.scheduled_departure + timedelta(
+                        minutes=_NO_SHOW_GRACE_MINUTES
+                    )
+                    booked_cutoff = (booking.booked_at or schedule.scheduled_departure) + timedelta(
+                        minutes=_NO_SHOW_GRACE_MINUTES
+                    )
+                    if now >= dep_cutoff and now >= booked_cutoff:
+                        await self._auto_no_show(db, booking, now)
+                        self._no_show_count += 1
 
-                # --- Track dispatched flights ---
-                for booking in dispatched:
-                    schedule = booking.schedule
-                    if schedule is None:
-                        continue
-                    if booking.if_flight_id and booking.if_flight_id in flight_by_id:
-                        if schedule.actual_departure is None:
-                            schedule.actual_departure = now
-                            db.add(schedule)
-                        schedule.if_session_id = session_id
+            # --- Track dispatched flights ---
+            for booking in dispatched:
+                schedule = booking.schedule
+                if schedule is None:
+                    continue
+                if booking.if_flight_id and booking.if_flight_id in flight_by_id:
+                    if schedule.actual_departure is None:
+                        schedule.actual_departure = now
                         db.add(schedule)
-                    elif booking.if_flight_id and booking.if_flight_id not in flight_by_id:
-                        if schedule.scheduled_arrival and now >= schedule.scheduled_arrival:
-                            if schedule.actual_arrival is None:
-                                schedule.actual_arrival = now
-                                db.add(schedule)
+                    if session_id:
+                        schedule.if_session_id = session_id
+                    db.add(schedule)
+                elif booking.if_flight_id and booking.if_flight_id not in flight_by_id:
+                    if schedule.scheduled_arrival and now >= schedule.scheduled_arrival:
+                        if schedule.actual_arrival is None:
+                            schedule.actual_arrival = now
+                            db.add(schedule)
 
-                if v3_client is not None:
-                    await v3_client.close()
+            if v3_client is not None:
+                await v3_client.close()
 
-                await db.commit()
-                self._last_sync_at = now
+            await db.commit()
+            self._last_sync_at = now
 
         except Exception as exc:
             self._error = str(exc)
@@ -241,15 +241,19 @@ class IFTrackingSync:
         db.add(booking)
         db.add(schedule)
 
-    # async def _auto_no_show(
-    #     self,
-    #     db: AsyncSession,
-    #     booking: LiveFlightBooking,
-    #     now: datetime,
-    # ):
-    #     booking.status = "no_show"
-    #     booking.released_at = now
-    #     db.add(booking)
+    async def _auto_no_show(
+        self,
+        db: AsyncSession,
+        booking: LiveFlightBooking,
+        now: datetime,
+    ):
+        booking.status = "no_show"
+        booking.released_at = now
+        db.add(booking)
+        logger.info(
+            f"Booking #{booking.id} marked as no_show (scheduled dep: "
+            f"{booking.schedule.scheduled_departure if booking.schedule else 'unknown'})"
+        )
 
 
 # ---------------------------------------------------------------------------

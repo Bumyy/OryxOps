@@ -48,16 +48,16 @@ def queue_approval_notification(schedule_id: int, pilot_id: int | None = None):
 async def _auto_flush_proposals_after_delay(pilot_id: int, delay_seconds: int = 300):
     await asyncio.sleep(delay_seconds)
     if pilot_id in _pending_proposals and _pending_proposals[pilot_id]:
-        from app.db.session import AsyncSessionLocal
-        async with AsyncSessionLocal() as db:
+        from app.core.database import async_session
+        async with async_session() as db:
             await flush_staff_proposal_notification(db, pilot_id)
 
 
 async def _auto_flush_approvals_after_delay(delay_seconds: int = 300):
     await asyncio.sleep(delay_seconds)
     if _pending_approvals:
-        from app.db.session import AsyncSessionLocal
-        async with AsyncSessionLocal() as db:
+        from app.core.database import async_session
+        async with async_session() as db:
             await flush_pilot_approval_notifications(db)
 
 
@@ -183,8 +183,30 @@ async def get_schedule(db: AsyncSession, schedule_id: int) -> LiveFlightSchedule
     return result.scalar_one_or_none()
 
 
+def _sanitize_schedule_data(data: dict) -> dict:
+    cleaned = dict(data)
+    if isinstance(cleaned.get("scheduled_departure"), str):
+        cleaned["scheduled_departure"] = datetime.fromisoformat(cleaned["scheduled_departure"].replace("Z", ""))
+    if isinstance(cleaned.get("scheduled_arrival"), str):
+        cleaned["scheduled_arrival"] = datetime.fromisoformat(cleaned["scheduled_arrival"].replace("Z", ""))
+    if isinstance(cleaned.get("week_start"), str):
+        cleaned["week_start"] = datetime.strptime(cleaned["week_start"][:10], "%Y-%m-%d").date()
+    if cleaned.get("flight_number") is not None:
+        cleaned["flight_number"] = str(cleaned["flight_number"]).split(",")[0].strip()[:10]
+    return cleaned
+
+
 async def create_schedule(db: AsyncSession, data: dict) -> LiveFlightSchedule:
-    schedule = LiveFlightSchedule(**data)
+    cleaned = _sanitize_schedule_data(data)
+    if cleaned.get("group_id") is None:
+        try:
+            from app.models.live_models import LiveFlyingGroup
+            g_res = await db.execute(select(LiveFlyingGroup.id).limit(1))
+            first_group_id = g_res.scalar_one_or_none()
+            cleaned["group_id"] = first_group_id or 1
+        except Exception:
+            cleaned["group_id"] = 1
+    schedule = LiveFlightSchedule(**cleaned)
     db.add(schedule)
     await db.commit()
     await db.refresh(schedule)
@@ -200,7 +222,8 @@ async def update_schedule(
     schedule = result.scalar_one_or_none()
     if not schedule:
         return None
-    for key, value in data.items():
+    cleaned = _sanitize_schedule_data(data)
+    for key, value in cleaned.items():
         if value is not None:
             setattr(schedule, key, value)
     await db.commit()
@@ -395,15 +418,15 @@ async def update_schedule_status(
 
 
 async def bulk_approve_schedules(
-    db: AsyncSession, group_id: int, week_start: str, approved_by: int
+    db: AsyncSession, group_id: int | None, week_start: str, approved_by: int
 ) -> int:
-    result = await db.execute(
-        select(LiveFlightSchedule).where(
-            LiveFlightSchedule.group_id == group_id,
-            LiveFlightSchedule.week_start == week_start,
-            LiveFlightSchedule.status == "proposed",
-        )
+    query = select(LiveFlightSchedule).where(
+        LiveFlightSchedule.week_start == week_start,
+        LiveFlightSchedule.status == "proposed",
     )
+    if group_id:
+        query = query.where(LiveFlightSchedule.group_id == group_id)
+    result = await db.execute(query)
     schedules = list(result.scalars().all())
     count = 0
     for schedule in schedules:
@@ -449,18 +472,25 @@ async def delete_wave(db: AsyncSession, wave_id: int) -> bool:
 
 
 async def get_available_aircraft_for_schedule(
-    db: AsyncSession, group_id: int
+    db: AsyncSession, group_id: int | None = None
 ) -> list[LiveAircraft]:
-    result = await db.execute(
-        select(LiveAircraft)
-        .join(LiveGroupAircraft, LiveGroupAircraft.aircraft_id == LiveAircraft.id)
-        .where(
-            LiveGroupAircraft.group_id == group_id,
-            LiveGroupAircraft.removed_at.is_(None),
-            LiveAircraft.status.in_(["parked", "in_hangar"]),
+    if group_id:
+        result = await db.execute(
+            select(LiveAircraft)
+            .join(LiveGroupAircraft, LiveGroupAircraft.aircraft_id == LiveAircraft.id)
+            .where(
+                LiveGroupAircraft.group_id == group_id,
+                LiveGroupAircraft.removed_at.is_(None),
+                LiveAircraft.status.in_(["parked", "in_hangar"]),
+            )
+            .options(selectinload(LiveAircraft.aircraft_type))
         )
-        .options(selectinload(LiveAircraft.aircraft_type))
-    )
+    else:
+        result = await db.execute(
+            select(LiveAircraft)
+            .where(LiveAircraft.status.in_(["parked", "in_hangar"]))
+            .options(selectinload(LiveAircraft.aircraft_type))
+        )
     return list(result.scalars().all())
 
 
@@ -478,7 +508,7 @@ async def get_schedule_booking_count(db: AsyncSession, schedule_id: int) -> int:
 
 async def generate_auto_schedules(
     db: AsyncSession,
-    group_id: int,
+    group_id: int | None,
     aircraft_id: int,
     num_roundtrips: int,
     haul_preference: str,
@@ -586,6 +616,17 @@ async def generate_auto_schedules(
         if not selected_pairs:
             selected_pairs = [random.choice(route_pairs) for _ in range(num_roundtrips)]
             
+    # Resolve effective group_id (fallback to active group or 1 if None)
+    effective_group_id = group_id
+    if effective_group_id is None:
+        try:
+            from app.models.live_models import LiveFlyingGroup
+            g_res = await db.execute(select(LiveFlyingGroup.id).limit(1))
+            first_group_id = g_res.scalar_one_or_none()
+            effective_group_id = first_group_id or 1
+        except Exception:
+            effective_group_id = 1
+
     # 6. Generate schedule records spaced 2 days apart starting from start_time
     total_created = 0
     for idx in range(num_roundtrips):
@@ -609,7 +650,7 @@ async def generate_auto_schedules(
         
         # Create outbound flight leg (saved as draft)
         outbound_leg = LiveFlightSchedule(
-            group_id=group_id,
+            group_id=effective_group_id,
             aircraft_id=ac.id,
             route_id=outbound.id,
             departure=outbound.dep,
@@ -626,7 +667,7 @@ async def generate_auto_schedules(
         
         # Create inbound flight leg (saved as draft)
         inbound_leg = LiveFlightSchedule(
-            group_id=group_id,
+            group_id=effective_group_id,
             aircraft_id=ac.id,
             route_id=inbound.id,
             departure=inbound.dep,
@@ -642,9 +683,6 @@ async def generate_auto_schedules(
         db.add(inbound_leg)
         
         total_created += 2
-
-    await db.commit()
-    return total_created
 
     await db.commit()
     return total_created

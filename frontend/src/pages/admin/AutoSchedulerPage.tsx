@@ -1,16 +1,16 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { fetchGroups } from "../../store/slices/groupSlice";
+import { fetchAirframes } from "../../store/slices/aircraftSlice";
+import { isFleetAircraft } from "../../utils/aircraftCategories";
 import { api } from "../../api/client";
 
 export default function AutoSchedulerPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   
-  const { groups } = useAppSelector((s) => s.group);
+  const { airframes } = useAppSelector((s) => s.aircraft);
 
-  const [groupId, setGroupId] = useState<number>(0);
   const [aircraftId, setAircraftId] = useState<number>(0);
   const [numRoundtrips, setNumRoundtrips] = useState<number>(3);
   const [haulPreference, setHaulPreference] = useState<"short" | "long" | "mixed">("mixed");
@@ -34,45 +34,26 @@ export default function AutoSchedulerPage() {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   });
 
-  const [groupAircraft, setGroupAircraft] = useState<any[]>([]);
-  const [loadingAircraft, setLoadingAircraft] = useState(false);
-
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Fetch groups on mount
+  // Fetch airframes on mount
   useEffect(() => {
-    dispatch(fetchGroups());
+    dispatch(fetchAirframes());
   }, [dispatch]);
 
-  // Fetch aircraft assigned to selected group directly from the group details API
-  useEffect(() => {
-    setAircraftId(0);
-    if (groupId > 0) {
-      setLoadingAircraft(true);
-      api.get<any>(`/groups/${groupId}`)
-        .then((res) => {
-          setGroupAircraft(res.aircraft || []);
-        })
-        .catch(() => {
-          setGroupAircraft([]);
-        })
-        .finally(() => {
-          setLoadingAircraft(false);
-        });
-    } else {
-      setGroupAircraft([]);
-    }
-  }, [groupId]);
+  const fleetAirframes = useMemo(() => {
+    return airframes.filter((a) => isFleetAircraft(a.registration));
+  }, [airframes]);
 
   const selectedAircraft = useMemo(() => {
-    return groupAircraft.find(a => a.aircraft_id === aircraftId);
-  }, [aircraftId, groupAircraft]);
+    return fleetAirframes.find((a) => a.id === aircraftId);
+  }, [aircraftId, fleetAirframes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!groupId || !aircraftId || !startTime) return;
+    if (!aircraftId || !startTime) return;
 
     setGenerating(true);
     setErrorMsg(null);
@@ -80,7 +61,6 @@ export default function AutoSchedulerPage() {
 
     try {
       const res = await api.post<{ proposed_count: number }>("/schedules/auto-generate", {
-        group_id: groupId,
         aircraft_id: aircraftId,
         num_roundtrips: numRoundtrips,
         haul_preference: haulPreference,
@@ -114,7 +94,7 @@ export default function AutoSchedulerPage() {
         </div>
         <div>
           <h1 className="text-3xl font-bold text-brand">Auto Route Scheduler</h1>
-          <p className="text-xs text-gray-500">Automatically generate balanced proposed routes for a selected group airframe</p>
+          <p className="text-xs text-gray-500">Automatically generate balanced proposed routes for a selected fleet airframe</p>
         </div>
       </div>
 
@@ -137,54 +117,26 @@ export default function AutoSchedulerPage() {
           {/* Form grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Left Column: Group & Aircraft selection */}
+            {/* Left Column: Aircraft selection */}
             <div className="space-y-5">
               <div>
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                  Select Flying Group
+                  Select Fleet Aircraft ({fleetAirframes.length} Available)
                 </label>
                 <select
-                  value={groupId}
-                  onChange={(e) => setGroupId(Number(e.target.value))}
+                  value={aircraftId}
+                  onChange={(e) => setAircraftId(Number(e.target.value))}
                   required
                   className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-gray-700 focus:outline-none focus:border-brand"
                 >
-                  <option value={0}>Choose a group...</option>
-                  {groups.filter(g => g.is_active).map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
+                  <option value={0}>Choose an aircraft...</option>
+                  {fleetAirframes.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.registration} — {a.aircraft_type_name || "Unknown Model"} ({a.current_airport || "OTHH"})
                     </option>
                   ))}
                 </select>
               </div>
-
-              {groupId > 0 && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                    Select Aircraft (Airframe)
-                  </label>
-                  <select
-                    value={aircraftId}
-                    onChange={(e) => setAircraftId(Number(e.target.value))}
-                    required
-                    disabled={loadingAircraft}
-                    className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-gray-700 focus:outline-none focus:border-brand disabled:opacity-50"
-                  >
-                    {loadingAircraft ? (
-                      <option value={0}>Loading aircraft list...</option>
-                    ) : (
-                      <>
-                        <option value={0}>Choose an aircraft...</option>
-                        {groupAircraft.map((a) => (
-                          <option key={a.aircraft_id} value={a.aircraft_id}>
-                            {a.registration} ({a.aircraft_type_name || "Unknown Model"})
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-              )}
 
               {selectedAircraft && (
                 <div className="bg-gray-50/50 rounded-2xl border border-brand-border p-5">
@@ -204,7 +156,7 @@ export default function AutoSchedulerPage() {
                       Type: {selectedAircraft.aircraft_type_name}
                     </span>
                     <span className="text-[10px] text-gray-400 font-medium">
-                      Location: {selectedAircraft.current_airport}
+                      Current Location: {selectedAircraft.current_airport}
                     </span>
                   </div>
                 </div>
@@ -328,7 +280,7 @@ export default function AutoSchedulerPage() {
             </button>
             <button
               type="submit"
-              disabled={generating || !groupId || !aircraftId}
+              disabled={generating || !aircraftId}
               className="rounded-full bg-brand text-white font-semibold text-sm px-8 py-2.5 hover:bg-brand-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2"
             >
               {generating ? (
