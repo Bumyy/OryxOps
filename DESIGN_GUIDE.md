@@ -369,20 +369,6 @@ dark airline metrics strip
 - Bottom split: transaction list in a rounded-3xl card and four colored quick-action tiles.
 - Numeric content uses count-up animation and tabular figures.
 
-### Flying Groups (`/groups`)
-
-- `max-w-6xl`, large page title, optional vacancy bidding banner.
-- Bidding banner: blue/purple/brand translucent gradient, dark premium surface, rounded-3xl, open slot action pills.
-- Group gallery: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`, compact `gap-4` on mobile and `gap-6` from `sm` upward.
-- The page shows active groups only. The assigned group is sorted first and visually elevated with a brand border, ring, subtle brand/amber gradient, and an absolutely positioned blue `YOUR ASSIGNED GROUP` corner ribbon that does not affect card height.
-- Cards show group name, a two-stat inset panel, capacity progress bar, and an optional vacancy bidding action.
-- Capacity bar semantics: emerald under 75%, amber above 75%, rose when full.
-
-### Group Detail (`/groups/:id`)
-
-- Detail-oriented version of the group view: identity header, schedule context, pilot roster, and group-specific operational content.
-- Reuse the same selected-group border/ring, badge, capacity, and compact table/card patterns from Groups.
-
 ### Fleet Registry (`/fleet`)
 
 - `max-w-6xl`, page header with Sync All Locations action.
@@ -465,7 +451,6 @@ dark airline metrics strip
 The consolidated Admin Panel uses a `max-w-6xl` wrapper, a large burgundy title, and a horizontal wrapping pill tab bar. Active tabs are solid burgundy; inactive tabs are white/transparent with a semantic border. The content below is a sequence of management cards rather than a separate visual language.
 
 - Pilots: management card with search, quick-enroll inset, and a responsive enrolled-pilot card grid. Each pilot card contains a compact header, save action, two-column edit controls, and an assigned-aircraft chip selector.
-- Groups: split-pane workspace. A scrollable group list occupies one third at `lg`; the selected group management workspace occupies two thirds. Empty selection preserves a full-height centered card. Create-group is a centered modal.
 - Fleet/Aircraft: page wrapper plus fleet management heading, create-airframe card, and horizontally scrollable table.
 - Transfers: form/management card followed by a transfer review table.
 - Waves: compact wave-management forms and list/table views for arrival/departure time windows.
@@ -474,7 +459,7 @@ The consolidated Admin Panel uses a `max-w-6xl` wrapper, a large burgundy title,
 - Crew Roster: wide `max-w-7xl` view with purple gradient header action, horizontal filter tabs, large rounded roster cards, aircraft/crew assignment controls, and amber/blue inset panels.
 - Auto Scheduler: narrow `max-w-4xl` two-column form inside a white rounded-2xl card. Inputs are grouped into aircraft/route controls, timing/haul controls, constraints, and a full-width action footer.
 
-Dedicated routes such as `/admin/pilots`, `/admin/groups`, `/admin/aircraft`, `/admin/transfers`, `/admin/waves`, and `/admin/settings` are thin wrappers around these same tab layouts, with a `max-w-6xl` page title above the shared content.
+Dedicated routes such as `/admin/pilots`, `/admin/aircraft`, `/admin/transfers`, `/admin/waves`, and `/admin/settings` are thin wrappers around these same tab layouts, with a `max-w-6xl` page title above the shared content.
 
 ### Handbook (`/handbook`)
 
@@ -517,7 +502,6 @@ Main navigation:
 
 - Dashboard `/`
 - Flight Operations `/operations`
-- Flying Groups `/groups`
 - Schedule `/calendar`
 - My Bookings `/bookings`
 - Proposals Shop `/shop`
@@ -535,7 +519,6 @@ Other application routes:
 
 - Fleet `/fleet`
 - Aircraft detail `/fleet/:id`
-- Group detail `/groups/:id`
 - Transfers `/transfers`
 - Handbook `/handbook` and `/handbook/:sectionId`
 
@@ -544,9 +527,6 @@ Admin navigation:
 - `/admin`
 - `/admin/track`
 - `/admin/pilots`
-- `/admin/groups`
-- `/admin/crew-roster`
-- `/admin/bidding`
 - `/admin/aircraft`
 - `/admin/transfers`
 - `/admin/waves`
