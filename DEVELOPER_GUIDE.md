@@ -8,8 +8,7 @@ Welcome to the **OryxOps (QRV Live)** developer guide! This document is designed
 OryxOps is a custom-built Virtual Airline (VA) manager for **Qatari Virtual (QRV)** flight simulator pilots. 
 
 OryxOps models:
-1. **Flying Groups & Roster Management**: Managing pilot allocation into aircraft-specific operational groups with capacity formulas.
-2. **Flight Scheduling & Waves**: Organizes flight rosters into scheduled daily "waves" (time blocks) with capacity and booking guards.
+1. **Flight Scheduling & Waves**: Organizes flight rosters into scheduled daily "waves" (time blocks) with capacity and booking guards.
 3. **Interactive Booking Engine**: Supports booking flight segments (Departure leg, Arrival leg, or Round-trip) with status controls.
 4. **Route Discovery System**: A gamified exploration library where pilots fly compatible aircraft types to "discover" routes, unlocking them for the airline.
 5. **Interactive EFB & Audio Co-Pilot**: Hands-free voice-controlled checklists with VHF mic pops and real-time wind projection indicators.
@@ -64,7 +63,7 @@ OryxOps/
 │   │   ├── assets/           # Static data & checklist JSON configurations
 │   │   ├── components/       # Reusable components (sidebar, efb modules)
 │   │   ├── hooks/            # Custom React hooks
-│   │   ├── pages/            # View pages (Dashboard, Admin, Calendar, Groups)
+│   │   ├── pages/            # View pages (Dashboard, Admin, Calendar)
 │   │   ├── store/            # Redux Toolkit global store slices
 │   │   ├── App.tsx           # Router mappings & Auth Initializer
 │   │   └── main.tsx          # React ReactDom client entrypoint
