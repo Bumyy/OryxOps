@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   fetchSchedules, createSchedule, updateSchedule, deleteSchedule,
-  approveSchedule, rejectSchedule, proposeSchedule, bulkApproveSchedules, fetchWaves,
+  approveSchedule, rejectSchedule, proposeSchedule, fetchWaves,
 } from "../store/slices/scheduleSlice";
 import { createBooking, cancelBooking } from "../store/slices/bookingSlice";
 import { fetchAirframes, fetchAircraftTypes } from "../store/slices/aircraftSlice";
@@ -55,7 +55,6 @@ export default function Calendar() {
   const [updatingTime, setUpdatingTime] = useState(false);
   const [bookings, setBookings] = useState<Record<number, any[]>>({});
   const [myBookingsFilter, setMyBookingsFilter] = useState(false);
-  const [cloning, setCloning] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(() => {
     try {
@@ -67,7 +66,6 @@ export default function Calendar() {
   });
   const [quota, setQuota] = useState<any>(null);
   const [notifyingStaff, setNotifyingStaff] = useState(false);
-  const [notifyingPilots, setNotifyingPilots] = useState(false);
 
   // Auto-Scheduler Modal State
   const [autoScheduleModalOpen, setAutoScheduleModalOpen] = useState(false);
@@ -173,19 +171,6 @@ export default function Calendar() {
     }
   };
 
-  const handleNotifyPilots = async () => {
-    setNotifyingPilots(true);
-    try {
-      const res = await api.post<{ detail: string; count: number }>("/schedules/notify-pilots");
-      alert(res.detail || "Notifications sent to Pilots on Discord!");
-      window.dispatchEvent(new Event("refresh_notifications"));
-    } catch (err: any) {
-      alert("Failed to notify pilots: " + err.message);
-    } finally {
-      setNotifyingPilots(false);
-    }
-  };
-
   const fetchQuota = async () => {
     try {
       const data = await api.get<any>(`/schedules/proposal-quota?week_start=${weekStart}`);
@@ -195,7 +180,6 @@ export default function Calendar() {
     }
   };
 
-  const isExecutiveOrAdmin = Boolean(user?.is_executive || user?.is_admin);
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const HOUR_HEIGHT = 40;
   const HEADER_HEIGHT = 36;
@@ -390,52 +374,6 @@ export default function Calendar() {
     const d = new Date();
     d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
     setWeekStart(d.toISOString().split("T")[0]);
-  };
-
-  const handleClonePreviousWeek = async () => {
-    const prevD = new Date(weekStart + "T00:00:00Z");
-    prevD.setUTCDate(prevD.getUTCDate() - 7);
-    const prevWeekStart = prevD.toISOString().split("T")[0];
-
-    try {
-      setCloning(true);
-      const prevSchedules = await api.get<any[]>(`/schedules?week_start=${prevWeekStart}&status=all`);
-      if (!prevSchedules || prevSchedules.length === 0) {
-        alert("No schedules found in the previous week to clone.");
-        setCloning(false);
-        return;
-      }
-
-      if (confirm(`Found ${prevSchedules.length} schedules in Week ${getISOWeek(prevWeekStart)} (${prevWeekStart}). Clone them to Week ${getISOWeek(weekStart)} (${weekStart}) as drafts?`)) {
-        let clonedCount = 0;
-        for (const s of prevSchedules) {
-          if (s.status === "cancelled") continue;
-          const dep = new Date(s.scheduled_departure + "Z");
-          const arr = new Date(s.scheduled_arrival + "Z");
-          dep.setUTCDate(dep.getUTCDate() + 7);
-          arr.setUTCDate(arr.getUTCDate() + 7);
-
-          await dispatch(createSchedule({
-            aircraft_id: s.aircraft_id,
-            route_id: s.route_id,
-            departure: s.departure,
-            arrival: s.arrival,
-            flight_number: s.flight_number,
-            scheduled_departure: dep.toISOString().slice(0, 19),
-            scheduled_arrival: arr.toISOString().slice(0, 19),
-            week_start: weekStart,
-            ground_time_minutes: s.ground_time_minutes || 60
-          }));
-          clonedCount++;
-        }
-        alert(`Successfully cloned ${clonedCount} schedules!`);
-        refreshSchedules();
-      }
-    } catch (err: any) {
-      alert("Failed to clone schedules: " + (err.message || err));
-    } finally {
-      setCloning(false);
-    }
   };
 
   function getAircraftPosition(aircraftId: number, day: number, hour: number): string {
@@ -764,71 +702,7 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* BOX 2: Executive & Admin Action Box (Shown ONLY to Executive & Admin users) */}
-      {isExecutiveOrAdmin && (
-        <div
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 rounded-2xl p-4 shadow-sm"
-          style={{
-            background: "var(--status-warn-bg)",
-            border: "1px solid var(--status-warn-border)",
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <span
-              className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full tracking-wider"
-              style={{
-                background: "var(--status-proposed-bg)",
-                color: "var(--status-proposed-text)",
-                border: "1px solid var(--status-proposed-border)",
-              }}
-            >
-              Executive Controls
-            </span>
-            <span className="text-xs font-semibold hidden md:inline" style={{ color: "var(--status-warn-text)" }}>
-              Management actions for schedule automation and approval
-            </span>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={handleClonePreviousWeek}
-              disabled={cloning}
-              className="border border-brand text-brand bg-white hover:bg-brand-pale rounded-xl px-4 py-2 text-xs font-bold transition-all shadow-sm disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
-              title="Clone all schedules from last week into this week"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              {cloning ? "Cloning..." : "Clone Last Week"}
-            </button>
-
-            <button
-              onClick={() => {
-                if (confirm("Approve all proposed flights for this week?")) {
-                  dispatch(bulkApproveSchedules({ week_start: weekStart })).then(refreshSchedules);
-                }
-              }}
-              className="rounded-xl bg-green-600 text-white font-bold text-xs px-4 py-2 hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
-              Approve Proposed Flights
-            </button>
-
-            <button
-              onClick={handleNotifyPilots}
-              disabled={notifyingPilots}
-              className="rounded-xl bg-emerald-600 text-white font-bold text-xs px-4 py-2 hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              title="Click to send Discord notification to pilots with their approved flights"
-            >
-              <span>🚀</span>
-              <span>{notifyingPilots ? "Notifying..." : "Notify Pilots"}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* BOX 3: Airframe Fast-Filter Bar (Sticky Horizontal Badges) & Sort Controls */}
+      {/* Airframe Fast-Filter Bar (Sticky Horizontal Badges) & Sort Controls */}
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div className="overflow-x-auto pb-1 flex items-center gap-1.5 flex-1 min-w-0">
           <button
