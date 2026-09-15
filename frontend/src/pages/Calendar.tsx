@@ -65,31 +65,7 @@ export default function Calendar() {
     }
   });
   const [quota, setQuota] = useState<any>(null);
-  const [notifyingStaff, setNotifyingStaff] = useState(false);
 
-  // Auto-Scheduler Modal State
-  const [autoScheduleModalOpen, setAutoScheduleModalOpen] = useState(false);
-  const [autoAircraftId, setAutoAircraftId] = useState<number>(0);
-  const [autoNumRoundtrips, setAutoNumRoundtrips] = useState<number>(3);
-  const [autoHaulPreference, setAutoHaulPreference] = useState<"mixed" | "short" | "long">("mixed");
-  const [autoMinHours, setAutoMinHours] = useState<number>(0);
-  const [autoMaxHours, setAutoMaxHours] = useState<number>(0);
-  const [autoStartTime, setAutoStartTime] = useState<string>(() => {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-    if (d < new Date()) {
-      d.setUTCDate(d.getUTCDate() + 7);
-    }
-    d.setUTCHours(8, 0, 0, 0);
-    const year = d.getUTCFullYear();
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    const hours = String(d.getUTCHours()).padStart(2, '0');
-    const minutes = String(d.getUTCMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  });
-  const [autoGenerating, setAutoGenerating] = useState(false);
-  const [autoErrorMsg, setAutoErrorMsg] = useState<string | null>(null);
 
   // Filter airframes to strictly the 25 specified aircraft
   const fleetAirframes = useMemo(() => {
@@ -131,45 +107,7 @@ export default function Calendar() {
     return list.sort((a, b) => (a.registration || "").localeCompare(b.registration || ""));
   }, [fleetAirframes, aircraftFlightCounts, fleetSortOrder]);
 
-  const handleAutoGenerateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!autoAircraftId || !autoStartTime) return;
 
-    setAutoGenerating(true);
-    setAutoErrorMsg(null);
-
-    try {
-      const res = await api.post<{ proposed_count: number }>("/schedules/auto-generate", {
-        aircraft_id: autoAircraftId,
-        num_roundtrips: autoNumRoundtrips,
-        haul_preference: autoHaulPreference,
-        start_time: autoStartTime,
-        min_hours: autoMinHours > 0 ? autoMinHours : null,
-        max_hours: autoMaxHours > 0 ? autoMaxHours : null,
-      });
-
-      alert(`Successfully generated ${res.proposed_count} draft flight legs!`);
-      setAutoScheduleModalOpen(false);
-      refreshSchedules();
-    } catch (err: any) {
-      setAutoErrorMsg(err.message || "Failed to generate schedule.");
-    } finally {
-      setAutoGenerating(false);
-    }
-  };
-
-  const handleNotifyStaff = async () => {
-    setNotifyingStaff(true);
-    try {
-      const res = await api.post<{ detail: string; count: number }>("/schedules/notify-staff");
-      alert(res.detail || "Notification sent to Staff on Discord!");
-      window.dispatchEvent(new Event("refresh_notifications"));
-    } catch (err: any) {
-      alert("Failed to notify staff: " + err.message);
-    } finally {
-      setNotifyingStaff(false);
-    }
-  };
 
   const fetchQuota = async () => {
     try {
@@ -557,19 +495,6 @@ export default function Calendar() {
           <h1 className="text-3xl md:text-5xl font-bold text-brand">Schedule Calendar</h1>
           <p className="text-xs text-gray-500 font-medium mt-1">View, draft, and manage flight schedules for Qatar Virtual fleet</p>
         </div>
-        <button
-          onClick={() => {
-            setAutoAircraftId(0);
-            setAutoErrorMsg(null);
-            setAutoScheduleModalOpen(true);
-          }}
-          className="rounded-2xl bg-gradient-to-r from-brand-dark to-brand text-white font-bold text-xs md:text-sm px-5 py-3 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
-        >
-          <svg className="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-          </svg>
-          <span>Auto-Schedule (Draft)</span>
-        </button>
       </div>
 
       {/* BOX 1: Navigation & Control Box */}
@@ -688,17 +613,6 @@ export default function Calendar() {
               List View
             </button>
           </div>
-
-          {/* Notify Staff Button */}
-          <button
-            onClick={handleNotifyStaff}
-            disabled={notifyingStaff}
-            className="bg-brand text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm hover:bg-brand-light transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            title="Send notification to Staff on Discord about your submitted proposals"
-          >
-            <span>🚀</span>
-            <span>{notifyingStaff ? "Sending..." : "Notify Staff"}</span>
-          </button>
         </div>
       </div>
 
@@ -2285,247 +2199,6 @@ export default function Calendar() {
         );
       })()}
 
-      {/* AUTO-SCHEDULER MODAL */}
-      {autoScheduleModalOpen && (() => {
-        const selectedAc = fleetAirframes.find(a => a.id === autoAircraftId);
-        const selectedAcType = selectedAc ? types.find(t => t.id === selectedAc.aircraft_type_id) : null;
-        const selectedAcImg = selectedAc ? (aircraftImages as any)[String(selectedAc.aircraft_type_id)] : null;
-
-        return (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto"
-            onClick={() => setAutoScheduleModalOpen(false)}
-          >
-            <div
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-xl my-8 overflow-hidden border border-brand-border"
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="bg-gradient-to-r from-brand-dark to-brand px-6 py-5 flex items-center justify-between text-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-                    <svg className="w-5 h-5 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black leading-tight">Auto Route Scheduler</h3>
-                    <p className="text-white/70 text-xs font-semibold">Generate round-trip flights for your fleet</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAutoScheduleModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-lg transition-all cursor-pointer"
-                >
-                  ×
-                </button>
-              </div>
-
-              {/* Form Body */}
-              <form onSubmit={handleAutoGenerateSubmit} className="p-6 space-y-5">
-                {autoErrorMsg && (
-                  <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-                    <span>⚠️</span>
-                    <span>{autoErrorMsg}</span>
-                  </div>
-                )}
-
-                <div className="bg-brand-pale/50 border border-brand/10 rounded-2xl p-4 text-xs text-gray-600 font-medium leading-relaxed">
-                  Generate draft round-trips for your fleet aircraft. Generated flights will be saved as <strong className="text-brand font-bold">Drafts</strong>, allowing you to review and propose them whenever you're ready using your proposal tokens.
-                </div>
-
-                {/* Aircraft Select */}
-                <div>
-                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
-                    Select Airframe (Aircraft)
-                  </label>
-                  <select
-                    value={autoAircraftId}
-                    onChange={e => setAutoAircraftId(Number(e.target.value))}
-                    required
-                    className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-gray-800 focus:outline-none focus:border-brand cursor-pointer"
-                  >
-                    <option value={0}>Choose an airframe…</option>
-                    {fleetAirframes.map(a => {
-                      const t = types.find(ty => ty.id === a.aircraft_type_id);
-                      return (
-                        <option key={a.id} value={a.id}>
-                          {a.registration} — {t?.name || "Unknown Model"} (Parked: {a.current_airport})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                {/* Selected Aircraft Preview */}
-                {selectedAc && (
-                  <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-brand-pale/60 border border-brand/20">
-                    <div className="w-16 h-11 rounded-xl overflow-hidden shrink-0 bg-gray-100">
-                      {selectedAcImg ? (
-                        <img
-                          src={selectedAcImg.url}
-                          alt={selectedAcType?.name || selectedAc.registration}
-                          className="w-full h-full object-cover"
-                          style={{ objectPosition: selectedAcImg.objectPosition || "center 40%" }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-black text-brand">{selectedAc.registration}</span>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase bg-white px-2 py-0.5 rounded border border-brand-border/40">
-                          {selectedAc.current_airport}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-gray-500 font-semibold truncate mt-0.5">
-                        {selectedAcType?.name || "Aircraft"}{selectedAcType?.liveryname ? ` · ${selectedAcType.liveryname}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Number of Round-trips */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Number of Round-Trips
-                    </label>
-                    <span className="text-xs font-bold text-brand bg-brand-pale px-2.5 py-0.5 rounded-full border border-brand/20">
-                      {autoNumRoundtrips} Trips ({autoNumRoundtrips * 2} Legs)
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={5}
-                    step={1}
-                    value={autoNumRoundtrips}
-                    onChange={e => setAutoNumRoundtrips(Number(e.target.value))}
-                    className="w-full accent-brand cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] text-gray-400 font-bold px-1 mt-1">
-                    <span>1 (2 legs)</span>
-                    <span>2 (4 legs)</span>
-                    <span>3 (6 legs)</span>
-                    <span>4 (8 legs)</span>
-                    <span>5 (10 legs)</span>
-                  </div>
-                </div>
-
-                {/* Haul Preference */}
-                <div>
-                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
-                    Haul Preference
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { key: "mixed", label: "Mixed", desc: "Short & Long" },
-                      { key: "short", label: "Short-Haul", desc: "< 3 hours" },
-                      { key: "long", label: "Long-Haul", desc: "> 3 hours" },
-                    ].map(opt => (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => setAutoHaulPreference(opt.key as any)}
-                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                          autoHaulPreference === opt.key
-                            ? "bg-brand/10 border-brand text-brand shadow-xs ring-1 ring-brand"
-                            : "border-brand-border bg-white text-gray-600 hover:border-brand/40"
-                        }`}
-                      >
-                        <p className="text-xs font-black">{opt.label}</p>
-                        <p className="text-[10px] text-gray-400 font-medium mt-0.5">{opt.desc}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Duration Constraints (Min/Max Hours) */}
-                <div>
-                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                    Flight Duration Filter <span className="text-gray-400 font-normal lowercase">(optional)</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Min Duration (Hours)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={24}
-                        value={autoMinHours || ""}
-                        onChange={e => setAutoMinHours(Number(e.target.value))}
-                        placeholder="e.g. 6"
-                        className="w-full border border-brand-border rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-brand bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Max Duration (Hours)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={24}
-                        value={autoMaxHours || ""}
-                        onChange={e => setAutoMaxHours(Number(e.target.value))}
-                        placeholder="e.g. 12"
-                        className="w-full border border-brand-border rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-brand bg-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Start Date & Time */}
-                <div>
-                  <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-2">
-                    First Flight Start Date & Time (UTC)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={autoStartTime}
-                    onChange={e => setAutoStartTime(e.target.value)}
-                    required
-                    className="w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-gray-800 focus:outline-none focus:border-brand cursor-pointer"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1.5">
-                    Subsequent round-trips will be spaced out automatically 2 days apart starting from this date.
-                  </p>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="pt-3 border-t border-brand-border flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setAutoScheduleModalOpen(false)}
-                    className="flex-1 py-3 rounded-2xl border border-brand-border text-gray-500 font-bold text-sm hover:bg-gray-50 transition-all cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={autoGenerating || !autoAircraftId}
-                    className="flex-[2] py-3 rounded-2xl bg-gradient-to-r from-brand-dark to-brand text-white font-bold text-sm hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    {autoGenerating ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Generating Drafts...
-                      </>
-                    ) : (
-                      "Generate Draft Flights"
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }

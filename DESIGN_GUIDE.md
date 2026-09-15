@@ -388,8 +388,7 @@ dark airline metrics strip
 ### Schedule Calendar (`/calendar`)
 
 - Full-width operational view; no narrow max-width wrapper.
-- Header has title/description and an Auto-Schedule action.
-- Control box: active group selector, previous/next week, week label/status, Today, fleet filter, status filter, My Bookings toggle, Calendar/List switcher, Notify Staff.
+- Control box: active group selector, previous/next week, week label/status, Today, fleet filter, status filter, My Bookings toggle, Calendar/List switcher.
 - Executive control box appears only to executives/admins and uses warning tint, proposed badge, clone, approve, and notify actions.
 - Warnings appear above the main content and use error/warning status tokens.
 - Calendar view: white rounded card, horizontally scrollable, 7 day columns x 24 UTC rows.
@@ -531,7 +530,6 @@ Admin navigation:
 - `/admin/transfers`
 - `/admin/waves`
 - `/admin/settings`
-- `/admin/auto-scheduler`
 
 Access behavior is part of the design:
 

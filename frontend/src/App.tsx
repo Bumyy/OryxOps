@@ -28,7 +28,6 @@ import AdminAircraft from "./pages/admin/AircraftPage";
 import AdminTransfers from "./pages/admin/TransfersPage";
 import AdminWaves from "./pages/admin/WavesPage";
 import AdminSettings from "./pages/admin/SettingsPage";
-import AdminAutoScheduler from "./pages/admin/AutoSchedulerPage";
 import IFCallback from "./pages/IFCallback";
 
 function AuthInitializer({ children }: { children: React.ReactNode }) {
@@ -158,7 +157,6 @@ export default function App() {
           <Route path="/admin/transfers" element={<AdminRoute><AdminTransfers /></AdminRoute>} />
           <Route path="/admin/waves" element={<AdminRoute><AdminWaves /></AdminRoute>} />
           <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
-          <Route path="/admin/auto-scheduler" element={<AdminRoute><AdminAutoScheduler /></AdminRoute>} />
           <Route path="/admin/fleet" element={<AdminRoute><Fleet /></AdminRoute>} />
           <Route path="/fleet" element={<AdminRoute><Fleet /></AdminRoute>} />
           <Route path="/fleet/:id" element={<AdminRoute><AircraftDetail /></AdminRoute>} />
