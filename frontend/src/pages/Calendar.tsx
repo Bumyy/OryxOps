@@ -98,6 +98,41 @@ export default function Calendar() {
     return airframes.filter(a => isFleetAircraft(a.registration));
   }, [airframes]);
 
+  const [fleetSortOrder, setFleetSortOrder] = useState<"least_flights" | "most_flights" | "registration">("least_flights");
+
+  // Flight count scheduled for each aircraft in current week (excluding cancelled & deleted)
+  const aircraftFlightCounts = useMemo(() => {
+    const counts: Record<number, number> = {};
+    for (const s of schedules) {
+      const st = s.status?.toLowerCase();
+      if (st !== "cancelled" && st !== "deleted") {
+        counts[s.aircraft_id] = (counts[s.aircraft_id] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [schedules]);
+
+  const sortedFleetAirframes = useMemo(() => {
+    const list = [...fleetAirframes];
+    if (fleetSortOrder === "least_flights") {
+      return list.sort((a, b) => {
+        const countA = aircraftFlightCounts[a.id] || 0;
+        const countB = aircraftFlightCounts[b.id] || 0;
+        if (countA !== countB) return countA - countB;
+        return (a.registration || "").localeCompare(b.registration || "");
+      });
+    }
+    if (fleetSortOrder === "most_flights") {
+      return list.sort((a, b) => {
+        const countA = aircraftFlightCounts[a.id] || 0;
+        const countB = aircraftFlightCounts[b.id] || 0;
+        if (countA !== countB) return countB - countA;
+        return (a.registration || "").localeCompare(b.registration || "");
+      });
+    }
+    return list.sort((a, b) => (a.registration || "").localeCompare(b.registration || ""));
+  }, [fleetAirframes, aircraftFlightCounts, fleetSortOrder]);
+
   const handleAutoGenerateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!autoAircraftId || !autoStartTime) return;
@@ -234,6 +269,54 @@ export default function Calendar() {
     }
     return bs;
   }, [baseSchedules, filterAircraftId]);
+
+  // Calendar View single-aircraft focus: defaults to the active airframe
+  const activeCalendarAircraftId = useMemo(() => {
+    if (filterAircraftId > 0) return filterAircraftId;
+    return sortedFleetAirframes[0]?.id || fleetAirframes[0]?.id || 0;
+  }, [filterAircraftId, sortedFleetAirframes, fleetAirframes]);
+
+  const activeCalendarAircraft = useMemo(() => {
+    return sortedFleetAirframes.find(a => a.id === activeCalendarAircraftId) ||
+           fleetAirframes.find(a => a.id === activeCalendarAircraftId) ||
+           airframes.find(a => a.id === activeCalendarAircraftId);
+  }, [activeCalendarAircraftId, sortedFleetAirframes, fleetAirframes, airframes]);
+
+  const activeCalendarAircraftType = useMemo(() => {
+    if (!activeCalendarAircraft) return null;
+    return types.find(t => t.id === activeCalendarAircraft.aircraft_type_id);
+  }, [activeCalendarAircraft, types]);
+
+  const handlePrevAircraft = () => {
+    if (sortedFleetAirframes.length === 0) return;
+    const currentId = activeCalendarAircraftId;
+    const idx = sortedFleetAirframes.findIndex(a => a.id === currentId);
+    if (idx <= 0) {
+      setFilterAircraftId(sortedFleetAirframes[sortedFleetAirframes.length - 1].id);
+    } else {
+      setFilterAircraftId(sortedFleetAirframes[idx - 1].id);
+    }
+  };
+
+  const handleNextAircraft = () => {
+    if (sortedFleetAirframes.length === 0) return;
+    const currentId = activeCalendarAircraftId;
+    const idx = sortedFleetAirframes.findIndex(a => a.id === currentId);
+    if (idx === -1 || idx >= sortedFleetAirframes.length - 1) {
+      setFilterAircraftId(sortedFleetAirframes[0].id);
+    } else {
+      setFilterAircraftId(sortedFleetAirframes[idx + 1].id);
+    }
+  };
+
+  // Calendar View schedules: strictly scoped to the active single aircraft
+  const calendarSchedules = useMemo(() => {
+    let bs = baseSchedules;
+    if (activeCalendarAircraftId > 0) {
+      bs = bs.filter(s => Number(s.aircraft_id) === Number(activeCalendarAircraftId));
+    }
+    return bs;
+  }, [baseSchedules, activeCalendarAircraftId]);
 
   const sortedListSchedules = useMemo(() => {
     return [...filteredSchedules].sort((a, b) => {
@@ -396,10 +479,10 @@ export default function Calendar() {
   const errorSet = useMemo(() => new Set(activeErrors.filter(e => e.status === "mismatch").map(e => e.scheduleId)), [activeErrors]);
   const groundSet = useMemo(() => new Set(activeErrors.filter(e => e.status === "ground_short").map(e => e.scheduleId)), [activeErrors]);
 
-  // Flight blocks with overlap detection
+  // Flight blocks with overlap detection (scoped to active single aircraft in calendar mode)
   const flightBlocks = useMemo((): FlightBlock[] => {
     const blocks: FlightBlock[] = [];
-    for (const s of filteredSchedules) {
+    for (const s of calendarSchedules) {
       const dep = new Date(s.scheduled_departure + "Z"); const arr = new Date(s.scheduled_arrival + "Z");
       const dCol = dep.getUTCDay() === 0 ? 6 : dep.getUTCDay() - 1; const aCol = arr.getUTCDay() === 0 ? 6 : arr.getUTCDay() - 1;
       const sh = dep.getUTCHours() + dep.getUTCMinutes() / 60; const eh = arr.getUTCHours() + arr.getUTCMinutes() / 60;
@@ -414,7 +497,7 @@ export default function Calendar() {
       for (const g of groups) { const slots: (FlightBlock | null)[] = []; for (const bl of g.sort((a, b) => a.rowStart - b.rowStart)) { let i = 0; while (slots[i] && slots[i]!.rowEnd > bl.rowStart) i++; slots[i] = bl; bl.subCol = i; } const max = slots.length; for (const bl of g) bl.maxSubCols = max; }
     }
     return blocks;
-  }, [filteredSchedules, errorSet, groundSet]);
+  }, [calendarSchedules, errorSet, groundSet]);
 
   const isPastDay = (colIdx: number) => {
     const dt = new Date(weekStart + "T00:00:00Z");
@@ -451,7 +534,7 @@ export default function Calendar() {
       alert("Cannot schedule flights for past dates.");
       return;
     }
-    const pid = preselectedAcId ?? (filterAircraftId > 0 ? filterAircraftId : 0);
+    const pid = preselectedAcId ?? (viewMode === "calendar" ? activeCalendarAircraftId : (filterAircraftId > 0 ? filterAircraftId : 0));
 
     setSelAircraftId(pid); setSelRouteId(0); setSelTime(`${String(hour).padStart(2, "0")}:00`); setSelGroundTime(60); setSelOverrideDep(""); setAvailableRoutes([]); setEditingSchedule(null);
     if (pid > 0) {
@@ -610,9 +693,10 @@ export default function Calendar() {
             className="border border-brand-border rounded-xl px-3 py-2 bg-white text-xs font-semibold text-gray-600 focus:outline-none cursor-pointer"
           >
             <option value={0}>Fleet: All Registrations</option>
-            {fleetAirframes.map(a => {
+            {sortedFleetAirframes.map(a => {
               const t = types.find(ty => ty.id === a.aircraft_type_id);
-              return <option key={a.id} value={a.id}>{a.registration} ({t?.name || "?"}{t?.liveryname ? ` ${t.liveryname}` : ""})</option>;
+              const count = aircraftFlightCounts[a.id] || 0;
+              return <option key={a.id} value={a.id}>{a.registration} ({t?.name || "?"}{t?.liveryname ? ` ${t.liveryname}` : ""}) — {count} {count === 1 ? "flt" : "flts"}</option>;
             })}
           </select>
 
@@ -744,41 +828,81 @@ export default function Calendar() {
         </div>
       )}
 
-      {/* BOX 3: Airframe Fast-Filter Bar (Sticky Horizontal Badges) */}
-      <div className="mb-4 overflow-x-auto pb-1 flex items-center gap-1.5">
-        <button
-          onClick={() => setFilterAircraftId(0)}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer shadow-2xs ${
-            filterAircraftId === 0
-              ? "bg-brand text-white shadow-sm"
-              : "bg-white border border-brand-border text-gray-600 hover:border-brand hover:text-brand"
-          }`}
-        >
-          All Fleet ({fleetAirframes.length})
-        </button>
-        {fleetAirframes.map(ac => {
-          const isSelected = filterAircraftId === ac.id;
-          const acType = types.find(t => t.id === ac.aircraft_type_id);
-          const acTypeName = ac.aircraft_type_name || acType?.name || "";
-          return (
-            <button
-              key={`pill-${ac.id}`}
-              onClick={() => setFilterAircraftId(isSelected ? 0 : ac.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 shadow-2xs ${
-                isSelected
-                  ? "bg-brand text-white shadow-sm ring-2 ring-brand/30"
-                  : "bg-white border border-brand-border text-gray-700 hover:border-brand hover:text-brand"
-              }`}
-            >
-              <span>{ac.registration}</span>
-              {acTypeName && (
-                <span className={`text-[9px] font-medium ${isSelected ? "text-white/80" : "text-gray-400"}`}>
-                  {acTypeName}
+      {/* BOX 3: Airframe Fast-Filter Bar (Sticky Horizontal Badges) & Sort Controls */}
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="overflow-x-auto pb-1 flex items-center gap-1.5 flex-1 min-w-0">
+          <button
+            onClick={() => {
+              if (viewMode === "calendar") {
+                setViewMode("list");
+              }
+              setFilterAircraftId(0);
+            }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer shadow-2xs ${
+              (viewMode === "list" && filterAircraftId === 0)
+                ? "bg-brand text-white shadow-sm"
+                : "bg-white border border-brand-border text-gray-600 hover:border-brand hover:text-brand"
+            }`}
+          >
+            All Fleet ({fleetAirframes.length})
+          </button>
+          {sortedFleetAirframes.map(ac => {
+            const isSelected = (viewMode === "calendar" ? activeCalendarAircraftId : filterAircraftId) === ac.id;
+            const acType = types.find(t => t.id === ac.aircraft_type_id);
+            const acTypeName = ac.aircraft_type_name || acType?.name || "";
+            const count = aircraftFlightCounts[ac.id] || 0;
+            return (
+              <button
+                key={`pill-${ac.id}`}
+                onClick={() => setFilterAircraftId(viewMode === "calendar" ? ac.id : (isSelected ? 0 : ac.id))}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+                  isSelected
+                    ? "bg-brand text-white shadow-sm ring-2 ring-brand/30"
+                    : "bg-white border border-brand-border text-gray-700 hover:border-brand hover:text-brand"
+                }`}
+              >
+                <span>{ac.registration}</span>
+                {acTypeName && (
+                  <span className={`text-[9px] font-medium ${isSelected ? "text-white/80" : "text-gray-400"}`}>
+                    {acTypeName}
+                  </span>
+                )}
+                <span
+                  className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                    isSelected
+                      ? "bg-white/20 text-white"
+                      : count === 0
+                      ? "bg-amber-100 text-amber-800 border border-amber-200"
+                      : "bg-brand-pale text-brand"
+                  }`}
+                  title={`${count} flight${count === 1 ? "" : "s"} scheduled this week`}
+                >
+                  {count} {count === 1 ? "flt" : "flts"}
                 </span>
-              )}
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Fleet Sort Controls */}
+        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider hidden sm:inline flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+            </svg>
+            Sort:
+          </span>
+          <select
+            value={fleetSortOrder}
+            onChange={(e) => setFleetSortOrder(e.target.value as "least_flights" | "most_flights" | "registration")}
+            className="border border-brand-border rounded-xl px-2.5 py-1.5 bg-white text-xs font-bold text-gray-700 focus:outline-none cursor-pointer shadow-2xs hover:border-brand transition-colors"
+            title="Sort fleet airframes"
+          >
+            <option value="least_flights">Fewest Flights First</option>
+            <option value="most_flights">Most Flights First</option>
+            <option value="registration">Registration (A-Z)</option>
+          </select>
+        </div>
       </div>
 
       {/* Warnings & Errors */}
@@ -880,259 +1004,333 @@ export default function Calendar() {
           </div>
         )}
         {viewMode === "calendar" ? (
-          /* CALENDAR GRID VIEW */
-          <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-auto max-h-[75vh] -mx-2 md:mx-0" ref={scrollContainerRef}>
-            <div className="grid grid-cols-[45px_repeat(7,minmax(85px,1fr))] md:grid-cols-[70px_repeat(7,minmax(120px,1fr))] relative z-0 min-w-[700px] md:min-w-[900px]" style={{ minHeight: HEADER_HEIGHT + 24 * HOUR_HEIGHT }}>
-              {/* UTC Top-Left Corner Cell */}
-              <div className="border-b border-r border-brand-border bg-brand-pale p-2 text-[10px] font-bold text-gray-500 text-center sticky left-0 top-0 z-40 flex items-center justify-center" style={{ height: HEADER_HEIGHT }}>UTC</div>
-              
-              {/* Day Headers */}
-              {days.map((d, i) => {
-                const dt = new Date(weekStart + "T00:00:00Z");
-                dt.setUTCDate(dt.getUTCDate() + i);
-                return (
-                  <div key={`h-${d}`} data-day-col={i} className="border-b border-r border-brand-border bg-brand-pale p-2 text-[10px] font-bold text-gray-500 text-center sticky top-0 z-30 flex items-center justify-center" style={{ height: HEADER_HEIGHT }}>
-                    {d} {dt.getUTCDate()}/{dt.getUTCMonth() + 1}
+          /* CALENDAR GRID VIEW — Focused on Single Active Aircraft */
+          <div className="flex flex-col gap-3">
+            {/* Active Aircraft Header for Calendar View */}
+            {activeCalendarAircraft && (
+              <div className="bg-gradient-to-r from-brand/10 via-brand-pale to-brand/5 border border-brand-border rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center font-black text-sm shadow-xs">
+                    ✈
                   </div>
-                );
-              })}
-              
-              {/* Grid Body Cells */}
-              {Array.from({ length: 24 }, (_, h) => (
-                <Fragment key={`row-${h}`}>
-                  <div className="border-b border-r border-brand-border p-1 text-[9px] text-gray-500 text-center font-mono bg-brand-pale flex items-center justify-center sticky left-0 z-20" style={{ height: HOUR_HEIGHT }}>
-                    {String(h).padStart(2, "0")}:00
-                  </div>
-                  {days.map((_, di) => {
-                    const isPast = isPastDay(di);
-                    return (
-                      <div
-                        key={`cell-${di}-${h}`}
-                        onClick={() => {
-                          if (isPast) {
-                            alert("Cannot schedule flights for past dates.");
-                            return;
-                          }
-                          openPopup(di, h);
-                        }}
-                        onDragOver={isPast ? undefined : handleDragOver}
-                        onDrop={isPast ? undefined : (e => handleDrop(e, di, h))}
-                        className={`border-b border-r border-brand-border transition-colors ${
-                          isPast ? "bg-gray-100/30 cursor-not-allowed" : "cursor-pointer hover:bg-brand-hover-bg/40"
-                        }`}
-                        style={{ height: HOUR_HEIGHT }}
-                      />
-                    );
-                  })}
-                </Fragment>
-              ))}
-
-              {/* Waves background blocks */}
-              {waves.map(w => {
-                const sh = Number(w.departure_window_start.split(":")[0]) + Number(w.departure_window_start.split(":")[1]) / 60;
-                const eh = Number(w.departure_window_end.split(":")[0]) + Number(w.departure_window_end.split(":")[1]) / 60;
-                const ia = w.wave_type === "arrival";
-                return (
-                  <Fragment key={`wv-container-${w.id}`}>
-                    <div 
-                      className={`absolute left-0 right-0 pointer-events-none z-[-1] border-y-2 border-dashed ${ia ? "bg-blue-100/40 border-blue-300" : "bg-green-100/40 border-green-300"}`} 
-                      style={{ 
-                        top: HEADER_HEIGHT + sh * HOUR_HEIGHT, 
-                        height: Math.max((eh - sh) * HOUR_HEIGHT, 8),
-                        gridColumnStart: 1,
-                        gridColumnEnd: 9,
-                      }}
-                    />
-                    <div 
-                      className="absolute left-0 right-0 pointer-events-none z-22" 
-                      style={{ 
-                        top: HEADER_HEIGHT + sh * HOUR_HEIGHT, 
-                        height: Math.max((eh - sh) * HOUR_HEIGHT, 8),
-                        gridColumnStart: 1,
-                        gridColumnEnd: 2,
-                      }}
-                    >
-                      <span className={`text-[7px] md:text-[8px] font-black px-1 py-0.5 rounded shadow-sm border ${ia ? "bg-blue-500 text-white border-blue-600" : "bg-green-500 text-white border-green-600"} w-[38px] md:w-[62px] text-center inline-block ml-1 mt-1 select-none`}>
-                        {ia ? "ARR" : "DEP"}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-brand uppercase tracking-wider">Single Aircraft Timeline</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand">
+                        {aircraftFlightCounts[activeCalendarAircraft.id] || 0} flight{(aircraftFlightCounts[activeCalendarAircraft.id] || 0) === 1 ? "" : "s"} this week
                       </span>
                     </div>
-                  </Fragment>
-                );
-              })}
-
-              {/* Live UTC Hour Tracker Line */}
-              {isCurrentWeek && (
-                <div
-                  className="absolute pointer-events-none z-25 border-t-2 border-red-500 flex items-center h-0"
-                  style={{
-                    top: `${HEADER_HEIGHT + liveUTCInfo.hr * HOUR_HEIGHT}px`,
-                    gridColumnStart: liveUTCInfo.col + 2,
-                    gridColumnEnd: liveUTCInfo.col + 3,
-                    left: 0,
-                    width: '100%'
-                  }}
-                >
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-[5px] shadow-md ring-2 ring-white" />
-                  <span className="bg-red-500 text-white text-[8px] px-1 py-0.5 rounded ml-1 font-mono font-bold shadow-sm select-none">
-                    {currentTime.getUTCHours().toString().padStart(2, "0")}:{currentTime.getUTCMinutes().toString().padStart(2, "0")}
-                  </span>
-                </div>
-              )}
-
-              {/* Flight Blocks */}
-              {flightBlocks.map((fb, idx) => {
-                const s = fb.schedule;
-                const top = HEADER_HEIGHT + fb.rowStart * HOUR_HEIGHT;
-                const height = Math.max((fb.rowEnd - fb.rowStart) * HOUR_HEIGHT, 22);
-                const isPast = isPastDay(fb.col);
-                const dur = Math.round((new Date(s.scheduled_arrival + "Z").getTime() - new Date(s.scheduled_departure + "Z").getTime()) / 360000) / 10;
-                const gt = s.ground_time_minutes || 60;
-                const gtH = (gt / 60) * HOUR_HEIGHT;
-
-                const bkd = bookings[s.id] || [];
-                const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed" || b.status === "dispatched" || b.status === "no_show");
-                const hasBooking = Boolean(activeBooking);
-                const bookedBy = activeBooking ? activeBooking.departure_pilot_callsign || activeBooking.arrival_pilot_callsign || "Booked" : "";
-                const isCompleted = activeBooking?.status === "completed";
-                const isDispatched = activeBooking?.status === "dispatched";
-                const isNoShow = activeBooking?.status === "no_show";
-
-                const statusKey =
-                  fb.isError ? "error" :
-                  s.status === "cancelled" ? "cancelled" :
-                  isCompleted ? "completed" :
-                  isNoShow ? "error" :
-                  hasBooking ? "booked" :
-                  s.status === "approved" ? "approved" :
-                  s.status === "proposed" ? "proposed" :
-                  "draft";
-
-                const colWidthPercent = 100 / fb.maxSubCols;
-                const leftPercent = fb.subCol * colWidthPercent;
-
-                return (
-                  <div
-                    key={`fb-${s.id}-${idx}`}
-                    draggable={!isPast}
-                    onDragStart={isPast ? undefined : (e => handleDragStart(e, s.id))}
-                    onDragEnd={isPast ? undefined : handleDragEnd}
-                    onClick={(e) => { e.stopPropagation(); setEditingSchedule(s); }}
-                    className={`absolute z-10 transition-all select-none p-0.5 flex flex-col justify-between ${
-                      isPast ? "cursor-pointer opacity-80" : "cursor-pointer hover:z-30 hover:scale-[1.02]"
-                    }`}
-                    style={{
-                      top: `${top}px`,
-                      height: `${height + (fb.showGroundTime ? gtH : 0)}px`,
-                      gridColumnStart: fb.col + 2,
-                      gridColumnEnd: fb.col + 3,
-                      left: `${leftPercent}%`,
-                      width: `${colWidthPercent}%`,
-                    }}
-                  >
-                    <div
-                      className={`w-full rounded-xl border-2 border-l-4 shadow-sm p-1 md:p-1.5 flex flex-col justify-between overflow-hidden text-[9px] md:text-[10px] ${
-                        fb.isError || isNoShow ? "border-l-rose-500" :
-                        s.status === "cancelled" ? "border-l-slate-400" :
-                        isCompleted ? "border-l-indigo-600" :
-                        hasBooking ? "border-l-blue-500" :
-                        s.status === "approved" ? "border-l-emerald-500" :
-                        s.status === "proposed" ? "border-l-amber-500" :
-                        "border-l-sky-400"
-                      }`}
-                      style={{
-                        height: `${height}px`,
-                        background: `var(--status-${statusKey}-bg)`,
-                        color: `var(--status-${statusKey}-text)`,
-                        borderColor: `var(--status-${statusKey}-border)`,
-                      }}
-                      title={`${s.departure}→${s.arrival} | ${s.aircraft_registration} | ${isDispatched ? "In flight" : isNoShow ? "No show" : s.status} | ${dur}h\nBy: ${s.created_by_name || "?"}${s.approved_by ? ` | Appr: #${s.approved_by}` : ""}${hasBooking ? `\n${isDispatched ? 'In flight' : isNoShow ? 'No show' : isCompleted ? 'Completed' : 'Booked'}: ${bookedBy}` : ""}${fb.isError ? '\n⚠ Mismatch' : ''}${fb.isGroundIssue ? '\n⚠ GT short' : ''}\nDrag to move`}
-                    >
-                      <div className="font-bold truncate flex items-center gap-0.5">
-                        {s.aircraft_registration}
-                        {s.approved_by && <span title="Approved" className="text-[8px] font-black text-emerald-800 bg-emerald-200/60 px-1 rounded">✓</span>}
-                        {(() => {
-                          const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed" || b.status === "dispatched" || b.status === "no_show");
-                          if (!activeBooking) return null;
-                          const pilotsToShow = [];
-                          if (activeBooking.departure_pilot_id) {
-                            pilotsToShow.push({
-                              id: activeBooking.id,
-                              pilot_id: activeBooking.departure_pilot_id,
-                              pilot_callsign: activeBooking.departure_pilot_callsign,
-                              pilot_avatar: activeBooking.departure_pilot_avatar,
-                              type: "dep",
-                              label: "DEP"
-                            });
-                          }
-                          if (activeBooking.arrival_pilot_id && activeBooking.arrival_pilot_id !== activeBooking.departure_pilot_id) {
-                            pilotsToShow.push({
-                              id: activeBooking.id,
-                              pilot_id: activeBooking.arrival_pilot_id,
-                              pilot_callsign: activeBooking.arrival_pilot_callsign,
-                              pilot_avatar: activeBooking.arrival_pilot_avatar,
-                              type: "arr",
-                              label: "ARR"
-                            });
-                          }
-                          if (activeBooking.departure_pilot_id === activeBooking.arrival_pilot_id) {
-                            if (pilotsToShow[0]) pilotsToShow[0].label = "Full";
-                          }
-                          return (
-                            <div className="flex -space-x-1.5 items-center">
-                              {pilotsToShow.map((p) => {
-                                const callsign = p.pilot_callsign || "?";
-                                const letter = callsign[0]?.toUpperCase() || "?";
-                                const typeLabel = p.label === "DEP" ? "DEP Only" : p.label === "ARR" ? "ARR Only" : "Full Flight";
-                                return (
-                                  <span 
-                                    key={`${p.id}-${p.type}`}
-                                    className="relative flex-shrink-0 ml-0.5 w-4.5 h-4.5 inline-flex select-none" 
-                                    title={`Booked by ${callsign} (${typeLabel})`}
-                                  >
-                                    {p.pilot_avatar ? (
-                                      <img 
-                                        src={p.pilot_avatar} 
-                                        alt={callsign} 
-                                        className="w-full h-full rounded-full object-cover border border-blue-400 bg-blue-100"
-                                        onError={(e) => {
-                                          e.currentTarget.style.display = "none";
-                                          const fallbackEl = e.currentTarget.parentElement?.querySelector(".avatar-fallback") as HTMLElement;
-                                          if (fallbackEl) fallbackEl.style.display = "inline-flex";
-                                        }}
-                                      />
-                                    ) : null}
-                                    <span 
-                                      className="avatar-fallback w-full h-full rounded-full bg-blue-150 border border-blue-400 text-blue-900 text-[8px] font-black inline-flex items-center justify-center"
-                                      style={{ display: p.pilot_avatar ? "none" : "inline-flex" }}
-                                    >
-                                      {letter}
-                                    </span>
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                      <div className="truncate font-semibold">{s.departure}→{s.arrival} <span className="opacity-60">{dur}h</span></div>
-                      <div className="truncate opacity-75">{s.flight_number || `#${s.id}`} · {isDispatched ? "In flight" : isNoShow ? "No show" : isCompleted ? "completed" : activeBooking ? "Booked" : s.status}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <h3 className="text-base font-black text-gray-900">{activeCalendarAircraft.registration}</h3>
+                      <span className="text-xs font-bold text-gray-500">
+                        {activeCalendarAircraft.aircraft_type_name || activeCalendarAircraftType?.name || "Aircraft"}
+                        {activeCalendarAircraftType?.liveryname ? ` (${activeCalendarAircraftType.liveryname})` : ""}
+                      </span>
+                      <span className="text-[10px] font-bold text-gray-400 bg-white border border-brand-border px-1.5 py-0.5 rounded">
+                        Parked: {activeCalendarAircraft.current_airport || "OTHH"}
+                      </span>
                     </div>
-                    {fb.showGroundTime && (
-                      <div
-                        className="w-full rounded-b-lg border border-dashed flex items-center justify-center text-[7px] overflow-hidden font-semibold"
-                        style={{
-                          height: `${gtH}px`,
-                          background: fb.isGroundIssue ? "var(--status-ground-err-bg)" : "var(--status-ground-ok-bg)",
-                          color: fb.isGroundIssue ? "var(--status-ground-err-text)" : "var(--status-ground-ok-text)",
-                          borderColor: fb.isGroundIssue ? "var(--status-ground-err-border)" : "var(--status-ground-ok-border)",
+                  </div>
+                </div>
+
+                {/* Prev / Next Navigation Controls */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePrevAircraft}
+                    className="px-3 py-1.5 rounded-xl border border-brand-border bg-white text-xs font-bold text-gray-700 hover:bg-brand hover:text-white transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                    title="Switch to previous aircraft"
+                  >
+                    <span>←</span>
+                    <span className="hidden sm:inline">Prev Aircraft</span>
+                  </button>
+                  <button
+                    onClick={handleNextAircraft}
+                    className="px-3 py-1.5 rounded-xl border border-brand-border bg-white text-xs font-bold text-gray-700 hover:bg-brand hover:text-white transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                    title="Switch to next aircraft"
+                  >
+                    <span className="hidden sm:inline">Next Aircraft</span>
+                    <span>→</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-auto max-h-[75vh] -mx-2 md:mx-0" ref={scrollContainerRef}>
+              <div className="grid grid-cols-[45px_repeat(7,minmax(85px,1fr))] md:grid-cols-[70px_repeat(7,minmax(120px,1fr))] relative z-0 min-w-[700px] md:min-w-[900px]" style={{ minHeight: HEADER_HEIGHT + 24 * HOUR_HEIGHT }}>
+                {/* UTC Top-Left Corner Cell */}
+                <div className="border-b border-r border-brand-border bg-brand-pale p-2 text-[10px] font-bold text-gray-500 text-center sticky left-0 top-0 z-40 flex items-center justify-center" style={{ height: HEADER_HEIGHT }}>UTC</div>
+                
+                {/* Day Headers */}
+                {days.map((d, i) => {
+                  const dt = new Date(weekStart + "T00:00:00Z");
+                  dt.setUTCDate(dt.getUTCDate() + i);
+                  return (
+                    <div key={`h-${d}`} data-day-col={i} className="border-b border-r border-brand-border bg-brand-pale p-2 text-[10px] font-bold text-gray-500 text-center sticky top-0 z-30 flex items-center justify-center" style={{ height: HEADER_HEIGHT }}>
+                      {d} {dt.getUTCDate()}/{dt.getUTCMonth() + 1}
+                    </div>
+                  );
+                })}
+                
+                {/* Grid Body Cells */}
+                {Array.from({ length: 24 }, (_, h) => (
+                  <Fragment key={`row-${h}`}>
+                    <div className="border-b border-r border-brand-border p-1 text-[9px] text-gray-500 text-center font-mono bg-brand-pale flex items-center justify-center sticky left-0 z-20" style={{ height: HOUR_HEIGHT }}>
+                      {String(h).padStart(2, "0")}:00
+                    </div>
+                    {days.map((_, di) => {
+                      const isPast = isPastDay(di);
+                      return (
+                        <div
+                          key={`cell-${di}-${h}`}
+                          onClick={() => {
+                            if (isPast) {
+                              alert("Cannot schedule flights for past dates.");
+                              return;
+                            }
+                            openPopup(di, h);
+                          }}
+                          onDragOver={isPast ? undefined : handleDragOver}
+                          onDrop={isPast ? undefined : (e => handleDrop(e, di, h))}
+                          className={`border-b border-r border-brand-border transition-colors ${
+                            isPast ? "bg-gray-100/30 cursor-not-allowed" : "cursor-pointer hover:bg-brand-hover-bg/40"
+                          }`}
+                          style={{ height: HOUR_HEIGHT }}
+                        />
+                      );
+                    })}
+                  </Fragment>
+                ))}
+
+                {/* Waves background blocks */}
+                {waves.map(w => {
+                  const sh = Number(w.departure_window_start.split(":")[0]) + Number(w.departure_window_start.split(":")[1]) / 60;
+                  const eh = Number(w.departure_window_end.split(":")[0]) + Number(w.departure_window_end.split(":")[1]) / 60;
+                  const ia = w.wave_type === "arrival";
+                  return (
+                    <Fragment key={`wv-container-${w.id}`}>
+                      <div 
+                        className={`absolute left-0 right-0 pointer-events-none z-[-1] border-y-2 border-dashed ${ia ? "bg-blue-100/40 border-blue-300" : "bg-green-100/40 border-green-300"}`} 
+                        style={{ 
+                          top: HEADER_HEIGHT + sh * HOUR_HEIGHT, 
+                          height: Math.max((eh - sh) * HOUR_HEIGHT, 8),
+                          gridColumnStart: 1,
+                          gridColumnEnd: 9,
+                        }}
+                      />
+                      <div 
+                        className="absolute left-0 right-0 pointer-events-none z-22" 
+                        style={{ 
+                          top: HEADER_HEIGHT + sh * HOUR_HEIGHT, 
+                          height: Math.max((eh - sh) * HOUR_HEIGHT, 8),
+                          gridColumnStart: 1,
+                          gridColumnEnd: 2,
                         }}
                       >
-                        {gtH >= 10 ? `GT ${gt}m` : ""}
+                        <span className={`text-[7px] md:text-[8px] font-black px-1 py-0.5 rounded shadow-sm border ${ia ? "bg-blue-500 text-white border-blue-600" : "bg-green-500 text-white border-green-600"} w-[38px] md:w-[62px] text-center inline-block ml-1 mt-1 select-none`}>
+                          {ia ? "ARR" : "DEP"}
+                        </span>
                       </div>
-                    )}
+                    </Fragment>
+                  );
+                })}
+
+                {/* Live UTC Hour Tracker Line */}
+                {isCurrentWeek && (
+                  <div
+                    className="absolute pointer-events-none z-25 border-t-2 border-red-500 flex items-center h-0"
+                    style={{
+                      top: `${HEADER_HEIGHT + liveUTCInfo.hr * HOUR_HEIGHT}px`,
+                      gridColumnStart: liveUTCInfo.col + 2,
+                      gridColumnEnd: liveUTCInfo.col + 3,
+                      left: 0,
+                      width: '100%'
+                    }}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-[5px] shadow-md ring-2 ring-white" />
+                    <span className="bg-red-500 text-white text-[8px] px-1 py-0.5 rounded ml-1 font-mono font-bold shadow-sm select-none">
+                      {currentTime.getUTCHours().toString().padStart(2, "0")}:{currentTime.getUTCMinutes().toString().padStart(2, "0")}
+                    </span>
                   </div>
-                );
-              })}
+                )}
+
+                {/* Flight Blocks */}
+                {flightBlocks.map((fb, idx) => {
+                  const s = fb.schedule;
+                  const top = HEADER_HEIGHT + fb.rowStart * HOUR_HEIGHT;
+                  const height = Math.max((fb.rowEnd - fb.rowStart) * HOUR_HEIGHT, 22);
+                  const isPast = isPastDay(fb.col);
+                  const dur = Math.round((new Date(s.scheduled_arrival + "Z").getTime() - new Date(s.scheduled_departure + "Z").getTime()) / 360000) / 10;
+                  const gt = s.ground_time_minutes || 60;
+                  const gtH = (gt / 60) * HOUR_HEIGHT;
+
+                  const bkd = bookings[s.id] || [];
+                  const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed" || b.status === "dispatched" || b.status === "no_show");
+                  const hasBooking = Boolean(activeBooking);
+                  const bookedBy = activeBooking ? activeBooking.departure_pilot_callsign || activeBooking.arrival_pilot_callsign || "Booked" : "";
+                  const isCompleted = activeBooking?.status === "completed";
+                  const isDispatched = activeBooking?.status === "dispatched";
+                  const isNoShow = activeBooking?.status === "no_show";
+
+                  const statusKey =
+                    fb.isError ? "error" :
+                    s.status === "cancelled" ? "cancelled" :
+                    isCompleted ? "completed" :
+                    isNoShow ? "error" :
+                    hasBooking ? "booked" :
+                    s.status === "approved" ? "approved" :
+                    s.status === "proposed" ? "proposed" :
+                    "draft";
+
+                  const colWidthPercent = 100 / fb.maxSubCols;
+                  const leftPercent = fb.subCol * colWidthPercent;
+
+                  return (
+                    <div
+                      key={`fb-${s.id}-${idx}`}
+                      draggable={!isPast}
+                      onDragStart={isPast ? undefined : (e => handleDragStart(e, s.id))}
+                      onDragEnd={isPast ? undefined : handleDragEnd}
+                      onClick={(e) => { e.stopPropagation(); setEditingSchedule(s); }}
+                      className={`absolute z-10 transition-all select-none p-1 flex flex-col justify-between ${
+                        isPast ? "cursor-pointer opacity-80" : "cursor-pointer hover:z-30 hover:scale-[1.01]"
+                      }`}
+                      style={{
+                        top: `${top}px`,
+                        height: `${height + (fb.showGroundTime ? gtH : 0)}px`,
+                        gridColumnStart: fb.col + 2,
+                        gridColumnEnd: fb.col + 3,
+                        left: `${leftPercent}%`,
+                        width: `${colWidthPercent}%`,
+                      }}
+                    >
+                      {/* Borderless modern flight card */}
+                      <div
+                        className="w-full rounded-xl shadow-xs hover:shadow-md transition-shadow p-1.5 md:p-2 flex flex-col justify-between overflow-hidden text-[10px] md:text-[11px]"
+                        style={{
+                          height: `${height}px`,
+                          background: `var(--status-${statusKey}-bg)`,
+                          color: `var(--status-${statusKey}-text)`,
+                        }}
+                        title={`${s.departure}→${s.arrival} | ${s.flight_number || `#${s.id}`} | ${s.aircraft_registration} | ${dur}h | ${isDispatched ? "In flight" : isNoShow ? "No show" : s.status}\nBy: ${s.created_by_name || "?"}${s.approved_by ? ` | Appr: #${s.approved_by}` : ""}${hasBooking ? `\n${isDispatched ? 'In flight' : isNoShow ? 'No show' : isCompleted ? 'Completed' : 'Booked'}: ${bookedBy}` : ""}${fb.isError ? '\n⚠ Mismatch' : ''}${fb.isGroundIssue ? '\n⚠ GT short' : ''}\nClick to edit · Drag to move`}
+                      >
+                        {/* Top row: Departure -> Arrival & Duration */}
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1 font-black tracking-tight truncate text-xs md:text-[12.5px]">
+                            <span>{s.departure}</span>
+                            <span className="opacity-60 text-[10px]">➔</span>
+                            <span>{s.arrival}</span>
+                            {s.approved_by && (
+                              <span title="Approved" className="text-[9px] font-black text-emerald-800 bg-emerald-200/70 px-1 py-0.2 rounded ml-0.5">✓</span>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-extrabold opacity-80 shrink-0 font-mono">
+                            {dur}h
+                          </span>
+                        </div>
+
+                        {/* Middle row: Flight Number & Status / Pilot Badges */}
+                        <div className="flex items-center justify-between gap-1 my-0.5">
+                          <span className="font-bold text-[10px] md:text-[11px] truncate opacity-90">
+                            {s.flight_number || `#${s.id}`}
+                          </span>
+                          
+                          {/* Pilots or Status Tag */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {(() => {
+                              const activeBooking = bkd.find((b: any) => b.status === "booked" || b.status === "completed" || b.status === "dispatched" || b.status === "no_show");
+                              if (!activeBooking) {
+                                return (
+                                  <span className="text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/10">
+                                    {s.status}
+                                  </span>
+                                );
+                              }
+                              const pilotsToShow = [];
+                              if (activeBooking.departure_pilot_id) {
+                                pilotsToShow.push({
+                                  id: activeBooking.id,
+                                  pilot_id: activeBooking.departure_pilot_id,
+                                  pilot_callsign: activeBooking.departure_pilot_callsign,
+                                  pilot_avatar: activeBooking.departure_pilot_avatar,
+                                  type: "dep",
+                                  label: "DEP"
+                                });
+                              }
+                              if (activeBooking.arrival_pilot_id && activeBooking.arrival_pilot_id !== activeBooking.departure_pilot_id) {
+                                pilotsToShow.push({
+                                  id: activeBooking.id,
+                                  pilot_id: activeBooking.arrival_pilot_id,
+                                  pilot_callsign: activeBooking.arrival_pilot_callsign,
+                                  pilot_avatar: activeBooking.arrival_pilot_avatar,
+                                  type: "arr",
+                                  label: "ARR"
+                                });
+                              }
+                              return (
+                                <div className="flex -space-x-1.5 items-center">
+                                  {pilotsToShow.map((p) => {
+                                    const callsign = p.pilot_callsign || "?";
+                                    const letter = callsign[0]?.toUpperCase() || "?";
+                                    const typeLabel = p.label === "DEP" ? "DEP Only" : p.label === "ARR" ? "ARR Only" : "Full Flight";
+                                    return (
+                                      <span 
+                                        key={`${p.id}-${p.type}`}
+                                        className="relative flex-shrink-0 ml-0.5 w-5 h-5 inline-flex select-none" 
+                                        title={`Booked by ${callsign} (${typeLabel})`}
+                                      >
+                                        {p.pilot_avatar ? (
+                                          <img 
+                                            src={p.pilot_avatar} 
+                                            alt={callsign} 
+                                            className="w-full h-full rounded-full object-cover border border-blue-400 bg-blue-100 shadow-2xs"
+                                            onError={(e) => {
+                                              e.currentTarget.style.display = "none";
+                                              const fallbackEl = e.currentTarget.parentElement?.querySelector(".avatar-fallback") as HTMLElement;
+                                              if (fallbackEl) fallbackEl.style.display = "inline-flex";
+                                            }}
+                                          />
+                                        ) : null}
+                                        <span 
+                                          className="avatar-fallback w-full h-full rounded-full bg-blue-150 border border-blue-400 text-blue-900 text-[8px] font-black inline-flex items-center justify-center"
+                                          style={{ display: p.pilot_avatar ? "none" : "inline-flex" }}
+                                        >
+                                          {letter}
+                                        </span>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Bottom row: Time & Booking status */}
+                        {height >= 50 && (
+                          <div className="flex items-center justify-between text-[9px] font-medium opacity-75 truncate pt-0.5 border-t border-black/5">
+                            <span>{s.scheduled_departure ? new Date(s.scheduled_departure + "Z").toISOString().substring(11, 16) : ""}Z</span>
+                            <span>{isDispatched ? "In flight" : isNoShow ? "No show" : isCompleted ? "Completed" : activeBooking ? (bookedBy || "Booked") : s.status}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Clean borderless ground time connector */}
+                      {fb.showGroundTime && (
+                        <div
+                          className="w-full rounded-lg flex items-center justify-center text-[8px] font-bold overflow-hidden mt-0.5 shadow-2xs"
+                          style={{
+                            height: `${gtH}px`,
+                            background: fb.isGroundIssue ? "var(--status-ground-err-bg)" : "var(--status-ground-ok-bg)",
+                            color: fb.isGroundIssue ? "var(--status-ground-err-text)" : "var(--status-ground-ok-text)",
+                          }}
+                        >
+                          {gtH >= 12 ? `GT ${gt}m` : ""}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         ) : (
@@ -1140,8 +1338,8 @@ export default function Calendar() {
           <div className="bg-white rounded-xl md:rounded-2xl border border-brand-border shadow-sm overflow-auto max-h-[75vh] -mx-2 md:mx-0" ref={scrollContainerRef}>
             {(() => {
               const listAirframes = filterAircraftId > 0
-                ? fleetAirframes.filter(a => Number(a.id) === Number(filterAircraftId))
-                : fleetAirframes;
+                ? sortedFleetAirframes.filter(a => Number(a.id) === Number(filterAircraftId))
+                : sortedFleetAirframes;
 
               if (listAirframes.length === 0) {
                 return (
@@ -1276,10 +1474,22 @@ export default function Calendar() {
                               )}
                             </div>
 
-                            {/* Bottom: Registration & Model */}
+                            {/* Bottom: Registration & Model & Week Flight Count */}
                             <div className="p-1 md:p-2 bg-brand-pale/50 border-t border-brand-border/60 flex flex-col md:flex-row md:items-center md:justify-between gap-0.5 md:gap-1 text-[10px] md:text-[11px] min-w-0 flex-1 justify-center items-center">
-                              <span className="font-black text-brand tracking-wide truncate w-full md:w-auto text-center md:text-left">{ac.registration}</span>
-                              <span className="font-bold text-gray-500 text-[9px] md:text-[10px] truncate w-full md:w-auto text-center md:text-left">{acTypeName}</span>
+                              <div className="flex flex-col min-w-0 text-center md:text-left">
+                                <span className="font-black text-brand tracking-wide truncate">{ac.registration}</span>
+                                <span className="font-bold text-gray-500 text-[9px] md:text-[10px] truncate">{acTypeName}</span>
+                              </div>
+                              <span
+                                className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${
+                                  (aircraftFlightCounts[ac.id] || 0) === 0
+                                    ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                    : "bg-brand/10 text-brand"
+                                }`}
+                                title={`${aircraftFlightCounts[ac.id] || 0} flights scheduled this week`}
+                              >
+                                {aircraftFlightCounts[ac.id] || 0} {(aircraftFlightCounts[ac.id] || 0) === 1 ? "flt" : "flts"}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -1870,7 +2080,7 @@ export default function Calendar() {
 
       {/* CREATE POPUP — 2-Step: Step 1: Aircraft Picker Slider | Step 2: Route & Time */}
       {popup && (() => {
-        const filteredFrames = fleetAirframes;
+        const filteredFrames = sortedFleetAirframes;
         const selectedAc = filteredFrames.find(a => a.id === selAircraftId);
         const selectedAcType = selectedAc ? types.find(t => t.id === selectedAc.aircraft_type_id) : null;
         const selectedAcImg = selectedAc ? (aircraftImages as any)[String(selectedAc.aircraft_type_id)] : null;
@@ -1971,7 +2181,19 @@ export default function Calendar() {
                             </div>
                             {/* Aircraft Info */}
                             <div className="p-3 bg-white">
-                              <p className="text-xs font-black text-gray-900 truncate">{ac.registration}</p>
+                              <div className="flex items-center justify-between gap-1">
+                                <p className="text-xs font-black text-gray-900 truncate">{ac.registration}</p>
+                                <span
+                                  className={`text-[9px] font-black px-1.5 py-0.2 rounded-full shrink-0 ${
+                                    (aircraftFlightCounts[ac.id] || 0) === 0
+                                      ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                      : "bg-brand-pale text-brand"
+                                  }`}
+                                  title={`${aircraftFlightCounts[ac.id] || 0} flights scheduled this week`}
+                                >
+                                  {aircraftFlightCounts[ac.id] || 0} {(aircraftFlightCounts[ac.id] || 0) === 1 ? "flt" : "flts"}
+                                </span>
+                              </div>
                               <p className="text-[10px] font-bold text-brand truncate mt-0.5">{t?.name || "Unknown"}{t?.liveryname ? ` · ${t.liveryname}` : ""}</p>
                               <div className="flex items-center gap-1.5 mt-2">
                                 <span className="text-[9px] font-black text-gray-400 uppercase bg-gray-100 px-1.5 py-0.5 rounded">{ac.current_airport}</span>
