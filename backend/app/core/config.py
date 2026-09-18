@@ -1,4 +1,9 @@
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings
+
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+_ROOT_DIR = _BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
@@ -16,9 +21,14 @@ class Settings(BaseSettings):
     chartfox_api_token: str = ""
 
     model_config = {
-        "env_file": (".env", "../.env"),
+        "env_file": (
+            str(_BACKEND_DIR / ".env"),
+            str(_ROOT_DIR / ".env"),
+            ".env",
+            "../.env",
+        ),
         "env_file_encoding": "utf-8",
-        "extra": "ignore"
+        "extra": "ignore",
     }
 
 
